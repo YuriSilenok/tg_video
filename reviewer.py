@@ -1,0 +1,194 @@
+from aiogram import Bot, Router, F
+from aiogram.filters import Command
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+
+from admin import send_task
+from models import (
+    Review, ReviewRequest, Role, User, UserRole, Video,
+    get_videos_by_request_review, update_bloger_score_and_rating, update_reviewer_score, 
+)
+from common import get_due_date, get_user
+
+router = Router()
+
+
+async def get_reviewer_user_role(bot: Bot, user: User):
+    """Проверяем наличие привилегии блогера"""
+    
+    # Наличие роли
+    role = Role.get_or_none(name='Проверяющий')
+    if role is None:
+        await bot.send_message(
+            chat_id=user.tg_id,
+            text=(
+                "Роль проверяющего не найдена! "
+                "Это проблема администратора! "
+                "Cообщите ему всё, что Вы о нем думаете. @YuriSilenok"
+            )
+        )
+        return None
+    
+    # Наличие роли у пользователя
+    user_role = UserRole.get_or_none(
+        user=user,
+        role=role,
+    )
+    if user_role is None:
+        await bot.send_message(
+            chat_id=user.tg_id,
+            text='Вы не являетесь проверяющим!'
+        )
+        return None
+
+    return user_role
+
+
+@router.message(Command('check'))
+async def check(message: Message):
+    user = await get_user(message.bot, message.from_user.id)
+    if user is None:
+        return
+    
+    user_role = await get_reviewer_user_role(message.bot, user)
+    if not user_role:
+        return
+
+    request = ReviewRequest.get_or_none(
+        status=0, # на проверке
+        reviewer=user,
+    )
+    if request:
+        await message.answer(
+            text='У вас уже выдано видео на проверку, проверьте сначала его'
+        )
+        await message.answer_video(
+            video=request.video.file_id,
+            caption=(
+                f'Курс: {request.video.task.theme.course.title}\n'
+                f'Тема: {request.video.task.theme.title}\n'
+                f'url: {request.video.task.theme.url}\n'
+            )
+        )
+        return
+
+
+    videos = get_videos_by_request_review(user)    
+
+    if videos.count() == 0:
+        await message.answer(
+            text='Проверять нечего, можете отдохнуть'
+        )
+        return
+    
+    video: Video = videos.first()
+    
+    due_date = get_due_date(hours=25)
+    request = ReviewRequest.create(
+        reviewer=user,
+        video=video,
+        due_date=due_date
+    )
+    await message.bot.send_message(
+        chat_id=video.task.implementer.tg_id,
+        text="Ваше видео выдано на проверку",
+    )
+
+    await message.answer_video(
+        video=video.file_id,
+        caption=(
+            f'Это видео нужно проверить до {due_date}.\n'
+            f'Курс: "{video.task.theme.course.title}"\n'
+            f'Тема: "{video.task.theme.title}"\n'
+            f'url: "{video.task.theme.url}"\n'
+            'Для оценки видео напишите одно сообщение '
+            'в начале которого будет оценка в интервале [0.0; 5.0], '
+            'а через пробел отзыв о видео'
+        )
+    )
+
+@router.message(F.text)
+async def get_score_by_review(message:Message):
+    
+    user = await get_user(message.bot, message.from_user.id)
+    if user is None:
+        return
+    
+    user_role = await get_reviewer_user_role(message.bot, user)
+    if not user_role:
+        return
+    
+    """Поиск запроса на проверку"""
+    review_request = ReviewRequest.get_or_none(
+        reviewer=user,
+        status=0 # На проверке
+    )
+    if review_request is None:
+        await message.answer(
+            text='Запрос на проверку не найден, используйте команду /check'
+        )
+        return
+
+
+    """Валидация оценки"""
+    text = message.text.strip()
+    digit = text.find(' ')
+    digit = text[:digit] if digit >= 0 else text
+    digit = digit.replace(',', '.')
+    
+    try:
+        digit = float(digit)
+    except ValueError:
+        await message.answer(
+            text=f'Не удалось преобразовать {digit} в число'
+        )
+        return
+    
+    if digit < 0 or digit > 5:
+        await message.answer(
+            text=f'{digit} должно быть в пределах [0.0; 5.0]'
+        )
+        return
+    
+    """Фиксация отзыва"""
+    Review.create(
+        review_request=review_request,
+        score=digit,
+        comment=text,
+    )
+    review_request.status = 1 # Проверено
+    review_request.save()
+    
+    new_score = update_reviewer_score(user)
+    await message.answer("Спасибо, ответ записан. "
+        f"Всего заработано баллов {new_score}. "
+        "Для проверки нового видео, отправьте команду /check")
+    
+    await message.bot.send_message(
+        chat_id=review_request.video.task.implementer.tg_id,
+        text=f'Ваше видео оценили\n\n{text}',
+    )
+
+    """Выставление итоговой оценки"""    
+    reviews = (
+        Review
+        .select(Review)
+        .join(ReviewRequest)
+        .where(
+            (ReviewRequest.video==review_request.video) &
+            (ReviewRequest.status==1)))
+    
+    if reviews.count() < 5:
+        return
+
+    task_score = sum([review.score for review in reviews]) / 25
+
+    task = review_request.video.task
+    task.score = task_score
+    task.status = 2 if task_score >= 0.8 else -2
+    task.save()
+    report = update_bloger_score_and_rating(task.implementer)
+    
+    await message.bot.send_message(
+        chat_id=task.implementer.tg_id,
+        text=f'Закончена проверка вашего видео.\n\n{report}',
+    )

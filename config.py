@@ -1,0 +1,5 @@
+"""Глобальные настройки"""
+
+ADMIN_ID = 320720102
+TG_TOKEN = "6804266884:AAGUZlJNzgzQrahRJA3DATAzuhHJvwjbOxk"
+TG_CHANEL_ID = -1002276298395
