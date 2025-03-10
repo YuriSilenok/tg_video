@@ -6,7 +6,7 @@ from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from common import get_due_date, get_user
-from models import TASK_STATUS, Course, Role, Task, Theme, User, UserCourse, UserRole
+from models import TASK_STATUS, Course, Role, Task, Theme, User, UserCourse, UserRole, Video
 from peewee import JOIN, fn
 
 
@@ -67,6 +67,18 @@ async def send_task(bot: Bot):
     #     print(row)
 
 
+    # Курсы по которым ведутся работы
+    subquery3 = (
+        Course
+        .select(Course.id)
+        .join(Theme)
+        .join(Task)
+        .where(
+            (Task.status==0) |
+            (Task.status==1)
+        )
+        .group_by(Course)
+    )
 
 
     query = (
@@ -84,7 +96,8 @@ async def send_task(bot: Bot):
         .join(Task, JOIN.LEFT_OUTER, on=(Task.theme_id==Theme.id))
         .where(
             (~(Theme.id << subquery2)) &
-            (~(User.id << subquery))
+            (~(User.id << subquery)) &
+            (~(Course.id << subquery3))
         )
         .group_by(User.id, Course.id)
         .order_by(User.bloger_rating.desc(), fn.AVG(Task.score).desc())
@@ -142,7 +155,20 @@ async def send_task(bot: Bot):
                 chat_id=admin.tg_id,
                 text='Нет свобоных тем или блогеров'
             )
-
+@router.message(Command('get_video'))
+async def get_video(message: Message):
+    user = await get_user(message.bot, message.from_user.id)
+    if user is None:
+        return
+    
+    user_role = await get_admin_user_role(message.bot, user)
+    if not user_role:
+        return
+    
+    video_id = int(message.text.split(maxsplit=1)[1].strip())
+    await message.answer_video(
+        video=Video.get_by_id(video_id).file_id
+    )
 
 @router.message(Command('add_task'))
 async def set_implementer(message: Message):

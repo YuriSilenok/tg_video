@@ -35,6 +35,7 @@ class User(Table):
     bloger_rating = FloatField(default=0.8)
     bloger_score = FloatField(default=0)
     reviewer_score = FloatField(default=0)
+    comment = CharField(null=True)
 
 class Role(Table):
     # Блогер, Проверяющий
@@ -122,10 +123,13 @@ def get_videos_by_request_review(user: User):
 def update_bloger_score_and_rating(bloger: User):
 
     bloger_rating = (Task
-        .select(fn.AVG(Task.score).alias('avg_score'))
+        .select(fn.AVG(Task.score))
         .where(Task.implementer == bloger)
         .scalar()
     )
+    if bloger_rating is None:
+        return f'Ваш рейтинг: {bloger.bloger_rating}\n'
+
     bloger.bloger_rating = bloger_rating
     result = f'Ваш рейтинг: {bloger_rating}\n'
     
@@ -141,11 +145,12 @@ def update_bloger_score_and_rating(bloger: User):
             k = 1.05**i
             score = task.score * k
             bloger_score += score
+            # print(task.theme.title, task.score, score, bloger_score)
             i+=1
             result == f'{task.theme.title} {k}*{task.score}={score}\n'
-    bloger.bloger_score = bloger_score
+    bloger.bloger_score = round(bloger_score, 2)
     bloger.save()
-    result += f'ИТОГО БАЛЛОВ:{bloger_score}'
+    result += f'ИТОГО БАЛЛОВ:{bloger.bloger_score}'
 
 
 def update_reviewer_score(reviewer: User):
@@ -160,9 +165,9 @@ def update_reviewer_score(reviewer: User):
     for review_request in review_requests:
         reviewer_score += review_request.video.duration / 1200
     
-    reviewer.reviewer_score = reviewer_score
+    reviewer.reviewer_score = round(reviewer_score, 2)
     reviewer.save()
-    return reviewer_score
+    return reviewer.reviewer_score
 
 
 
@@ -173,3 +178,9 @@ if __name__ == '__main__':
         Video, ReviewRequest, Review,
         UserCourse, Poll
     ])
+
+
+    # update_bloger_score_and_rating(User.get_by_id(6))
+    for user in User.select():
+        update_reviewer_score(user)
+        update_bloger_score_and_rating(user)

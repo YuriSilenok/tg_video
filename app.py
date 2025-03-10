@@ -4,9 +4,7 @@ import asyncio
 
 from datetime import datetime, timedelta
 
-from aiogram import Bot, Dispatcher, F
-from aiogram.filters import Command
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram import Bot, Dispatcher
 
 from config import *
 from user import router as user_router

@@ -8,6 +8,7 @@ from aiogram.exceptions import TelegramBadRequest
 
 from config import TG_CHANEL_ID
 from models import Course, Task, Theme, Poll as MPoll, Video
+from peewee import fn
 
 
 router = Router()
@@ -49,16 +50,21 @@ async def send_video(bot:Bot, theme:Theme=None):
 
 async def send_poll(bot: Bot):
     """Отправить опрос"""
-    themes = (Theme
-        .select()
+    themes = (Course
+        .select(
+            Course.title.alias('course_title'),
+            Theme.title.alias('theme_title'),
+            fn.MIN(Theme.id).alias('theme_id'),
+        )
+        .join(Theme)
         .join(Task)
         .where(Task.status==2)
-        .group_by(Theme.course_id)
+        .group_by(Course.id)
         .limit(10)
     )
-
+    
     if themes.count() >= 2:
-        options = [f'{t.course.title}|{t.title}' for t in themes]
+        options = [f'{row["course_title"]}|{row["theme_title"]}' for row in themes.dicts()]
         message: Message = await bot.send_poll(
             chat_id=TG_CHANEL_ID,
             question='Видео по каким темам Вы хотите увидеть следующим?',

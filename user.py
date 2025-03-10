@@ -8,10 +8,17 @@ router = Router()
 
 @router.message(Command('start'))
 async def start(message: Message):
-    User.get_or_create(
-        tg_id=message.from_user.id,
-        username=message.from_user.username
+    user = User.get_or_none(
+        tg_id=message.from_user.id
     )
+    if user is None:
+        User.create(
+            tg_id=message.from_user.id,
+            username=message.from_user.username,
+        )
+    elif user.username != message.from_user.username:
+        user.username = message.from_user.username
+        user.save()
 
     await message.bot.set_my_commands(
         commands=[
