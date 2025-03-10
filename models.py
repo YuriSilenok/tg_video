@@ -56,6 +56,7 @@ class Theme(Table):
     course = ForeignKeyField(Course, **CASCADE)
     title = CharField()
     url = CharField()
+    complexity = IntegerField(default=1)
 
 class Task(Table):
     """Тема выданная для записи видео"""
@@ -136,11 +137,12 @@ def update_bloger_score_and_rating(bloger: User):
     result += f'Видео которые Вы записали были оценены:\n'
     i = 0
     for task in tasks:
-        k = 1.05**i
-        score = task.score * k
-        bloger_score += score
-        i+=1
-        result == f'{task.theme.title} {k}*{task.score}={score}\n'
+        for _ in range(task.theme.complexity):
+            k = 1.05**i
+            score = task.score * k
+            bloger_score += score
+            i+=1
+            result == f'{task.theme.title} {k}*{task.score}={score}\n'
     bloger.bloger_score = bloger_score
     bloger.save()
     result += f'ИТОГО БАЛЛОВ:{bloger_score}'

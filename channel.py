@@ -12,14 +12,14 @@ from models import Course, Task, Theme, Poll as MPoll, Video
 
 router = Router()
 
-async def send_video(bot:Bot, course:Course=None):
+async def send_video(bot:Bot, theme:Theme=None):
     video: Video = (
         Video
         .select()
         .join(Task)
         .join(Theme)
         .where(
-            (Task.status == 2) & (Theme.course_id == course.id) if course else (Task.status == 2)
+            (Task.status == 2) & (Task.theme_id == theme.id) if theme else (Task.status == 2)
         )
         .order_by(
             Task.theme_id.asc(),
@@ -49,22 +49,21 @@ async def send_video(bot:Bot, course:Course=None):
 
 async def send_poll(bot: Bot):
     """Отправить опрос"""
-    courses = (
-        Course
+    themes = (Theme
         .select()
-        .join(Theme)
         .join(Task)
         .where(Task.status==2)
-        .group_by(Course.id)
+        .group_by(Theme.course_id)
         .limit(10)
     )
 
-    if courses.count() >= 2:
-        options = [c.title for c in courses]
+    if themes.count() >= 2:
+        options = [f'{t.course.title}|{t.title}' for t in themes]
         message: Message = await bot.send_poll(
             chat_id=TG_CHANEL_ID,
-            question='Видео по какому курсу Вы хотите увидеть следующим?',
+            question='Видео по каким темам Вы хотите увидеть следующим?',
             options=options,
+            allows_multiple_answers=True,
         )
         MPoll.create(
             message_id=message.message_id,
@@ -74,46 +73,55 @@ async def send_poll(bot: Bot):
         return True
     return False
 
-def get_poll_course() -> Tuple[MPoll, Course]:
-    """Получить опрос и курс из опроса"""
-    yesterday = datetime.now() - timedelta(hours=23)
+def get_poll_theme() -> Tuple[MPoll, Theme]:
+    """Получить опрос и тему из опроса"""
 
     # выбираем опросы которые были созданы вчера
     polls = (MPoll
         .select()
         .where(
-            (MPoll.at_created < yesterday) &
             (MPoll.stop == False)
         )
     )
 
     for poll in polls:
         poll_result = eval(poll.result)
-        course_max = max(poll_result, key=poll_result.get)
-        course = Course.get_or_none(title=course_max)
-        if course is None:
+        course_theme_max = max(poll_result, key=poll_result.get)
+        course_theme = course_theme_max.split(sep='|', maxsplit=1)
+        course_title = course_theme[0]
+        theme_title = course_theme[1]
+        theme = Theme.get_or_none(
+            title=theme_title,
+            course=Course.get(title=course_title),
+        )
+        if theme is None:
             print(f'ERROR: Опрос {poll.id}')
-        return (poll, course)
+        return (poll, theme)
 
 
 async def loop(bot: Bot):
     """Одна итерация вызываемая из бесконечного цикла"""
     now = datetime.now()
-    if now.hour >= 0:
-        poll_course = get_poll_course()
-        if poll_course:
-            poll, course = poll_course
-            await bot.stop_poll(
-                chat_id=TG_CHANEL_ID,
-                message_id=poll.message_id
-            )
+    if now.hour == 18:
+        poll_theme = get_poll_theme()
+        if poll_theme:
+            poll, theme = poll_theme
             poll.stop = True
             poll.save()
-
-            await send_video(bot, course)
+            
+            try:
+                await bot.stop_poll(
+                    chat_id=TG_CHANEL_ID,
+                    message_id=poll.message_id
+                )
+            except TelegramBadRequest as e:
+                print('channel loop \n', e)
+            
+            await send_video(bot, theme)
         else:
             await send_video(bot)
-        # await send_poll(bot)
+    if now.hour == 19:
+        await send_poll(bot)
 
 @router.poll()
 async def poll_answer(poll: Poll):

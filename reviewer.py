@@ -4,7 +4,7 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 
 from admin import send_task
 from models import (
-    Review, ReviewRequest, Role, User, UserRole, Video,
+    Review, ReviewRequest, Role, Task, User, UserRole, Video,
     get_videos_by_request_review, update_bloger_score_and_rating, update_reviewer_score, 
 )
 from common import get_due_date, get_user
@@ -73,6 +73,27 @@ async def check(message: Message):
 
 
     videos = get_videos_by_request_review(user)    
+
+    # видео, которые уже проверял этот проверяющий
+    subquery1 = (
+        Video
+        .select()
+        .join(ReviewRequest)
+        .where(ReviewRequest.reviewer_id==user.id)
+    )
+
+    videos = (
+        Video
+        .select()
+        .join(Task)
+        .where(
+            (Task.status==1) &
+            (~Video.id << subquery1)
+        )
+        .order_by(
+            Video.id
+        )
+    )
 
     if videos.count() == 0:
         await message.answer(
@@ -192,3 +213,5 @@ async def get_score_by_review(message:Message):
         chat_id=task.implementer.tg_id,
         text=f'Закончена проверка вашего видео.\n\n{report}',
     )
+
+    await send_task(message.bot)
