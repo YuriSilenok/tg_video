@@ -268,5 +268,5 @@ async def notify_reviewers(bot: Bot):
 
 async def loop(bot: Bot):
     now = datetime.now()
-    if now.hour == 16:
+    if now.hour == 8:
         await notify_reviewers(bot)
