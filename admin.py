@@ -232,19 +232,19 @@ async def add_role(message: Message):
             text=' Не верное коичетво параметров. Команда, роль, юзернейм'
         )
         return
-    role_name = data[1].strip()
+    role_name = data[2]
     role = Role.get_or_none(name=role_name)
     if role is None:
         await message.answer(
-            text='Нет такой роли'
+            text=f'Нет роли {role_name}'
         )
         return
     
-    username = data[2].strip()
+    username = data[1].strip()
     user = User.get_or_none(username=username)
     if user is None:
         await message.answer(
-            text='Нет пользователя с таким юзернейм'
+            text=f'Нет пользователя с юзернейм {username}'
         )
         return
     UserRole.get_or_create(
@@ -278,3 +278,7 @@ async def set_comment(message: Message):
 
     user.comment = data[1]
     user.save()
+
+    await message.answer(
+        text='Комментарий записан'
+    )
