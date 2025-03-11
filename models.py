@@ -158,7 +158,10 @@ def update_reviewer_score(reviewer: User):
         ReviewRequest
         .select()
         .join(Video)
-        .where(ReviewRequest.reviewer_id == reviewer.id)
+        .where(
+            (ReviewRequest.reviewer_id == reviewer.id) &
+            (ReviewRequest.status == 1)
+        )
     )
     
     reviewer_score = 0
