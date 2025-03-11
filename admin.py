@@ -214,3 +214,44 @@ async def report_reviewers(message: Message):
     await message.answer(
         text=result
     )
+
+
+@router.message(Command('add_role'))
+async def add_role(message: Message):
+    user = await get_user(message.bot, message.from_user.id)
+    if user is None:
+        return
+    
+    user_role = await get_admin_user_role(message.bot, user)
+    if not user_role:
+        return
+    
+    data = message.text.strip().replace('  ', '').split()
+    if len(data) != 3:
+        await message.answer(
+            text=' Не верное коичетво параметров. Команда, роль, юзернейм'
+        )
+        return
+    role_name = data[1].strip()
+    role = Role.get_or_none(name=role_name)
+    if role is None:
+        await message.answer(
+            text='Нет такой роли'
+        )
+        return
+    
+    username = data[2].strip()
+    user = User.get_or_none(username=username)
+    if user is None:
+        await message.answer(
+            text='Нет пользователя с таким юзернейм'
+        )
+        return
+    UserRole.get_or_create(
+        user=user,
+        role=role
+    )
+    await message.answer(
+        text='Роль добавлена'
+    )
+    
