@@ -100,23 +100,27 @@ class Poll(Table):
 
 def get_videos_by_request_review(user: User):
     """Получить все видео, требующие этого проверяющего"""
+
     subquery = (
-        Video
-        .select(Video)
-        .join(ReviewRequest, JOIN.LEFT_OUTER)
-        .group_by(Video.id)
-        .having(fn.COUNT(ReviewRequest.id) < 5))
+        ReviewRequest
+        .select(ReviewRequest.video_id.alias('video_id'))
+        .where(ReviewRequest.reviewer_id==user.id)
+    )
 
     # Основной запрос, исключающий задачи, которые были проверены конкретным рецензентом (с tg_id = 1)
     query = (
-        subquery
+        Video
+        .select(Video)
+        .join(Task)
+        .join(subquery, JOIN.LEFT_OUTER, on=(subquery.c.video_id==Video.id))
+        .join(ReviewRequest, on=(ReviewRequest.video_id==Video.id))
         .where(
-            ~Video.id.in_(
-                Video
-                .select(Video.id)
-                .join(ReviewRequest)
-                .where(ReviewRequest.reviewer == user)))
-        .order_by(Video.id))  # Можно настроить порядок сортировки
+            (Task.status==1) &
+            (subquery.c.video_id.is_null())
+        )
+        .group_by(Task.id)
+        .having(fn.COUNT(Task.id) < 5)
+    )
 
     return query
 

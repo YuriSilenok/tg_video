@@ -64,39 +64,25 @@ async def check(message: Message):
         await message.answer(
             text='У вас уже выдано видео на проверку, проверьте сначала его'
         )
-        await message.answer_video(
-            video=request.video.file_id,
-            caption=(
-                f'Курс: {request.video.task.theme.course.title}\n'
-                f'Тема: {request.video.task.theme.title}\n'
-                f'url: {request.video.task.theme.url}\n'
+        try:
+            await message.answer_video(
+                video=request.video.file_id,
+                caption=(
+                    f'Курс: {request.video.task.theme.course.title}\n'
+                    f'Тема: {request.video.task.theme.title}\n'
+                    f'url: {request.video.task.theme.url}\n'
+                )
             )
-        )
+        except TelegramBadRequest:
+            print('TelegramBadRequest', 
+                f'Курс: {request.video.task.theme.course.title}',
+                f'Тема: {request.video.task.theme.title}',
+                f'url: {request.video.task.theme.url}',
+                sep='\n')
         return
 
 
     videos = get_videos_by_request_review(user)    
-
-    # видео, которые уже проверял этот проверяющий
-    subquery1 = (
-        Video
-        .select()
-        .join(ReviewRequest)
-        .where(ReviewRequest.reviewer_id==user.id)
-    )
-
-    videos = (
-        Video
-        .select()
-        .join(Task)
-        .where(
-            (Task.status==1) &
-            (~Video.id << subquery1)
-        )
-        .order_by(
-            Video.id
-        )
-    )
 
     if videos.count() == 0:
         await message.answer(
@@ -112,14 +98,16 @@ async def check(message: Message):
         video=video,
         due_date=due_date
     )
-    await message.bot.send_message(
-        chat_id=video.task.implementer.tg_id,
-        text="Ваше видео выдано на проверку",
-    )
+    try:
+        await message.bot.send_message(
+            chat_id=video.task.implementer.tg_id,
+            text="Ваше видео выдано на проверку",
+        )
+    except TelegramBadRequest as ex:
+        print('TelegramBadRequest', 'Ваше видео выдано на проверку')
 
-    await message.answer_video(
-        video=video.file_id,
-        caption=(
+    try:
+        caption = (
             f'Это видео нужно проверить до {due_date}.\n'
             f'Курс: "{video.task.theme.course.title}"\n'
             f'Тема: "{video.task.theme.title}"\n'
@@ -128,7 +116,16 @@ async def check(message: Message):
             'в начале которого будет оценка в интервале [0.0; 5.0], '
             'а через пробел отзыв о видео'
         )
-    )
+        await message.answer_video(
+            video=video.file_id,
+            caption=caption
+        )
+    except TelegramBadRequest:
+        print(
+            'TelegramBadRequest',
+            caption,
+            sep='\n'
+        )
 
 @router.message(F.text)
 async def get_score_by_review(message:Message):
