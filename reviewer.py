@@ -1,6 +1,9 @@
+from datetime import datetime
 from aiogram import Bot, Router, F
 from aiogram.filters import Command
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message
+from aiogram.exceptions import TelegramBadRequest
+from peewee import fn, JOIN
 
 from admin import send_task
 from models import (
@@ -215,3 +218,55 @@ async def get_score_by_review(message:Message):
     )
 
     await send_task(message.bot)
+
+
+async def notify_reviewers(bot: Bot):
+    # Подзапрос t1: Получаем пользователей с ролью 'Проверяющий'
+    t1 = (User
+        .select(
+            User.id.alias('user_id'),
+            User.tg_id.alias('tg_id'),
+            User.comment.alias('comment'))
+        .join(UserRole, on=(UserRole.user_id == User.id))
+        .join(Role, on=(UserRole.role_id == Role.id))
+        .where(Role.name == 'Проверяющий')
+        .alias('t1'))
+
+    # Подзапрос t2: Получаем задачи с привязанными ревьюерами
+    t2 = (Task
+        .select(
+            Task.id.alias('task_id'),
+            ReviewRequest.reviewer_id.alias('reviewer_id'))
+        .join(Video, on=(Video.task_id == Task.id))
+        .join(ReviewRequest, on=(ReviewRequest.video_id == Video.id))
+        .alias('t2'))
+
+    # Основной запрос
+    query = (Task
+        .select(
+            t1.c.tg_id.alias('tg_id'),
+            t1.c.comment.alias('comment'),
+            fn.COUNT(t1.c.user_id).alias('count'))
+        .join(t1, JOIN.FULL, on=(True))
+        .switch(Task)
+        .join(t2, JOIN.LEFT_OUTER, on=((t2.c.task_id == Task.id) & (t2.c.reviewer_id == t1.c.user_id)))
+        .where((Task.status == 1) & (t2.c.task_id.is_null()))
+        .group_by(t1.c.user_id)
+        .having(fn.COUNT(t1.c.user_id).alias('count') > 0))
+    
+    for row in query.dicts():
+        try:
+            await bot.send_message(
+                chat_id=row['tg_id'],
+                text=f'Доброе утро, {row["comment"]}. '
+                f'Сегодня Вам нужно проверить {row["count"]} видео.',
+            )
+        except TelegramBadRequest as ex:
+            print(row) 
+            print(ex)
+
+
+async def loop(bot: Bot):
+    now = datetime.now()
+    if now.hour == 16:
+        await notify_reviewers(bot)
