@@ -254,4 +254,27 @@ async def add_role(message: Message):
     await message.answer(
         text='Роль добавлена'
     )
+
+
+@router.message(Command('set_comment'))
+async def set_comment(message: Message):
+    user = await get_user(message.bot, message.from_user.id)
+    if user is None:
+        return
     
+    user_role = await get_admin_user_role(message.bot, user)
+    if not user_role:
+        return
+    
+    data = message.text.strip().replace('  ', '').split(maxsplit=1)[1]
+    data = data.split(maxsplit=1)
+    username = data[0]
+    user = User.get_or_none(username=username)
+    if user is None:
+        await message.answer(
+            text='Пользователь с таким юзернейм не найден'
+        )
+        return
+
+    user.comment = data[1]
+    user.save()
