@@ -258,7 +258,7 @@ async def notify_reviewers(bot: Bot):
             t1.c.tg_id.alias('tg_id'),
             t1.c.comment.alias('comment'),
             fn.COUNT(t1.c.user_id).alias('count'))
-        .join(t1, JOIN.FULL, on=(True))
+        .join(t1, JOIN.LEFT_OUTER, on=(True))
         .switch(Task)
         .join(t2, JOIN.LEFT_OUTER, on=((t2.c.task_id == Task.id) & (t2.c.reviewer_id == t1.c.user_id)))
         .where((Task.status == 1) & (t2.c.task_id.is_null()))
@@ -279,5 +279,5 @@ async def notify_reviewers(bot: Bot):
 
 async def loop(bot: Bot):
     now = datetime.now()
-    if now.hour == 8:
+    if now.hour == 9:
         await notify_reviewers(bot)
