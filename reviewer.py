@@ -270,11 +270,16 @@ async def notify_reviewers(bot: Bot):
             .having(fn.COUNT(Video.id) < 5)
         )
 
+        l = len(videos)
+
+        if l == 0:
+            continue
+
         try:
             await bot.send_message(
                 chat_id=reviewer.tg_id,
                 text=f'Доброе утро, {reviewer.comment}. '
-                f'Сегодня Вам нужно проверить {len(videos)} видео.',
+                f'Сегодня Вам нужно проверить {l} видео.',
             )
         except TelegramBadRequest as ex:
             print('Отправка утреннего оповещения', ex)
@@ -282,5 +287,5 @@ async def notify_reviewers(bot: Bot):
 
 async def loop(bot: Bot):
     now = datetime.now()
-    if now.hour == 13:
+    if now.hour == 8:
         await notify_reviewers(bot)
