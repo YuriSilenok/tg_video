@@ -216,6 +216,20 @@ async def get_score_by_review(message:Message):
 
     await send_task(message.bot)
 
+    admins = (
+        User
+        .select(User)
+        .join(UserRole)
+        .join(Role)
+        .where(Role.name=='Админ')
+    )
+
+    for admin in admins:
+        await message.bot.send_message(
+            chat_id=admin.tg_id,
+            text=f'Видео пользователя @{user.username} на тему {task.theme.title} проверено.'
+        )   
+
 
 async def notify_reviewers(bot: Bot):
     # Подзапрос t1: Получаем пользователей с ролью 'Проверяющий'

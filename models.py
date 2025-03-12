@@ -155,6 +155,7 @@ def update_bloger_score_and_rating(bloger: User):
     bloger.bloger_score = round(bloger_score, 2)
     bloger.save()
     result += f'ИТОГО БАЛЛОВ:{bloger.bloger_score}'
+    return result
 
 
 def update_reviewer_score(reviewer: User):

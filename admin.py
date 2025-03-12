@@ -139,9 +139,23 @@ async def send_task(bot: Bot):
                 f'Тема: {theme.title}\n'
                 f'url: {theme.url}\n'
                 f'Срок: {task.due_date}\n'
-                'Когда работа будет готова, вы должны отправить файл '
-                'с вашим видео'
-        )       
+                'Когда работа будет готова, вы должны отправить ваше видео'
+        )
+
+        admins = (
+            User
+            .select(User)
+            .join(UserRole)
+            .join(Role)
+            .where(Role.name=='Админ')
+        )
+
+        for admin in admins:
+            await bot.send_message(
+                chat_id=admin.tg_id,
+                text=f'Пользователю @{user.username} выдана тема {theme.title}'
+            )
+
 
 
     if len(table) == 0:

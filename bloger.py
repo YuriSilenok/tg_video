@@ -283,4 +283,18 @@ async def upload_video(message: Message):
             'Вы получите новую тему, в этот период вы можете отказаться '
             'быть блогером без штрафов.'
         )
-    )   
+    )
+
+    admins = (
+        User
+        .select(User)
+        .join(UserRole)
+        .join(Role)
+        .where(Role.name=='Админ')
+    )
+
+    for admin in admins:
+        await message.bot.send_message(
+            chat_id=admin.tg_id,
+            text=f'Пользователь @{user.username} прислал видео по теме {task.theme.title}'
+        )   
