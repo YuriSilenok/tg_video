@@ -1,7 +1,7 @@
 from datetime import datetime
 from aiogram import Bot, Router, F
 from aiogram.filters import Command
-from aiogram.types import Message
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
 from peewee import fn, JOIN
 
@@ -71,7 +71,8 @@ async def check(message: Message):
                     f'Курс: {request.video.task.theme.course.title}\n'
                     f'Тема: {request.video.task.theme.title}\n'
                     f'url: {request.video.task.theme.url}\n'
-                )
+                ),
+                # reply_markup=Rel
             )
         except TelegramBadRequest:
             print('TelegramBadRequest', 
@@ -232,52 +233,54 @@ async def get_score_by_review(message:Message):
 
 
 async def notify_reviewers(bot: Bot):
-    # Подзапрос t1: Получаем пользователей с ролью 'Проверяющий'
-    t1 = (User
-        .select(
-            User.id.alias('user_id'),
-            User.tg_id.alias('tg_id'),
-            User.comment.alias('comment'))
+
+    # получить список проверяющих
+    
+    # для получившего списка задач посчитать количество проверяющих
+
+    reviewers = (User
+        .select(User)
         .join(UserRole, on=(UserRole.user_id == User.id))
         .join(Role, on=(UserRole.role_id == Role.id))
-        .where(Role.name == 'Проверяющий')
-        .alias('t1'))
+        .where(Role.name == 'Проверяющий'))
 
-    # Подзапрос t2: Получаем задачи с привязанными ревьюерами
-    t2 = (Task
-        .select(
-            Task.id.alias('task_id'),
-            ReviewRequest.reviewer_id.alias('reviewer_id'))
-        .join(Video, on=(Video.task_id == Task.id))
-        .join(ReviewRequest, on=(ReviewRequest.video_id == Video.id))
-        .alias('t2'))
+    # для каждого проверяющего сапоставить задачи которые он еще не проверял
+    for reviewer in reviewers:
+        # Получить список видео которые нуждаются в проверке и уже проверены текущим проверяющим
+        videos = (Video
+            .select(Video.id)
+            .join(Task, on=(Task.id==Video.task_id))
+            .join(ReviewRequest, on=(ReviewRequest.video_id == Video.id))
+            .where(
+                (Task.status==1) &
+                (ReviewRequest.reviewer_id==reviewer.id)
+            )
+        )
 
-    # Основной запрос
-    query = (Task
-        .select(
-            t1.c.tg_id.alias('tg_id'),
-            t1.c.comment.alias('comment'),
-            fn.COUNT(t1.c.user_id).alias('count'))
-        .join(t1, JOIN.LEFT_OUTER, on=(True))
-        .switch(Task)
-        .join(t2, JOIN.LEFT_OUTER, on=((t2.c.task_id == Task.id) & (t2.c.reviewer_id == t1.c.user_id)))
-        .where((Task.status == 1) & (t2.c.task_id.is_null()))
-        .group_by(t1.c.user_id)
-        .having(fn.COUNT(t1.c.user_id).alias('count') > 0))
-    
-    for row in query.dicts():
+        # получить список видео которые требуется проверить проверяющему
+        # и проверяющих на одно видео  меньше 5
+        videos = (
+            Video
+            .select(Video.id)
+            .join(ReviewRequest, on=(ReviewRequest.video_id==Video.id))
+            .where(
+                (~Video.id << videos)
+            )
+            .group_by(Video.id)
+            .having(fn.COUNT(Video.id) < 5)
+        )
+
         try:
             await bot.send_message(
-                chat_id=row['tg_id'],
-                text=f'Доброе утро, {row["comment"]}. '
-                f'Сегодня Вам нужно проверить {row["count"]} видео.',
+                chat_id=reviewer.tg_id,
+                text=f'Доброе утро, {reviewer.comment}. '
+                f'Сегодня Вам нужно проверить {len(videos)} видео.',
             )
         except TelegramBadRequest as ex:
-            print(row) 
-            print(ex)
+            print('Отправка утреннего оповещения', ex)
 
 
 async def loop(bot: Bot):
     now = datetime.now()
-    if now.hour == 9:
+    if now.hour == 13:
         await notify_reviewers(bot)
