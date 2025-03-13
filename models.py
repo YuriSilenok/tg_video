@@ -106,10 +106,10 @@ def get_videos_by_request_review(user: User) -> List[User]:
         Video
         .select(Video)
         .join(Task, on=(Video.task == Task.id))
-        .join(ReviewRequest, on=(ReviewRequest.video == Video.id))
+        .join(ReviewRequest, JOIN.LEFT_OUTER, on=(ReviewRequest.video == Video.id))
         .where(
             (Task.status == 1) &  # Задача в статусе 1
-            (ReviewRequest.video.not_in(
+            (Video.id.not_in(
                 Video
                 .select(Video.id)
                 .join(ReviewRequest)
