@@ -101,25 +101,31 @@ class Poll(Table):
 def get_videos_by_request_review(user: User):
     """Получить все видео, требующие этого проверяющего"""
 
+    # видео которые я проверял
     subquery = (
-        ReviewRequest
-        .select(ReviewRequest.video_id.alias('video_id'))
+        Video
+        .select(Video)
+        .join(ReviewRequest)
         .where(ReviewRequest.reviewer_id==user.id)
     )
 
-    # Основной запрос, исключающий задачи, которые были проверены конкретным рецензентом (с tg_id = 1)
-    query = (
+    # видео для которых требуются проверяющие
+    subquery2 = (
         Video
         .select(Video)
-        .join(Task)
-        .join(subquery, JOIN.LEFT_OUTER, on=(subquery.c.video_id==Video.id))
-        .join(ReviewRequest, on=(ReviewRequest.video_id==Video.id))
-        .where(
-            (Task.status==1) &
-            (subquery.c.video_id.is_null())
-        )
+        .join(Task, on=(Video.task==Task.id))
+        .join(ReviewRequest, on=(ReviewRequest.video==Video.id))
+        .where(Task.status==1)
         .group_by(Task.id)
         .having(fn.COUNT(Task.id) < 5)
+    )
+
+    # видео в которых требуется проверяющий и меня среди них нет
+    query = (
+        subquery2
+        .select(subquery2)
+        .join(subquery, JOIN.LEFT_OUTER, on=(subquery.c.id==subquery2.c.id))
+        .where(subquery.c.id.is_null())
     )
 
     return query

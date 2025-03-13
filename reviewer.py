@@ -74,8 +74,8 @@ async def check(message: Message):
                 ),
                 # reply_markup=Rel
             )
-        except TelegramBadRequest:
-            print('TelegramBadRequest', 
+        except TelegramBadRequest as ex:
+            print(ex, 
                 f'Курс: {request.video.task.theme.course.title}',
                 f'Тема: {request.video.task.theme.title}',
                 f'url: {request.video.task.theme.url}',
@@ -105,7 +105,7 @@ async def check(message: Message):
             text="Ваше видео выдано на проверку",
         )
     except TelegramBadRequest as ex:
-        print('TelegramBadRequest', 'Ваше видео выдано на проверку')
+        print(ex, 'Ваше видео выдано на проверку')
 
     try:
         caption = (
@@ -121,9 +121,9 @@ async def check(message: Message):
             video=video.file_id,
             caption=caption
         )
-    except TelegramBadRequest:
+    except TelegramBadRequest as ex:
         print(
-            'TelegramBadRequest',
+            ex,
             caption,
             sep='\n'
         )
