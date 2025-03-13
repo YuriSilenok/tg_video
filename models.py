@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import List
 from peewee import Model, SqliteDatabase, JOIN, fn, BooleanField, FloatField, CharField, IntegerField, ForeignKeyField, DateTimeField
 
 db = SqliteDatabase('sqlite.db')
@@ -98,37 +99,29 @@ class Poll(Table):
     at_created = DateTimeField(default=datetime.now)
 
 
-def get_videos_by_request_review(user: User):
+def get_videos_by_request_review(user: User) -> List[User]:
     """Получить все видео, требующие этого проверяющего"""
 
-    # видео которые я проверял
-    subquery = (
-        Video
-        .select(Video)
-        .join(ReviewRequest)
-        .where(ReviewRequest.reviewer_id==user.id)
-    )
-
-    # видео для которых требуются проверяющие
-    subquery2 = (
-        Video
-        .select(Video)
-        .join(Task, on=(Video.task==Task.id))
-        .join(ReviewRequest, on=(ReviewRequest.video==Video.id))
-        .where(Task.status==1)
-        .group_by(Task.id)
-        .having(fn.COUNT(Task.id) < 5)
-    )
-
-    # видео в которых требуется проверяющий и меня среди них нет
     query = (
-        subquery2
-        .select(subquery2)
-        .join(subquery, JOIN.LEFT_OUTER, on=(subquery.c.id==subquery2.c.id))
-        .where(subquery.c.id.is_null())
+        Video
+        .select(Video)
+        .join(Task, on=(Video.task == Task.id))
+        .join(ReviewRequest, on=(ReviewRequest.video == Video.id))
+        .where(
+            (Task.status == 1) &  # Задача в статусе 1
+            (ReviewRequest.video.not_in(
+                Video
+                .select(Video.id)
+                .join(ReviewRequest)
+                .where(ReviewRequest.reviewer_id == user.id)  # Исключаем видео, которые я проверял
+            ))
+        )
+        .group_by(Video.id)
+        .having(fn.COUNT(ReviewRequest.id) < 5)  # У видео должно быть < 5 запросов на проверку
     )
 
-    return query
+    result = list(query.execute())
+
 
 def update_bloger_score_and_rating(bloger: User):
 

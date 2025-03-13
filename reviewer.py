@@ -85,13 +85,13 @@ async def check(message: Message):
 
     videos = get_videos_by_request_review(user)    
 
-    if videos.count() == 0:
+    if len(videos) == 0:
         await message.answer(
             text='Проверять нечего, можете отдохнуть'
         )
         return
     
-    video: Video = videos.first()
+    video: Video = videos[0]
     
     due_date = get_due_date(hours=25)
     request = ReviewRequest.create(
