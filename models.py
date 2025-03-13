@@ -120,7 +120,7 @@ def get_videos_by_request_review(user: User) -> List[User]:
         .having(fn.COUNT(ReviewRequest.id) < 5)  # У видео должно быть < 5 запросов на проверку
     )
 
-    result = list(query.execute())
+    return list(query.execute())
 
 
 def update_bloger_score_and_rating(bloger: User):
