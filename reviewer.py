@@ -149,7 +149,7 @@ async def get_review(message:Message):
 
     await send_message_admins(
         bot=message.bot,
-        text=f'Видео пользователя @{user.username} на тему {review_request.task.theme.title} проверено.\n\n{text}',
+        text=f'Видео пользователя @{user.username} на тему {review_request.video.task.theme.title} проверено.\n\n{text}',
     )
 
     await check_job_reviewers(message.bot)
