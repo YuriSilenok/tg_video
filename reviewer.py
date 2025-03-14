@@ -78,7 +78,7 @@ async def send_video(bot: Bot, review_request: ReviewRequest):
 
     await send_message_admins(
         bot=bot,
-        text=f'Пользователю @{review_request.reviewer.username} выдана тема "{review_request.task.theme.title}"',
+        text=f'Пользователю @{review_request.reviewer.username} выдана тема "{review_request.video.task.theme.title}"',
     )
 
 
