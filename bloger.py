@@ -4,7 +4,7 @@ from aiogram import Bot, Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 
-from admin import get_admins
+from admin import get_admins, send_message_admins
 from models import (
     Course, Role, Task, Theme, UserCourse, UserRole, Video,
     User, TASK_STATUS, update_bloger_score_and_rating
@@ -39,8 +39,6 @@ async def get_bloger_user_role(bot: Bot, user: User):
 
     return user_role
 
-
-
 @router.message(Command('bloger_on'))
 async def bloger_on(message: Message):
     """Пользователь подает заявку стать блогером"""
@@ -65,7 +63,12 @@ async def bloger_on(message: Message):
         text='Теперь вы Блогер.\n'
         'Ожидайте, как только наступит Ваша очередь, '
         'Вам будет выдана тема.'
-    )  
+    )
+
+    await send_message_admins(
+        bot=message.bot,
+        text=f'Пользователь @{user.username} стал блогером'
+    )
 
 
 async def drop_bloger(bot:Bot, user: User):
@@ -103,11 +106,10 @@ async def drop_bloger(bot:Bot, user: User):
     if user_role:
         user_role.delete_instance()
 
-    await bot.send_message(
-        chat_id=user.tg_id,
-        text='Роль блогера снята'
+    await send_message_admins(
+        bot=bot,
+        text=f'Пользователь @{user.username} больше не блогер'
     )
-
 
 @router.message(Command('bloger_off'))
 async def bloger_off(message: Message):
@@ -158,7 +160,6 @@ async def del_task_yes(query: CallbackQuery):
     await drop_bloger(query.bot, user)
 
 
-
 @router.message(Command('courses'))
 async def show_courses(message: Message):
     user = await get_user(message.bot, message.from_user.id)
@@ -203,7 +204,7 @@ async def add_user_course(query: CallbackQuery):
         return
 
     course=Course.get_by_id(int(query.data[(query.data.rfind('_')+1):]))
-    user_course, _ = UserCourse.get_or_create(
+    UserCourse.get_or_create(
         user=user,
         course=course,
     )
@@ -278,6 +279,7 @@ async def upload_video(message: Message):
     )
     task.status = 1
     task.save()
+
     await message.answer(
         text=(
             'Видео принято на проверку, как только оно будет проверено, '
@@ -286,10 +288,7 @@ async def upload_video(message: Message):
         )
     )
 
-    admins = get_admins()
-
-    for admin in admins:
-        await message.bot.send_message(
-            chat_id=admin.tg_id,
-            text=f'Пользователь @{user.username} прислал видео по теме {task.theme.title}'
-        )   
+    await send_message_admins(
+        bot=message.bot,
+        text=f'Пользователь @{user.username} прислал видео по теме {task.theme.title}'
+    )

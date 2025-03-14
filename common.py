@@ -5,7 +5,7 @@ from models import User
 def get_id(text):
     return int(text[(text.rfind('_')+1):])
 
-async def get_user(bot: Bot, tg_id: int):
+async def get_user(bot: Bot, tg_id: int) -> User:
     user = User.get_or_none(tg_id=tg_id)
     if user is None:
         await bot.send_message(

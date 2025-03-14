@@ -5,12 +5,13 @@ from aiogram.types import Message
 from aiogram.exceptions import TelegramBadRequest
 from peewee import fn
 
-from admin import get_admins
+from admin import get_admins, send_message_admins
 from models import (
     Review, ReviewRequest, Role, User, UserRole, Video,
     update_bloger_score_and_rating, update_reviewer_score, update_reviewers_rating, 
 )
 from common import get_due_date, get_user
+
 
 router = Router()
 
@@ -45,6 +46,7 @@ async def get_reviewer_user_role(bot: Bot, user: User):
 
     return user_role
 
+
 async def send_video(bot: Bot, review_request: ReviewRequest):
     
     text = f'Ваше видео на тему "{review_request.video.task.theme.title}" выдано на проверку'
@@ -74,6 +76,12 @@ async def send_video(bot: Bot, review_request: ReviewRequest):
     except TelegramBadRequest as ex:
         print(ex, caption, sep='\n')
 
+    await send_message_admins(
+        bot=bot,
+        text=f'Пользователю @{review_request.reviewer.username} выдана тема "{review_request.task.theme.title}"',
+    )
+
+
 @router.message(F.text)
 async def get_review(message:Message):
     
@@ -90,12 +98,12 @@ async def get_review(message:Message):
         reviewer=user,
         status=0 # На проверке
     )
+
     if review_request is None:
         await message.answer(
-            text='Запрос на проверку не найден, используйте команду /check'
+            text='Запрос на проверку не найден'
         )
         return
-
 
     """Валидация оценки"""
     text = message.text.strip()
@@ -139,11 +147,10 @@ async def get_review(message:Message):
         text=f'Ваше видео оценили\n\n{text}',
     )
 
-    for admin in get_admins():
-        await message.bot.send_message(
-            chat_id=admin.tg_id,
-            text=f'Видео пользователя @{user.username} на тему {task.theme.title} проверено.\n\n{text}'
-        ) 
+    await send_message_admins(
+        bot=message.bot,
+        text=f'Видео пользователя @{user.username} на тему {task.theme.title} проверено.\n\n{text}',
+    )
 
     await check_job_reviewers(message.bot)
 
@@ -171,11 +178,10 @@ async def get_review(message:Message):
         text=f'Закончена проверка вашего видео.\n\n{report}',
     )
 
-    for admin in get_admins():
-        await message.bot.send_message(
-            chat_id=admin.tg_id,
-            text=f'Видео пользователя @{user.username} на тему {task.theme.title} проверено полностью.'
-        )   
+    await send_message_admins(
+        bot=message.bot,
+        text=f'Видео пользователя @{user.username} на тему {task.theme.title} проверено полностью.'
+    )
 
 
 def get_old_reviewe_requests() -> List[ReviewRequest]:
@@ -190,6 +196,7 @@ def get_old_reviewe_requests() -> List[ReviewRequest]:
         )
     )
 
+
 def get_reviewer_ids() -> List[User]:
     """Пользователи с ролью проверяющий"""
     return [ u.id for u in
@@ -200,6 +207,7 @@ def get_reviewer_ids() -> List[User]:
         .where(Role.name=='Проверяющий')
         .order_by(User.reviewer_rating)
     ]
+
 
 def get_vacant_reviewer_ids() -> List[User]:
     reviewer_ids = get_reviewer_ids()
@@ -216,17 +224,16 @@ def get_vacant_reviewer_ids() -> List[User]:
     ]
     return [i for i in reviewer_ids if i not in jobs_ids]
 
+
 async def add_reviewer(bot: Bot, video_id: int):
     # Свободные проверяющие
     vacant_reviewer_ids = get_vacant_reviewer_ids()
     
     if len(vacant_reviewer_ids) == 0:
-        admins = get_admins()
-        for admin in admins:
-            await bot.send_message(
-                chat_id=admin.tg_id,
-                text=f'Закончились проверяющие, добавьте нового.'
-            )
+        await send_message_admins(
+            bot=bot,
+            text=f'Закончились cвободные проверяющие, добавьте нового.',
+        )
         return
     else:
         # те кто уже работали над видео
@@ -239,12 +246,10 @@ async def add_reviewer(bot: Bot, video_id: int):
 
         candidat_reviewer_ids = [i for i in vacant_reviewer_ids if i not in reviewer_ids]
         if len(candidat_reviewer_ids) == 0:
-            admins = get_admins()
-            for admin in admins:
-                await bot.send_message(
-                    chat_id=admin.tg_id,
-                    text=f'Закончились проверяющие, добавьте нового.'
-                )
+            await send_message_admins(
+                bot=bot,
+                text=f'Нет кандидатов среди свободных проверяющих, добавьте нового.',
+            )
             return
 
         due_date = get_due_date(hours=25)
@@ -271,6 +276,12 @@ async def check_reviewers(bot: Bot):
             )
         except TelegramBadRequest as ex:
             print(ex, text)
+        
+        await send_message_admins(
+            bot=bot,
+            text=f'@{old_review_request.reviewer.username} просрочил тему {old_review_request.video.task.theme.title}'
+        )
+
         await add_reviewer(bot, old_review_request.video_id)
 
 async def check_job_reviewers(bot: Bot):
