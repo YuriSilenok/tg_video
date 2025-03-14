@@ -296,3 +296,12 @@ async def set_comment(message: Message):
     await message.answer(
         text='Комментарий записан'
     )
+
+def get_admins() -> List[User]:
+    return (
+        User
+        .select(User)
+        .join(UserRole)
+        .join(Role)
+        .where(Role.name=='Админ')
+    )

@@ -4,6 +4,7 @@ from aiogram import Bot, Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 
+from admin import get_admins
 from models import (
     Course, Role, Task, Theme, UserCourse, UserRole, Video,
     User, TASK_STATUS, update_bloger_score_and_rating
@@ -285,13 +286,7 @@ async def upload_video(message: Message):
         )
     )
 
-    admins = (
-        User
-        .select(User)
-        .join(UserRole)
-        .join(Role)
-        .where(Role.name=='Админ')
-    )
+    admins = get_admins()
 
     for admin in admins:
         await message.bot.send_message(

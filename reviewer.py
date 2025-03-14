@@ -1,14 +1,14 @@
 from datetime import datetime
+from typing import List
 from aiogram import Bot, Router, F
-from aiogram.filters import Command
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message
 from aiogram.exceptions import TelegramBadRequest
-from peewee import fn, JOIN
+from peewee import fn
 
-from admin import send_task
+from admin import get_admins
 from models import (
-    Review, ReviewRequest, Role, Task, User, UserRole, Video,
-    get_videos_by_request_review, update_bloger_score_and_rating, update_reviewer_score, 
+    Review, ReviewRequest, Role, User, UserRole, Video,
+    update_bloger_score_and_rating, update_reviewer_score, update_reviewers_rating, 
 )
 from common import get_due_date, get_user
 
@@ -45,91 +45,37 @@ async def get_reviewer_user_role(bot: Bot, user: User):
 
     return user_role
 
-
-@router.message(Command('check'))
-async def check(message: Message):
-    user = await get_user(message.bot, message.from_user.id)
-    if user is None:
-        return
+async def send_video(bot: Bot, review_request: ReviewRequest):
     
-    user_role = await get_reviewer_user_role(message.bot, user)
-    if not user_role:
-        return
-
-    request = ReviewRequest.get_or_none(
-        status=0, # на проверке
-        reviewer=user,
-    )
-    if request:
-        await message.answer(
-            text='У вас уже выдано видео на проверку, проверьте сначала его'
-        )
-        try:
-            await message.answer_video(
-                video=request.video.file_id,
-                caption=(
-                    f'Курс: {request.video.task.theme.course.title}\n'
-                    f'Тема: {request.video.task.theme.title}\n'
-                    f'url: {request.video.task.theme.url}\n'
-                ),
-                # reply_markup=Rel
-            )
-        except TelegramBadRequest as ex:
-            print(ex, 
-                f'Курс: {request.video.task.theme.course.title}',
-                f'Тема: {request.video.task.theme.title}',
-                f'url: {request.video.task.theme.url}',
-                sep='\n')
-        return
-
-
-    videos = get_videos_by_request_review(user)    
-
-    if len(videos) == 0:
-        await message.answer(
-            text='Проверять нечего, можете отдохнуть'
-        )
-        return
-    
-    video: Video = videos[0]
-    
-    due_date = get_due_date(hours=25)
-    request = ReviewRequest.create(
-        reviewer=user,
-        video=video,
-        due_date=due_date
-    )
+    text = f'Ваше видео на тему "{review_request.video.task.theme.title}" выдано на проверку'
     try:
-        await message.bot.send_message(
-            chat_id=video.task.implementer.tg_id,
-            text="Ваше видео выдано на проверку",
+        await bot.send_message(
+            chat_id=review_request.video.task.implementer.tg_id,
+            text=text,
         )
     except TelegramBadRequest as ex:
-        print(ex, 'Ваше видео выдано на проверку')
+        print(ex, text)
 
+    caption = (
+        f'Это видео нужно проверить до {review_request.due_date}.\n'
+        f'Курс: "{review_request.video.task.theme.course.title}"\n'
+        f'Тема: "{review_request.video.task.theme.title}"\n'
+        f'url: "{review_request.video.task.theme.url}"\n'
+        'Для оценки видео напишите одно сообщение '
+        'в начале которого будет оценка в интервале [0.0; 5.0], '
+        'а через пробел отзыв о видео'
+    )
     try:
-        caption = (
-            f'Это видео нужно проверить до {due_date}.\n'
-            f'Курс: "{video.task.theme.course.title}"\n'
-            f'Тема: "{video.task.theme.title}"\n'
-            f'url: "{video.task.theme.url}"\n'
-            'Для оценки видео напишите одно сообщение '
-            'в начале которого будет оценка в интервале [0.0; 5.0], '
-            'а через пробел отзыв о видео'
-        )
-        await message.answer_video(
-            video=video.file_id,
+        await bot.send_video(
+            chat_id=review_request.reviewer.tg_id,
+            video=review_request.video.file_id,
             caption=caption
         )
     except TelegramBadRequest as ex:
-        print(
-            ex,
-            caption,
-            sep='\n'
-        )
+        print(ex, caption, sep='\n')
 
 @router.message(F.text)
-async def get_score_by_review(message:Message):
+async def get_review(message:Message):
     
     user = await get_user(message.bot, message.from_user.id)
     if user is None:
@@ -140,7 +86,7 @@ async def get_score_by_review(message:Message):
         return
     
     """Поиск запроса на проверку"""
-    review_request = ReviewRequest.get_or_none(
+    review_request: ReviewRequest = ReviewRequest.get_or_none(
         reviewer=user,
         status=0 # На проверке
     )
@@ -180,15 +126,26 @@ async def get_score_by_review(message:Message):
     review_request.status = 1 # Проверено
     review_request.save()
     
+    update_reviewers_rating()
     new_score = update_reviewer_score(user)
+    
     await message.answer("Спасибо, ответ записан. "
+        f'Баллов за проверку видео {round(review_request.video.duration/1200, 2)}'
         f"Всего заработано баллов {new_score}. "
-        "Для проверки нового видео, отправьте команду /check")
+        "Ожидайте получение нового видео. ")
     
     await message.bot.send_message(
         chat_id=review_request.video.task.implementer.tg_id,
         text=f'Ваше видео оценили\n\n{text}',
     )
+
+    for admin in get_admins():
+        await message.bot.send_message(
+            chat_id=admin.tg_id,
+            text=f'Видео пользователя @{user.username} на тему {task.theme.title} проверено.\n\n{text}'
+        ) 
+
+    await check_job_reviewers(message.bot)
 
     """Выставление итоговой оценки"""    
     reviews = (
@@ -209,83 +166,135 @@ async def get_score_by_review(message:Message):
     task.status = 2 if task_score >= 0.8 else -2
     task.save()
     report = update_bloger_score_and_rating(task.implementer)
-    
     await message.bot.send_message(
         chat_id=task.implementer.tg_id,
         text=f'Закончена проверка вашего видео.\n\n{report}',
     )
 
-    await send_task(message.bot)
+    for admin in get_admins():
+        await message.bot.send_message(
+            chat_id=admin.tg_id,
+            text=f'Видео пользователя @{user.username} на тему {task.theme.title} проверено полностью.'
+        )   
 
-    admins = (
+
+def get_old_reviewe_requests() -> List[ReviewRequest]:
+    now = datetime.now()
+    # Запрос на выборку записей на проверке старше суток
+    return (
+        ReviewRequest
+        .select()
+        .where(
+            (ReviewRequest.due_date <= now) &
+            (ReviewRequest.status == 0)
+        )
+    )
+
+def get_reviewer_ids() -> List[User]:
+    """Пользователи с ролью проверяющий"""
+    return [ u.id for u in
         User
         .select(User)
         .join(UserRole)
         .join(Role)
-        .where(Role.name=='Админ')
-    )
+        .where(Role.name=='Проверяющий')
+        .order_by(User.reviewer_rating)
+    ]
 
-    for admin in admins:
-        await message.bot.send_message(
-            chat_id=admin.tg_id,
-            text=f'Видео пользователя @{user.username} на тему {task.theme.title} проверено.'
-        )   
-
-
-async def notify_reviewers(bot: Bot):
-
-    # получить список проверяющих
-    
-    # для получившего списка задач посчитать количество проверяющих
-
-    reviewers = (User
+def get_vacant_reviewer_ids() -> List[User]:
+    reviewer_ids = get_reviewer_ids()
+    # проверяющие у которых есть что проверить
+    jobs_ids = [ u.id for u in
+        User
         .select(User)
-        .join(UserRole, on=(UserRole.user_id == User.id))
-        .join(Role, on=(UserRole.role_id == Role.id))
-        .where(Role.name == 'Проверяющий'))
-
-    # для каждого проверяющего сапоставить задачи которые он еще не проверял
-    for reviewer in reviewers:
-        # Получить список видео которые нуждаются в проверке и уже проверены текущим проверяющим
-        videos = (Video
-            .select(Video.id)
-            .join(Task, on=(Task.id==Video.task_id))
-            .join(ReviewRequest, on=(ReviewRequest.video_id == Video.id))
-            .where(
-                (Task.status==1) &
-                (ReviewRequest.reviewer_id==reviewer.id)
-            )
+        .join(ReviewRequest)
+        .where(
+            (ReviewRequest.status==0)
         )
+        .group_by(ReviewRequest.reviewer)
+        .order_by(User.reviewer_rating)
+    ]
+    return [i for i in reviewer_ids if i not in jobs_ids]
 
-        # получить список видео которые требуется проверить проверяющему
-        # и проверяющих на одно видео  меньше 5
-        videos = (
-            Video
-            .select(Video.id)
-            .join(ReviewRequest, on=(ReviewRequest.video_id==Video.id))
-            .where(
-                (~Video.id << videos)
+async def add_reviewer(bot: Bot, video_id: int):
+    # Свободные проверяющие
+    vacant_reviewer_ids = get_vacant_reviewer_ids()
+    
+    if len(vacant_reviewer_ids) == 0:
+        admins = get_admins()
+        for admin in admins:
+            await bot.send_message(
+                chat_id=admin.tg_id,
+                text=f'Закончились проверяющие, добавьте нового.'
             )
-            .group_by(Video.id)
-            .having(fn.COUNT(Video.id) < 5)
+        return
+    else:
+        # те кто уже работали над видео
+        reviewer_ids = [ rr.reviewer_id for rr in
+            ReviewRequest
+            .select(ReviewRequest.reviewer)
+            .where(ReviewRequest.video_id==video_id)
+            .group_by(ReviewRequest.reviewer)
+        ]
+
+        candidat_reviewer_ids = [i for i in vacant_reviewer_ids if i not in reviewer_ids]
+        if len(candidat_reviewer_ids) == 0:
+            admins = get_admins()
+            for admin in admins:
+                await bot.send_message(
+                    chat_id=admin.tg_id,
+                    text=f'Закончились проверяющие, добавьте нового.'
+                )
+            return
+
+        due_date = get_due_date(hours=25)
+        review_request = ReviewRequest.create(
+            reviewer_id=candidat_reviewer_ids[0],
+            video_id=video_id,
+            due_date=due_date
         )
+        await send_video(bot, review_request)
 
-        l = len(videos)
+async def check_reviewers(bot: Bot):
 
-        if l == 0:
-            continue
+    """Проверка устаревших задач"""
+    old_review_requests = get_old_reviewe_requests()
 
+    for old_review_request in old_review_requests:
+        old_review_request.status = -1
+        old_review_request.save()
+        text = 'Задача на проверку с вас снята, ожидайте новую.'
         try:
             await bot.send_message(
-                chat_id=reviewer.tg_id,
-                text=f'Доброе утро, {reviewer.comment}. '
-                f'Сегодня Вам нужно проверить {l} видео.',
+                chat_id=old_review_request.reviewer.tg_id,
+                text=text
             )
         except TelegramBadRequest as ex:
-            print('Отправка утреннего оповещения', ex)
+            print(ex, text)
+        await add_reviewer(bot, old_review_request.video_id)
+
+async def check_job_reviewers(bot: Bot):
+    # проверяющие у котых есть задачи
+    reviewer_ids = [u.id for u in
+        User
+        .select(User)
+        .join(ReviewRequest, on=(ReviewRequest.reviewer_id==User.id))
+        .where(ReviewRequest.status==0)
+    ]
+    if len(reviewer_ids) < 5:
+        video_ids = [v.id for v in 
+            Video
+            .select(Video)
+            .join(ReviewRequest)
+            .where(ReviewRequest.status >= 0)
+            .group_by(Video.id)
+            .having(fn.COUNT(Video.id) < 5)
+        ]
+        for video_id in video_ids:
+            await add_reviewer(bot, Video.get_by_id(video_id))
+            break
 
 
 async def loop(bot: Bot):
-    now = datetime.now()
-    if now.hour == 8:
-        await notify_reviewers(bot)
+    await check_reviewers(bot)
+    await check_job_reviewers(bot)

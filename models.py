@@ -35,6 +35,7 @@ class User(Table):
     # рейтинг блогера/проверющего
     bloger_rating = FloatField(default=0.8)
     bloger_score = FloatField(default=0)
+    reviewer_rating = FloatField(default=0)
     reviewer_score = FloatField(default=0)
     comment = CharField(null=True)
 
@@ -86,7 +87,7 @@ class ReviewRequest(Table):
 
 class Review(Table):
     """Результат проверки видео"""
-    review_request = ForeignKeyField(ReviewRequest, **CASCADE)
+    review_request = ForeignKeyField(ReviewRequest, backref='reviews', **CASCADE)
     score = FloatField()
     comment = CharField()
     at_created = DateTimeField(default=datetime.now)
@@ -157,7 +158,40 @@ def update_bloger_score_and_rating(bloger: User):
     return result
 
 
+def update_reviewers_rating():
+    subquery = (
+        ReviewRequest
+        .select(
+            Video.id.alias("id"),
+            fn.MIN(Review.score).alias("score")
+        )
+        .join(Review, on=(ReviewRequest.id == Review.review_request))
+        .join(Video, on=(ReviewRequest.video == Video.id))
+        .join(Task, on=(Video.task == Task.id))
+        .where(Task.status.not_in([0, 1]))
+        .group_by(Video.id)
+    )
+
+    query = (
+        ReviewRequest
+        .select(
+            ReviewRequest.reviewer,
+            fn.AVG(Review.score - subquery.c.score).alias("score")
+        )
+        .join(Review, on=(Review.review_request == ReviewRequest.id))
+        .join(Video, on=(ReviewRequest.video == Video.id))
+        .join(subquery, on=(subquery.c.id == Video.id))
+        .group_by(ReviewRequest.reviewer)
+    )
+
+
+    for rr in query:
+        rr.reviewer.reviewer_rating=rr.score
+        rr.reviewer.save()
+
+
 def update_reviewer_score(reviewer: User):
+
     review_requests = (
         ReviewRequest
         .select()
@@ -191,3 +225,4 @@ if __name__ == '__main__':
     for user in User.select():
         update_reviewer_score(user)
         update_bloger_score_and_rating(user)
+    update_reviewers_rating()
