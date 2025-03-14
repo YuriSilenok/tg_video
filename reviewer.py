@@ -248,7 +248,8 @@ async def add_reviewer(bot: Bot, video_id: int):
         if len(candidat_reviewer_ids) == 0:
             await send_message_admins(
                 bot=bot,
-                text=f'Нет кандидатов среди свободных проверяющих, добавьте нового.',
+                text=f'Нет кандидатов среди свободных проверяющих, добавьте нового. '
+                f'Тема: {Video.get_by_id(video_id).task.theme.title}'
             )
             return
 
