@@ -7,7 +7,7 @@ from peewee import fn
 
 from admin import get_admins, send_message_admins
 from models import (
-    Review, ReviewRequest, Role, User, UserRole, Video,
+    Review, ReviewRequest, Role, Task, User, UserRole, Video,
     update_bloger_score_and_rating, update_reviewer_score, update_reviewers_rating, 
 )
 from common import get_due_date, get_user
@@ -80,6 +80,22 @@ async def send_video(bot: Bot, review_request: ReviewRequest):
         bot=bot,
         text=f'Пользователю @{review_request.reviewer.username} выдана тема "{review_request.video.task.theme.title}"',
     )
+
+
+def update_task_score(task: Task):
+
+    task_score = sum([review.score for review in 
+        Review
+        .select(Review)
+        .join(ReviewRequest)
+        .join(Video)
+        .join(Task)
+        .where(Task.id==task.id)
+    ]) / 25
+
+    task.score = task_score
+    task.status = 2 if task_score >= 0.8 else -2
+    task.save()
 
 
 @router.message(F.text)
@@ -166,13 +182,10 @@ async def get_review(message:Message):
     if reviews.count() < 5:
         return
 
-    task_score = sum([review.score for review in reviews]) / 25
-
     task = review_request.video.task
-    task.score = task_score
-    task.status = 2 if task_score >= 0.8 else -2
-    task.save()
+    update_task_score(task)
     report = update_bloger_score_and_rating(task.implementer)
+
     await message.bot.send_message(
         chat_id=task.implementer.tg_id,
         text=f'Закончена проверка вашего видео.\n\n{report}',
@@ -180,7 +193,7 @@ async def get_review(message:Message):
 
     await send_message_admins(
         bot=message.bot,
-        text=f'Видео пользователя @{user.username} на тему {task.theme.title} проверено полностью.'
+        text=f'Видео пользователя @{task.implementer.username} на тему {task.theme.title} проверено полностью.'
     )
 
 
@@ -261,6 +274,7 @@ async def add_reviewer(bot: Bot, video_id: int):
         )
         await send_video(bot, review_request)
 
+
 async def check_reviewers(bot: Bot):
 
     """Проверка устаревших задач"""
@@ -284,6 +298,7 @@ async def check_reviewers(bot: Bot):
         )
 
         await add_reviewer(bot, old_review_request.video_id)
+
 
 async def check_job_reviewers(bot: Bot):
     # проверяющие у котых есть задачи
@@ -310,3 +325,20 @@ async def check_job_reviewers(bot: Bot):
 async def loop(bot: Bot):
     await check_reviewers(bot)
     await check_job_reviewers(bot)
+
+if __name__ == '__main__':
+    rr: List[ReviewRequest] = (
+        ReviewRequest
+        .select(ReviewRequest)
+        .join(Video)
+        .join(Task)
+        .where(
+            (ReviewRequest.status==1) &
+            (Task.status==1)
+        )
+        .group_by(ReviewRequest.video)
+        .having(fn.COUNT(ReviewRequest.video) == 5)
+    )
+    for r in rr:
+        print(r.video_id)
+        update_task_score(r.video.task)

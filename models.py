@@ -84,7 +84,7 @@ class Task(Table):
 
 class Video(Table):
     """Видео которое было прислано на оценку по задаче"""
-    task = ForeignKeyField(Task, **CASCADE)
+    task = ForeignKeyField(Task, backref='videos', **CASCADE)
     file_id = IntegerField()
     at_created = DateTimeField(default=datetime.now)
     duration = IntegerField(default=0)
@@ -93,7 +93,7 @@ class Video(Table):
 class ReviewRequest(Table):
     """Видео выданное на проверку проверяющему"""
     reviewer = ForeignKeyField(User, **CASCADE)
-    video = ForeignKeyField(Video, **CASCADE)
+    video = ForeignKeyField(Video, backref='reviewrequests', **CASCADE)
     status = IntegerField(default=0)
     at_created = DateTimeField(default=datetime.now)
     due_date = DateTimeField()
@@ -233,10 +233,9 @@ if __name__ == '__main__':
         Course, Theme, Task, 
         Video, ReviewRequest, Review,
         UserCourse, Poll
-    ])
-
+    ])        
 
     for user in User.select():
         update_reviewer_score(user)
         update_bloger_score_and_rating(user)
-    update_reviewers_rating()
+    update_reviewers_rating()   
