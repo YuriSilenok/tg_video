@@ -173,6 +173,11 @@ async def get_admin_user_role(bot: Bot, user: User):
     return user_role
 
 
+@router.message(Command('send_task'))
+async def st(message: Message):
+    await send_task(message.bot)
+
+
 @router.message(Command('report_reviewers'))
 async def report_reviewers(message: Message):
     reviewers = (
