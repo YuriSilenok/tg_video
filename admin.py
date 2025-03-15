@@ -340,7 +340,7 @@ async def report_themes(message: Message):
             ])
         )
         if row['pending_count'] > 0:
-            line = ['Проверяющие:']
+            line = ['<b>Проверяющие:</b>']
 
             query2: List[ReviewRequest] = (
                 ReviewRequest
@@ -365,5 +365,6 @@ async def report_themes(message: Message):
         points.append('\n'.join(point))
 
     await message.answer(
-        text='\n\n'.join(points)
+        text='\n\n'.join(points),
+        parse_mode='HTML',
     )

@@ -1,5 +1,6 @@
 from datetime import datetime
-from typing import List
+import math
+from typing import List, Tuple
 from peewee import Model, SqliteDatabase, JOIN, fn, BooleanField, FloatField, CharField, IntegerField, ForeignKeyField, DateTimeField
 
 
@@ -114,6 +115,9 @@ class Poll(Table):
     stop = BooleanField(default=False)
     at_created = DateTimeField(default=datetime.now)
 
+class Var(Table):
+    name = CharField()
+    value = CharField(null=True)
 
 
 def get_videos_by_request_review(user: User) -> List[User]:
@@ -174,36 +178,82 @@ def update_bloger_score_and_rating(bloger: User):
     return result
 
 
+def get_max_score_over():
+    max_score_over = (
+        Review
+        .select(
+            (fn.MAX(Review.score)-fn.MIN(Review.score)).alias('score'),
+        )
+        .join(ReviewRequest)
+        .group_by(ReviewRequest.video)
+    )
+    return max(max_score_over, key=lambda i: i.score).score
+
+
 def update_reviewers_rating():
-    subquery = (
+
+  
+    """Расчет завышения оценки"""
+    video_min_scores = {i['video']:i['score'] for i in
+        Review
+        .select(
+            (fn.MIN(Review.score)).alias('score'),
+            ReviewRequest.video,
+        )
+        .join(ReviewRequest)
+        .where(ReviewRequest.status==1)
+        .group_by(ReviewRequest.video)
+        .dicts()
+    }
+
+    reviewer_scores = (
         ReviewRequest
         .select(
-            Video.id.alias("id"),
-            fn.MIN(Review.score).alias("score")
+            ReviewRequest.video,
+            ReviewRequest.reviewer,
+            Review.score,
         )
-        .join(Review, on=(ReviewRequest.id == Review.review_request))
-        .join(Video, on=(ReviewRequest.video == Video.id))
-        .join(Task, on=(Video.task == Task.id))
-        .where(Task.status.not_in([0, 1]))
-        .group_by(Video.id)
+        .join(Review)
     )
 
-    query = (
+    score_over = {}
+
+    for row in reviewer_scores.dicts():
+        score_over[row['reviewer']] = score_over.get(row['reviewer'], []) + [row['score'] - video_min_scores[row['video']]]
+
+    for reviewer in score_over:
+        scores = score_over[reviewer]
+        avg_score = (sum(scores) / len(scores)) ** 2
+        score_over[reviewer] = avg_score
+
+
+    """Расчет пропусков проверок"""
+    reviewer_overs = {i['reviewer']: i['over'] for i in
         ReviewRequest
         .select(
             ReviewRequest.reviewer,
-            fn.AVG(Review.score - subquery.c.score).alias("score")
+            fn.COUNT(ReviewRequest.reviewer).alias('over')
         )
-        .join(Review, on=(Review.review_request == ReviewRequest.id))
-        .join(Video, on=(ReviewRequest.video == Video.id))
-        .join(subquery, on=(subquery.c.id == Video.id))
+        .where(
+            (ReviewRequest.status==-1)
+        )
         .group_by(ReviewRequest.reviewer)
-    )
+        .dicts()
+    }
+    max_reviewer = max(reviewer_overs, key=reviewer_overs.get)
+    max_reviewer_over = reviewer_overs[max_reviewer]
 
+    rating = {}
+    for reviewer in list(set(score_over.keys()) | set(reviewer_overs.keys())):
+        rating[reviewer] = (
+            math.sqrt(score_over.get(reviewer, 0) + 
+            (reviewer_overs.get(reviewer, 0)/max_reviewer_over) ** 2)
+        )
 
-    for rr in query:
-        rr.reviewer.reviewer_rating=rr.score
-        rr.reviewer.save()
+    for reviewer in rating:
+        user: User = User.get_by_id(reviewer)
+        user.reviewer_rating = rating[reviewer]
+        user.save()
 
 
 def update_reviewer_score(reviewer: User):
@@ -232,7 +282,7 @@ if __name__ == '__main__':
         User, Role, UserRole,
         Course, Theme, Task, 
         Video, ReviewRequest, Review,
-        UserCourse, Poll
+        UserCourse, Poll, Var
     ])        
 
     for user in User.select():
