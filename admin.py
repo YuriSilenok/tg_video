@@ -354,8 +354,9 @@ async def report_themes(message: Message):
             for rr in query2:
                 line.append(
                     '|'.join([
-                        rr.reviewer.comment,
-                        str(rr.due_date)
+                        (rr.reviewer.comment.split(maxsplit=1)[0] if rr.reviewer.comment else 'нет ФИО'),
+                        str(rr.due_date),
+                        str(round(rr.reviewer.reviewer_rating, 2)),
                     ])
                 )
             
