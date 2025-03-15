@@ -291,16 +291,15 @@ async def set_comment(message: Message):
 @router.message(Command('report_themes'))
 async def report_themes(message: Message):
     
-    text = '\n\n'.join([f'{i["status"]}|{i["due_date"]}|{i["overdue_count"]}|{i["pending_count"]}|{i["reviewed_count"]}\n'
-                        f'{i["course"]}|{i["theme"]}\n'
-                        f'@{i["user"]}' for i in
+    query = (
         Task
         .select(
             Task.status.alias('status'),
             Theme.title.alias('theme'),
             Course.title.alias('course'),
-            User.username.alias('user'),
+            User.comment.alias('user'),
             Task.due_date.alias('due_date'),
+            Video.id.alias('video'),
             fn.COUNT(Case(None, [(ReviewRequest.status == -1, 1)], None)).alias('overdue_count'),
             fn.COUNT(Case(None, [(ReviewRequest.status == 0, 1)], None)).alias('pending_count'),
             fn.COUNT(Case(None, [(ReviewRequest.status == 1, 1)], None)).alias('reviewed_count'),
@@ -313,8 +312,58 @@ async def report_themes(message: Message):
         .where(Task.status.between(0, 1))
         .group_by(Task.id)
         .order_by(Task.status, Task.due_date)
-        .dicts()
-    ])
+    )
+    points = []
+    for row in query.dicts():
+        point = []
+        line = [
+            str(row["status"]),
+            str(row["due_date"]),
+        ]
+        if row['status'] == 1:
+            line.extend([
+                str(row["overdue_count"]),
+                str(row["pending_count"]),
+                str(row["reviewed_count"]),
+            ])
+        point.append('|'.join(line))
+        point.append(
+            '|'.join([
+                row["course"],
+                row["theme"],
+            ])
+        )
+        point.append(
+            ': '.join([
+                'Блогер',
+                row["user"],
+            ])
+        )
+        if row['pending_count'] > 0:
+            line = ['Проверяющие:']
+
+            query2: List[ReviewRequest] = (
+                ReviewRequest
+                .select(ReviewRequest)
+                .where(
+                    (ReviewRequest.video==row['video']) &
+                    (ReviewRequest.status==0)
+                )
+            )
+
+            for rr in query2:
+                line.append(
+                    '|'.join([
+                        rr.reviewer.comment,
+                        str(rr.due_date)
+                    ])
+                )
+            
+            point.append(
+                '\n'.join(line)
+            )
+        points.append('\n'.join(point))
+
     await message.answer(
-        text=text
+        text='\n\n'.join(points)
     )
