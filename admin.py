@@ -286,3 +286,28 @@ async def set_comment(message: Message):
     await message.answer(
         text='Комментарий записан'
     )
+
+
+@router.message(Command('report_themes'))
+async def report_themes(message: Message):
+    text = '\n\n'.join([f'{i["due_date"]}|{i["status"]}|{i["course"]}|{i["theme"]}|@{i["user"]}' for i in
+        Task
+        .select(
+            Task.status.alias('status'),
+            Theme.title.alias('theme'),
+            Course.title.alias('course'),
+            User.username.alias('user'),
+            Task.due_date.alias('due_date')
+        )
+        .join(Theme)
+        .join(Course)
+        .join(User, on=(Task.implementer==User.id))
+        .where(
+            (Task.status.between(0, 1))
+        )
+        .order_by(Task.status, Task.due_date)
+        .dicts()
+    ])
+    await message.answer(
+        text=text
+    )
