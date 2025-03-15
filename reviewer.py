@@ -10,7 +10,7 @@ from models import (
     Review, ReviewRequest, Role, Task, User, UserRole, Video,
     update_bloger_score_and_rating, update_reviewer_score, update_reviewers_rating, 
 )
-from common import get_due_date, get_user
+from common import get_due_date, get_user, send_task
 
 
 router = Router()
@@ -78,7 +78,11 @@ async def send_video(bot: Bot, review_request: ReviewRequest):
 
     await send_message_admins(
         bot=bot,
-        text=f'Пользователю @{review_request.reviewer.username} выдана тема "{review_request.video.task.theme.title}"',
+        text=f'''<b>Проверяющий получил видео</b>
+Проверяющий: {review_request.reviewer.comment}
+Блогер: {review_request.video.task.implementer.comment}
+Курс: {review_request.video.task.theme.course.title}
+Тема: {review_request.video.task.theme.title}'''
     )
 
 
@@ -165,7 +169,12 @@ async def get_review(message:Message):
 
     await send_message_admins(
         bot=message.bot,
-        text=f'Видео пользователя @{user.username} на тему {review_request.video.task.theme.title} проверено.\n\n{text}',
+        text=f'''<b>Проверяющий отправил отзыв</b>
+Проверяющий: {user.comment}
+Блогер: {review_request.video.task.implementer.comment}
+Курс: {review_request.video.task.theme.course.title}
+Тема: {review_request.video.task.theme.title}
+Отзыв: {text}'''
     )
 
     await check_job_reviewers(message.bot)
@@ -191,9 +200,15 @@ async def get_review(message:Message):
         text=f'Закончена проверка вашего видео.\n\n{report}',
     )
 
+    await send_task(message.bot)
+
     await send_message_admins(
         bot=message.bot,
-        text=f'Видео пользователя @{task.implementer.username} на тему {task.theme.title} проверено полностью.'
+        text=f'''<b>Проверка видео завершена</b>
+Проверяющий: {user.comment}
+Блогер: {task.implementer.comment}
+Курс: {task.theme.course.title}
+Тема: {task.theme.title}'''
     )
 
 
@@ -243,9 +258,12 @@ async def add_reviewer(bot: Bot, video_id: int):
     vacant_reviewer_ids = get_vacant_reviewer_ids()
     
     if len(vacant_reviewer_ids) == 0:
+        theme = Video.get_by_id(video_id).task.theme
         await send_message_admins(
             bot=bot,
-            text=f'Закончились cвободные проверяющие, добавьте нового.',
+            text=f'''<b>Закончились cвободные проверяющие</b>
+Курс: {theme.course.title}
+Тема: {theme.title}'''
         )
         return
     else:
@@ -259,10 +277,12 @@ async def add_reviewer(bot: Bot, video_id: int):
 
         candidat_reviewer_ids = [i for i in vacant_reviewer_ids if i not in reviewer_ids]
         if len(candidat_reviewer_ids) == 0:
+            theme = Video.get_by_id(video_id).task.theme
             await send_message_admins(
                 bot=bot,
-                text=f'Нет кандидатов среди свободных проверяющих, добавьте нового. '
-                f'Тема: {Video.get_by_id(video_id).task.theme.title}'
+                text=f'''<b>Нет кандидатов среди свободных проверяющих</b>
+Курс: {theme.course.title}
+Тема: {theme.title}'''
             )
             return
 
@@ -292,9 +312,15 @@ async def check_reviewers(bot: Bot):
         except TelegramBadRequest as ex:
             print(ex, text)
         
+        rr: ReviewRequest = old_review_request
+        task: Task = rr.video.task
         await send_message_admins(
             bot=bot,
-            text=f'@{old_review_request.reviewer.username} просрочил тему {old_review_request.video.task.theme.title}'
+            text=f'''<b>Проверяющий просрочил тему</b>
+Проверяющий: {rr.reviewer.comment}
+Блогер: {task.implementer.comment}
+Курс: {task.theme.course.title}
+Тема: {task.theme.title}'''
         )
 
         await add_reviewer(bot, old_review_request.video_id)

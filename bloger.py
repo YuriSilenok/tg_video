@@ -67,7 +67,8 @@ async def bloger_on(message: Message):
 
     await send_message_admins(
         bot=message.bot,
-        text=f'Пользователь @{user.username} стал блогером'
+        text=f'''<b>Роль Блогер выдана</b>
+Пользователь: {user.comment}''',
     )
 
 
@@ -108,7 +109,8 @@ async def drop_bloger(bot:Bot, user: User):
 
     await send_message_admins(
         bot=bot,
-        text=f'Пользователь @{user.username} больше не блогер'
+        text=f'''<b>Роль Блогер снята</b>
+Пользователь: {user.comment}'''
     )
 
 @router.message(Command('bloger_off'))
@@ -290,5 +292,8 @@ async def upload_video(message: Message):
 
     await send_message_admins(
         bot=message.bot,
-        text=f'Пользователь @{user.username} прислал видео по теме {task.theme.title}'
+        text=f'''<b>Блогер прислал видео</b>
+Блогер: {user.comment}
+Курс: {task.theme.course.title}
+Тема: {task.theme.title}'''
     )

@@ -24,7 +24,8 @@ async def send_message_admins(bot:Bot, text: str):
     for admin in get_admins():
         await bot.send_message(
             chat_id=admin.tg_id,
-            text=text
+            text=text,
+            parse_mode='HTML'
         )
 
 
