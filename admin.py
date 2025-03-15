@@ -3,8 +3,8 @@ from aiogram import Bot, Router
 from aiogram.filters import Command
 from aiogram.types import Message
 from common import get_due_date, get_user
-from models import Role, User, UserCourse, UserRole, ReviewRequest, Task, Course, Theme
-from peewee import fn, JOIN
+from models import Review, Role, User, UserCourse, UserRole, ReviewRequest, Task, Course, Theme, Video
+from peewee import fn, JOIN, Case
 
 
 router = Router()
@@ -290,21 +290,28 @@ async def set_comment(message: Message):
 
 @router.message(Command('report_themes'))
 async def report_themes(message: Message):
-    text = '\n\n'.join([f'{i["due_date"]}|{i["status"]}|{i["course"]}|{i["theme"]}|@{i["user"]}' for i in
+    
+    text = '\n\n'.join([f'{i["status"]}|{i["due_date"]}|{i["overdue_count"]}|{i["pending_count"]}|{i["reviewed_count"]}\n'
+                        f'{i["course"]}|{i["theme"]}\n'
+                        f'@{i["user"]}' for i in
         Task
         .select(
             Task.status.alias('status'),
             Theme.title.alias('theme'),
             Course.title.alias('course'),
             User.username.alias('user'),
-            Task.due_date.alias('due_date')
+            Task.due_date.alias('due_date'),
+            fn.COUNT(Case(None, [(ReviewRequest.status == -1, 1)], None)).alias('overdue_count'),
+            fn.COUNT(Case(None, [(ReviewRequest.status == 0, 1)], None)).alias('pending_count'),
+            fn.COUNT(Case(None, [(ReviewRequest.status == 1, 1)], None)).alias('reviewed_count'),
         )
-        .join(Theme)
-        .join(Course)
-        .join(User, on=(Task.implementer==User.id))
-        .where(
-            (Task.status.between(0, 1))
-        )
+        .join(User, on=(Task.implementer == User.id))
+        .join(Theme, on=(Task.theme == Theme.id))
+        .join(Course, on=(Course.id==Theme.course))
+        .join(Video, JOIN.LEFT_OUTER, on=(Task.id == Video.task))
+        .join(ReviewRequest, JOIN.LEFT_OUTER, on=(ReviewRequest.video == Video.id))
+        .where(Task.status.between(0, 1))
+        .group_by(Task.id)
         .order_by(Task.status, Task.due_date)
         .dicts()
     ])
