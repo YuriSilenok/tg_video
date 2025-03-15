@@ -200,8 +200,6 @@ async def get_review(message:Message):
         text=f'Закончена проверка вашего видео.\n\n{report}',
     )
 
-    await send_task(message.bot)
-
     await send_message_admins(
         bot=message.bot,
         text=f'''<b>Проверка видео завершена</b>
@@ -210,6 +208,8 @@ async def get_review(message:Message):
 Курс: {task.theme.course.title}
 Тема: {task.theme.title}'''
     )
+
+    await send_task(message.bot)
 
 
 def get_old_reviewe_requests() -> List[ReviewRequest]:
