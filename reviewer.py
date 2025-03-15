@@ -3,7 +3,7 @@ from typing import List
 from aiogram import Bot, Router, F
 from aiogram.types import Message
 from aiogram.exceptions import TelegramBadRequest
-from peewee import fn
+from peewee import fn, JOIN
 
 from admin import send_message_admins, send_task
 from models import (
@@ -338,8 +338,13 @@ async def check_job_reviewers(bot: Bot):
         video_ids = [v.id for v in 
             Video
             .select(Video)
-            .join(ReviewRequest)
-            .where(ReviewRequest.status >= 0)
+            .join(ReviewRequest, JOIN.LEFT_OUTER, on=(ReviewRequest.video==Video.id))
+            .join(Task, on=(Task.id==Video.task))
+            .where(
+                (Task.status == 1) &
+                ((ReviewRequest.status >= 0) |
+                (ReviewRequest.status.is_null()))
+            )
             .group_by(Video.id)
             .having(fn.COUNT(Video.id) < 5)
         ]
