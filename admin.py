@@ -87,6 +87,20 @@ async def report_reviewers(message: Message):
     )
 
 
+@router.message(Command('report_blogers'))
+async def report_blogers(message: Message):
+    text = '\n'.join([f'{u.bloger_score} {u.comment}' for u in
+        User
+        .select(User)
+        .join(UserRole)
+        .join(Role)
+        .where(Role.name=='Блогер')
+    ])
+    await message.answer(
+        text=text
+    )
+
+
 @router.message(Command('add_role'))
 async def add_role(message: Message):
     user = await get_user(message.bot, message.from_user.id)
