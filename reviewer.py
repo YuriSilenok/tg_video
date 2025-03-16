@@ -277,13 +277,29 @@ async def add_reviewer(bot: Bot, video_id: int):
 
         candidat_reviewer_ids = [i for i in vacant_reviewer_ids if i not in reviewer_ids]
         if len(candidat_reviewer_ids) == 0:
+            # все проверяющие
+            all_reviewer_ids = get_reviewer_ids()
+            # занятые над других видео
+            other_job_reviews = '\n'.join([f'@{u.username}' for u in
+                User
+                .select(User)
+                .where(
+                    User.id.in_([i for i in all_reviewer_ids if i not in reviewer_ids])
+                )
+            ])
+            
+
             theme = Video.get_by_id(video_id).task.theme
             await send_message_admins(
                 bot=bot,
                 text=f'''<b>Нет кандидатов среди свободных проверяющих</b>
 Курс: {theme.course.title}
-Тема: {theme.title}'''
+Тема: {theme.title}
+Пнуть проверяющих:
+{other_job_reviews}
+'''
             )
+
             return
 
         due_date = get_due_date(hours=25)
@@ -335,6 +351,7 @@ async def check_job_reviewers(bot: Bot):
         .where(ReviewRequest.status==0)
     ]
     if len(reviewer_ids) < 5:
+        # видео у которых не хватает проверяющих
         video_ids = [v.id for v in 
             Video
             .select(Video)
