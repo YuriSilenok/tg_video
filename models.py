@@ -291,11 +291,11 @@ if __name__ == '__main__':
         update_bloger_score_and_rating(user)
     update_reviewers_rating()
 
-    # for theme in Theme.select():
-    #     title = theme.course.title
+    for theme in Theme.select():
+        title = theme.course.title
 
-    #     if theme.title.startswith(title):
-    #         if theme.title.startswith(f'{title} - '):
-    #             title = f'{title} - '
-    #         theme.title = theme.title.replace(title, '').strip()
-    #         theme.save()
+        if theme.title.startswith(title):
+            if theme.title.startswith(f'{title} - '):
+                title = f'{title} - '
+            theme.title = theme.title.replace(title, '').strip()
+            theme.save()
