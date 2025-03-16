@@ -151,8 +151,6 @@ def update_bloger_score_and_rating(bloger: User):
         .where(Task.implementer == bloger)
         .scalar()
     )
-    if bloger_rating is None:
-        return f'Ваш рейтинг: {bloger.bloger_rating}\n'
 
     bloger.bloger_rating = bloger_rating
     result = f'Ваш рейтинг: {bloger_rating}\n'
@@ -160,7 +158,10 @@ def update_bloger_score_and_rating(bloger: User):
     bloger_score = 0
     tasks = (Task
         .select()
-        .where(Task.implementer == bloger)
+        .where(
+            (Task.implementer == bloger) &
+            (Task.status.not_in([0,1]))
+        )
     )
     result += f'Видео которые Вы записали были оценены:\n'
     i = 0
@@ -171,7 +172,7 @@ def update_bloger_score_and_rating(bloger: User):
             bloger_score += score
             # print(task.theme.title, task.score, score, bloger_score)
             i+=1
-            result == f'{task.theme.title} {k}*{task.score}={score}\n'
+            result += f'{task.theme.title} {k}*{task.score}={score}\n'
     bloger.bloger_score = round(bloger_score, 2)
     bloger.save()
     result += f'ИТОГО БАЛЛОВ:{bloger.bloger_score}'

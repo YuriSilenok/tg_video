@@ -3,117 +3,46 @@ from typing import List
 from aiogram import Bot, Router, F
 from aiogram.types import Message
 from aiogram.exceptions import TelegramBadRequest
+from aiogram.filters import BaseFilter
 from peewee import fn, JOIN
 
-from admin import send_message_admins, send_task
+from admin import error_handler, send_message_admins, send_task
 from models import (
     Review, ReviewRequest, Role, Task, User, UserRole, Video,
     update_bloger_score_and_rating, update_reviewer_score, update_reviewers_rating, 
 )
-from common import get_due_date, get_user
+from common import IsUser, get_due_date, get_user
 
 
 router = Router()
 
 
-async def get_reviewer_user_role(bot: Bot, user: User):
-    """Проверяем наличие привилегии блогера"""
-    
-    # Наличие роли
-    role = Role.get_or_none(name='Проверяющий')
-    if role is None:
-        await bot.send_message(
-            chat_id=user.tg_id,
-            text=(
-                "Роль проверяющего не найдена! "
-                "Это проблема администратора! "
-                "Cообщите ему всё, что Вы о нем думаете. @YuriSilenok"
+class IsReviewer(IsUser):
+
+    role = Role.get(name='Проверяющий')    
+
+    async def __call__(self, message: Message) -> bool:
+        is_user = await super().__call__(message)
+        if not is_user:
+            return False
+
+        user_role = UserRole.get_or_none(
+            user=User.get(tg_id=message.from_user.id),
+            role=self.role
+        )
+        if user_role is None:
+            await message.answer(
+                text='У Вас нет привелегии проверяющего.'
             )
-        )
-        return None
-    
-    # Наличие роли у пользователя
-    user_role = UserRole.get_or_none(
-        user=user,
-        role=role,
-    )
-    if user_role is None:
-        await bot.send_message(
-            chat_id=user.tg_id,
-            text='Вы не являетесь проверяющим!'
-        )
-        return None
-
-    return user_role
+        return user_role is not None
 
 
-async def send_video(bot: Bot, review_request: ReviewRequest):
-    
-    text = f'Ваше видео на тему "{review_request.video.task.theme.title}" выдано на проверку'
-    try:
-        await bot.send_message(
-            chat_id=review_request.video.task.implementer.tg_id,
-            text=text,
-        )
-    except TelegramBadRequest as ex:
-        print(ex, text)
-
-    caption = (
-        f'Это видео нужно проверить до {review_request.due_date}.\n'
-        f'Курс: "{review_request.video.task.theme.course.title}"\n'
-        f'Тема: "{review_request.video.task.theme.title}"\n'
-        f'url: "{review_request.video.task.theme.url}"\n'
-        'Для оценки видео напишите одно сообщение '
-        'в начале которого будет оценка в интервале [0.0; 5.0], '
-        'а через пробел отзыв о видео'
-    )
-    try:
-        await bot.send_video(
-            chat_id=review_request.reviewer.tg_id,
-            video=review_request.video.file_id,
-            caption=caption
-        )
-    except TelegramBadRequest as ex:
-        print(ex, caption, sep='\n')
-
-    await send_message_admins(
-        bot=bot,
-        text=f'''<b>Проверяющий получил видео</b>
-Проверяющий: {review_request.reviewer.comment}
-Блогер: {review_request.video.task.implementer.comment}
-Курс: {review_request.video.task.theme.course.title}
-Тема: {review_request.video.task.theme.title}'''
-    )
-
-
-def update_task_score(task: Task):
-
-    task_score = sum([review.score for review in 
-        Review
-        .select(Review)
-        .join(ReviewRequest)
-        .join(Video)
-        .join(Task)
-        .where(Task.id==task.id)
-    ]) / 25
-
-    task.score = task_score
-    task.status = 2 if task_score >= 0.8 else -2
-    task.save()
-
-
-@router.message(F.text)
+@router.message(F.text, IsReviewer())
+@error_handler()
 async def get_review(message:Message):
     
-    user = await get_user(message.bot, message.from_user.id)
-    if user is None:
-        return
-    
-    user_role = await get_reviewer_user_role(message.bot, user)
-    if not user_role:
-        return
-    
     """Поиск запроса на проверку"""
+    user = User.get(tg_id=message.from_user.id)
     review_request: ReviewRequest = ReviewRequest.get_or_none(
         reviewer=user,
         status=0 # На проверке
@@ -203,13 +132,98 @@ async def get_review(message:Message):
     await send_message_admins(
         bot=message.bot,
         text=f'''<b>Проверка видео завершена</b>
-Проверяющий: {user.comment}
 Блогер: {task.implementer.comment}
 Курс: {task.theme.course.title}
 Тема: {task.theme.title}'''
     )
 
     await send_task(message.bot)
+
+
+async def get_reviewer_user_role(bot: Bot, user: User):
+    """Проверяем наличие привилегии блогера"""
+    
+    # Наличие роли
+    role = Role.get_or_none(name='Проверяющий')
+    if role is None:
+        await bot.send_message(
+            chat_id=user.tg_id,
+            text=(
+                "Роль проверяющего не найдена! "
+                "Это проблема администратора! "
+                "Cообщите ему всё, что Вы о нем думаете. @YuriSilenok"
+            )
+        )
+        return None
+    
+    # Наличие роли у пользователя
+    user_role = UserRole.get_or_none(
+        user=user,
+        role=role,
+    )
+    if user_role is None:
+        await bot.send_message(
+            chat_id=user.tg_id,
+            text='Вы не являетесь проверяющим!'
+        )
+        return None
+
+    return user_role
+
+
+async def send_video(bot: Bot, review_request: ReviewRequest):
+    
+    text = f'Ваше видео на тему "{review_request.video.task.theme.title}" выдано на проверку'
+    try:
+        await bot.send_message(
+            chat_id=review_request.video.task.implementer.tg_id,
+            text=text,
+        )
+    except TelegramBadRequest as ex:
+        print(ex, text)
+
+    caption = (
+        f'Это видео нужно проверить до {review_request.due_date}.\n'
+        f'Курс: "{review_request.video.task.theme.course.title}"\n'
+        f'Тема: "{review_request.video.task.theme.title}"\n'
+        f'url: "{review_request.video.task.theme.url}"\n'
+        'Для оценки видео напишите одно сообщение '
+        'в начале которого будет оценка в интервале [0.0; 5.0], '
+        'а через пробел отзыв о видео'
+    )
+    try:
+        await bot.send_video(
+            chat_id=review_request.reviewer.tg_id,
+            video=review_request.video.file_id,
+            caption=caption
+        )
+    except TelegramBadRequest as ex:
+        print(ex, caption, sep='\n')
+
+    await send_message_admins(
+        bot=bot,
+        text=f'''<b>Проверяющий получил видео</b>
+Проверяющий: {review_request.reviewer.comment}
+Блогер: {review_request.video.task.implementer.comment}
+Курс: {review_request.video.task.theme.course.title}
+Тема: {review_request.video.task.theme.title}'''
+    )
+
+
+def update_task_score(task: Task):
+
+    task_score = sum([review.score for review in 
+        Review
+        .select(Review)
+        .join(ReviewRequest)
+        .join(Video)
+        .join(Task)
+        .where(Task.id==task.id)
+    ]) / 25
+
+    task.score = task_score
+    task.status = 2 if task_score >= 0.8 else -2
+    task.save()
 
 
 def get_old_reviewe_requests() -> List[ReviewRequest]:
@@ -280,7 +294,7 @@ async def add_reviewer(bot: Bot, video_id: int):
             # все проверяющие
             all_reviewer_ids = get_reviewer_ids()
             # занятые над других видео
-            other_job_reviews = '\n'.join([f'@{u.username}' for u in
+            other_job_reviews = ', '.join([f'@{u.username}' for u in
                 User
                 .select(User)
                 .where(
@@ -295,8 +309,7 @@ async def add_reviewer(bot: Bot, video_id: int):
                 text=f'''<b>Нет кандидатов среди свободных проверяющих</b>
 Курс: {theme.course.title}
 Тема: {theme.title}
-Пнуть проверяющих:
-{other_job_reviews}
+Пнуть проверяющих: {other_job_reviews}
 '''
             )
 
@@ -340,6 +353,7 @@ async def check_reviewers(bot: Bot):
         )
 
         await add_reviewer(bot, old_review_request.video_id)
+        break
 
 
 async def check_job_reviewers(bot: Bot):

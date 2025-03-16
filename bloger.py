@@ -1,18 +1,48 @@
 """Взаимодействие с блогером"""
 
 from aiogram import Bot, Router, F
-from aiogram.filters import Command
+from aiogram.filters import Command, BaseFilter
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 
-from admin import get_admins, send_message_admins
+from admin import error_handler, get_admins, send_message_admins
 from models import (
     Course, Role, Task, Theme, UserCourse, UserRole, Video,
     User, TASK_STATUS, update_bloger_score_and_rating
 )
 from peewee import fn, JOIN
-from common import get_id, get_user
+from common import IsUser, get_id, get_user
 
 router = Router()
+
+
+class IsBloger(IsUser):
+
+    role = Role.get(name='Блогер')    
+
+    async def __call__(self, message: Message) -> bool:
+        is_user = await super().__call__(message)
+        if not is_user:
+            return False
+
+        user_role = UserRole.get_or_none(
+            user=User.get(tg_id=message.from_user.id),
+            role=self.role
+        )
+        if user_role is None:
+            await message.answer(
+                text='У Вас нет привелегии блогера.'
+            )
+        return user_role is not None
+
+
+class WaitVideo(BaseFilter):
+    async def __call__(self, message: Message) -> bool:
+        user = User.get(tg_id=message.from_user.id)
+        task = Task.get(
+            implementer=user,
+            status=0
+        )
+        return task is not None
 
 
 async def get_bloger_user_role(bot: Bot, user: User):
@@ -39,21 +69,13 @@ async def get_bloger_user_role(bot: Bot, user: User):
 
     return user_role
 
-@router.message(Command('bloger_on'))
+
+@router.message(Command('bloger_on'), IsUser())
+@error_handler()
 async def bloger_on(message: Message):
     """Пользователь подает заявку стать блогером"""
 
-    user = await get_user(message.bot, message.from_user.id)
-    if user is None:
-        return
-    
-    user_role = await get_bloger_user_role(message.bot, user)
-    if user_role:
-        await message.answer(
-            text='У вас уже есть роль блогера, ожидайте полчения темы.'
-        )
-        return
-
+    user = User.get(tg_id=message.from_user.id)
     UserRole.create(
         user=user,
         role=Role.get(name='Блогер'),
@@ -113,25 +135,20 @@ async def drop_bloger(bot:Bot, user: User):
 Пользователь: {user.comment}'''
     )
 
-@router.message(Command('bloger_off'))
+@router.message(Command('bloger_off'), IsBloger())
+@error_handler()
 async def bloger_off(message: Message):
 
-    user = await get_user(message.bot, message.from_user.id)
-    if user is None:
-        return
-    
+    user = User.get(tg_id=message.from_user.id)
     await drop_bloger(message.bot, user)
 
 
-@router.callback_query(F.data.startswith('del_task_yes_'))
+@router.callback_query(F.data.startswith('del_task_yes_'), IsBloger())
+@error_handler()
 async def del_task_yes(query: CallbackQuery):
     """Подтверждение в отказе делать задачу"""
 
     await query.message.delete()
-
-    user = await get_user(query.bot, query.from_user.id)
-    if user is None:
-        return
 
     task = Task.get_or_none(
         id=get_id(query.data)
@@ -153,6 +170,7 @@ async def del_task_yes(query: CallbackQuery):
     task.status = -1
     task.save()
 
+    user = User.get(tg_id=query.from_user.id)
     report = update_bloger_score_and_rating(user)
 
     await query.message.answer(
@@ -162,13 +180,11 @@ async def del_task_yes(query: CallbackQuery):
     await drop_bloger(query.bot, user)
 
 
-@router.message(Command('courses'))
+@router.message(Command('courses'), IsUser())
+@error_handler()
 async def show_courses(message: Message):
-    user = await get_user(message.bot, message.from_user.id)
-    if user is None:
-        return
-    
 
+    user = User.get(tg_id=message.from_user.id)
     query = (Course
         .select(Course)
         .join(Theme)
@@ -199,12 +215,10 @@ async def show_courses(message: Message):
         )
 
 
-@router.callback_query(F.data.startswith('add_user_course_'))
+@router.callback_query(F.data.startswith('add_user_course_'), IsBloger())
+@error_handler()
 async def add_user_course(query: CallbackQuery):
-    user = await get_user(query.bot, query.from_user.id)
-    if user is None:
-        return
-
+    user = await User.get(tg_id=query.from_user.id)
     course=Course.get_by_id(int(query.data[(query.data.rfind('_')+1):]))
     UserCourse.get_or_create(
         user=user,
@@ -224,12 +238,10 @@ async def add_user_course(query: CallbackQuery):
     )
 
 
-@router.callback_query(F.data.startswith('del_user_course_'))
+@router.callback_query(F.data.startswith('del_user_course_'), IsUser())
+@error_handler()
 async def del_user_course(query: CallbackQuery):
-    user = await get_user(query.bot, query.from_user.id)
-    if user is None:
-        return
-
+    user = await User.get(tg_id=query.from_user.id)
     course=Course.get_by_id(int(query.data[(query.data.rfind('_')+1):]))
     user_course = UserCourse.get_or_none(
         user=user,
@@ -253,12 +265,11 @@ async def del_user_course(query: CallbackQuery):
     )
     user_course.delete_instance()
 
-@router.message(F.video)
+
+@router.message(F.video, IsBloger(), WaitVideo())
+@error_handler()
 async def upload_video(message: Message):
-    user = await get_user(message.bot, message.from_user.id)
-    if user is None:
-        return
-    
+    user = await User.get(tg_id=message.from_user.id)
     tasks = (Task
         .select()
         .where(

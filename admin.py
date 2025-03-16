@@ -1,14 +1,67 @@
+import csv
+import functools
 from typing import List
-from aiogram import Bot, Router
+from aiogram import Bot, Router, F
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message
-from common import get_due_date, get_user
-from models import Review, Role, User, UserCourse, UserRole, ReviewRequest, Task, Course, Theme, Video
+from aiogram.exceptions import TelegramAPIError
 from peewee import fn, JOIN, Case
+
+from common import IsUser, get_due_date
+from models import Role, User, UserCourse, UserRole, ReviewRequest, Task, Course, Theme, Video, update_bloger_score_and_rating
 
 
 router = Router()
 
+
+class IsAdmin(IsUser):
+
+    role = Role.get(name='Админ')    
+
+    async def __call__(self, message: Message) -> bool:
+        is_user = await super().__call__(message)
+        if not is_user:
+            return False
+
+        user_role = UserRole.get_or_none(
+            user=User.get(tg_id=message.from_user.id),
+            role=self.role
+        )
+        if user_role is None:
+            await message.answer(
+                text='У Вас нет привелегии админа.'
+            )
+        return user_role is not None
+
+
+class UploadVideo(StatesGroup):
+    wait_upload = State()
+
+
+def error_handler():
+    """Декоратор для обработки ошибок в хэндлерах и отправки сообщения админу"""
+    def decorator(func):
+        @functools.wraps(func)
+        async def wrapper(message: Message, *args, **kwargs):
+            try:
+                return await func(message, *args, **kwargs)
+            except Exception as e:
+                print(f"Ошибка в хэндлере {func.__name__}: {e}")
+                error_text = f"🚨 <b>Ошибка в боте</b>\n\n📌 В хэндлере `{func.__name__}`\n❗ </b>Ошибка:</b> `{e}`"
+                
+                # Отправляем сообщение админу
+                try:
+                    await send_message_admins(
+                        bot=message.bot,
+                        text=error_text
+                    )
+                except TelegramAPIError:
+                    print("Не удалось отправить сообщение админу.")
+                await message.answer("❌ Произошла ошибка. Администратор уже уведомлён.")
+        return wrapper
+    return decorator
 
 
 async def send_task(bot: Bot):
@@ -41,7 +94,6 @@ async def send_task(bot: Bot):
         )
         .group_by(Course)
     )
-
 
     query = (
         User
@@ -106,21 +158,11 @@ async def send_task(bot: Bot):
 Тема: {theme.title}'''
                 )
 
-
-
     if len(table) == 0:
-        admins: List[User] = (
-            User
-            .select()
-            .join(UserRole)
-            .join(Role)
-            .where(Role.name=='Админ')
+        await send_message_admins(
+            bot=bot,
+            text='Нет свобоных тем или блогеров',
         )
-        for admin in admins:
-            await bot.send_message(
-                chat_id=admin.tg_id,
-                text='Нет свобоных тем или блогеров'
-            )
 
 
 def get_admins() -> List[User]:
@@ -128,64 +170,42 @@ def get_admins() -> List[User]:
         User
         .select(User)
         .join(UserRole)
-        .join(Role)
-        .where(Role.name=='Админ')
+        .where(UserRole.role==IsAdmin.role)
     )
 
 
 async def send_message_admins(bot:Bot, text: str):
     for admin in get_admins():
-        await bot.send_message(
-            chat_id=admin.tg_id,
-            text=text,
-            parse_mode='HTML'
-        )
-
-
-async def get_admin_user_role(bot: Bot, user: User):
-    """Проверяем наличие привилегии блогера"""
-    
-    # Наличие роли
-    role = Role.get_or_none(name='Админ')
-    if role is None:
-        await bot.send_message(
-            chat_id=user.tg_id,
-            text=(
-                "Роль администратора не найдена! "
-                "Это проблема администратора! "
-                "Cообщите ему всё, что Вы о нем думаете. @YuriSilenok"
+        try:
+            await bot.send_message(
+                chat_id=admin.tg_id,
+                text=text,
+                parse_mode='HTML'
             )
-        )
-        return None
-    
-    # Наличие роли у пользователя
-    user_role = UserRole.get_or_none(
-        user=user,
-        role=role,
-    )
-    if user_role is None:
-        await bot.send_message(
-            chat_id=user.tg_id,
-            text='Вы не являетесь администратором!'
-        )
-        return None
-
-    return user_role
+        except Exception as ex:
+            print(ex)
+            await bot.send_message(
+                chat_id=admin.tg_id,
+                text=text
+            )
 
 
-@router.message(Command('send_task'))
+@router.message(Command('send_task'), IsAdmin())
+@error_handler()
 async def st(message: Message):
     await send_task(message.bot)
 
 
-@router.message(Command('report_reviewers'))
+@router.message(Command('report_reviewers'), IsAdmin())
+@error_handler()
 async def report_reviewers(message: Message):
     reviewers = (
         User
         .select(
             User.comment.alias('fio'),
             User.reviewer_score.alias('score'),
-            fn.COUNT(ReviewRequest).alias('count')
+            User.reviewer_rating.alias('rating'),
+            fn.COUNT(ReviewRequest).alias('count'),
         )
         .join(UserRole)
         .join(Role)
@@ -195,10 +215,11 @@ async def report_reviewers(message: Message):
             (ReviewRequest.status == 1) # Видео проверено
         )
         .group_by(User)
+        .order_by(User.reviewer_rating)
     )
     result = 'Отчет о проверяющих\n\n'
     result += '\n'.join([
-        f"{i['count']} {i['score']} {i['fio']}" for i in reviewers.dicts()
+        f"{i['count']}|{i['score']}|{round(i['rating'], 2)}|{i['fio']}" for i in reviewers.dicts()
     ])
 
     await message.answer(
@@ -206,7 +227,8 @@ async def report_reviewers(message: Message):
     )
 
 
-@router.message(Command('report_blogers'))
+@router.message(Command('report_blogers'), IsAdmin())
+@error_handler()
 async def report_blogers(message: Message):
     text = '\n'.join([f'{u.bloger_score} {u.comment}' for u in
         User
@@ -220,15 +242,9 @@ async def report_blogers(message: Message):
     )
 
 
-@router.message(Command('add_role'))
+@router.message(Command('add_role'), IsAdmin())
+@error_handler()
 async def add_role(message: Message):
-    user = await get_user(message.bot, message.from_user.id)
-    if user is None:
-        return
-    
-    user_role = await get_admin_user_role(message.bot, user)
-    if not user_role:
-        return
     
     data = message.text.strip().replace('  ', '').split()
     if len(data) != 3:
@@ -260,15 +276,9 @@ async def add_role(message: Message):
     )
 
 
-@router.message(Command('set_comment'))
+@router.message(Command('set_comment'), IsAdmin())
+@error_handler()
 async def set_comment(message: Message):
-    user = await get_user(message.bot, message.from_user.id)
-    if user is None:
-        return
-    
-    user_role = await get_admin_user_role(message.bot, user)
-    if not user_role:
-        return
     
     data = message.text.strip().replace('  ', '').split(maxsplit=1)[1]
     data = data.split(maxsplit=1)
@@ -288,7 +298,8 @@ async def set_comment(message: Message):
     )
 
 
-@router.message(Command('report_themes'))
+@router.message(Command('report_themes'), IsAdmin())
+@error_handler()
 async def report_themes(message: Message):
     
     query = (
@@ -368,4 +379,107 @@ async def report_themes(message: Message):
     await message.answer(
         text='\n\n'.join(points),
         parse_mode='HTML',
+    )
+
+
+@router.message(F.document.file_name.endswith(".csv"), IsAdmin())
+@error_handler()
+async def add_course(message: Message, state: FSMContext):
+    doc = message.document
+    course_title = doc.file_name[:-4]
+    course, _ = Course.get_or_create(
+        title=course_title
+    )
+
+    file = await message.bot.download(doc.file_id)
+    try:
+        file.seek(0)  # Устанавливаем указатель в начало
+        table = csv.reader(file.read().decode("utf-8").splitlines())  # Читаем строки
+        
+        load_videos = []
+        for row in table:
+            theme_title = row[0]
+            theme_url = row[1]
+            theme, _ = Theme.get_or_create(
+                course=course,
+                title=theme_title,
+                url=theme_url
+            )
+            if len(row) > 2 and row[2] != '':
+                load_videos.append({
+                    'theme': theme.id,
+                    'title': theme.title,
+                    'implementer': row[2].replace('@', ''),
+                    'score': float(row[3].replace(',', '.')) if len(row) > 3 and row[3] != '' else 0.0,
+                    'status': 2 if len(row) > 3 and row[3] != '' else 1,
+                })
+
+        if len(load_videos) == 0:
+            await message.answer(
+                text='Загрузка видео не требуется',
+            )
+            return
+        
+        await state.set_data({
+            'load_videos': load_videos
+        })
+        await state.set_state(UploadVideo.wait_upload)
+        await message.answer(
+            text=f'Отправьте видео на тему "{load_videos[0]["title"]}"'
+        )
+        
+    except Exception as e:
+        await message.answer(f"Ошибка при чтении CSV: {e}")
+
+
+@router.message(F.video, IsAdmin(), UploadVideo.wait_upload)
+@error_handler()
+async def upload_video(message: Message, state: FSMContext):
+
+    data = await state.get_data()
+    load_videos = data['load_videos']
+    if len(load_videos) == 0:
+        await message.answer(
+            text='Все видео загружены',
+        )
+        return
+    
+    load_video = load_videos.pop(0)
+    implementer = User.get(username=load_video['implementer'])
+    theme = Theme.get(id=load_video['theme'])
+    status=load_video['status']
+    score=load_video['score']
+    task, _ = Task.get_or_create(
+        implementer=implementer,
+        theme=theme,
+        status=status,
+        score=score,
+        due_date=get_due_date(0)
+    )
+
+    Video.get_or_create(
+        task=task,
+        file_id=message.video.file_id,
+        duration=message.video.duration,
+    )
+
+    text = update_bloger_score_and_rating(implementer)
+    await message.bot.send_message(
+        chat_id=implementer.tg_id,
+        text=f'Видео на тему {theme.title} загружено администратором.\n\n{text}'
+    )
+
+    if len(load_videos) == 0:
+        await state.clear()
+        await message.answer(
+            text='Все видео загружены'
+        )
+        return
+
+    await state.set_data({
+        'load_videos': load_videos
+    })
+
+    await message.answer(
+        text=f'Отправьте видео на тему "{load_videos[0]["title"]}"'
     )

@@ -6,6 +6,7 @@ from aiogram.types import Message, Poll
 from aiogram.filters import Command
 from aiogram.exceptions import TelegramBadRequest
 
+from admin import error_handler
 from config import TG_CHANEL_ID
 from models import Course, Task, Theme, Poll as MPoll, Video
 from peewee import fn
@@ -13,23 +14,10 @@ from peewee import fn
 
 router = Router()
 
-async def send_video(bot:Bot, theme:Theme=None):
-    video: Video = (
-        Video
-        .select()
-        .join(Task)
-        .join(Theme)
-        .where(
-            (Task.status == 2) & (Task.theme_id == theme.id) if theme else (Task.status == 2)
-        )
-        .order_by(
-            Task.theme_id.asc(),
-            Task.score.desc(),
-        )
-        .limit(1)
-    ).first()
+async def send_video(bot:Bot, video:Video=None):
     if video is None:
         return
+    
     task = video.task
     theme = task.theme
     caption = (
@@ -43,28 +31,30 @@ async def send_video(bot:Bot, theme:Theme=None):
         parse_mode='HTML',
     )
     if video.duration == 0:
-        video.duration = message.video.duration
+        video.duration= message.video.duration
         video.save()
     task.status = 3
     task.save()
 
+@error_handler()
 async def send_poll(bot: Bot):
     """Отправить опрос"""
-    themes = (Course
+    themes = (Video
         .select(
-            Course.title.alias('course_title'),
-            Theme.title.alias('theme_title'),
-            fn.MIN(Theme.id).alias('theme_id'),
+            Video.id.alias('video'),
+            Theme.title.alias('theme'),
+            Course.title.alias('course')
         )
-        .join(Theme)
         .join(Task)
+        .join(Theme)
+        .join(Course)
         .where(Task.status==2)
         .group_by(Course.id)
         .limit(10)
     )
     
     if themes.count() >= 2:
-        options = [f'{row["course_title"]}|{row["theme_title"]}' for row in themes.dicts()]
+        options = [f'{row["video"]}|{row["course"]}|{row["theme"]}'[:100] for row in themes.dicts()]
         message: Message = await bot.send_poll(
             chat_id=TG_CHANEL_ID,
             question='Видео по каким темам Вы хотите увидеть следующим?',
@@ -93,16 +83,9 @@ def get_poll_theme() -> Tuple[MPoll, Theme]:
     for poll in polls:
         poll_result = eval(poll.result)
         course_theme_max = max(poll_result, key=poll_result.get)
-        course_theme = course_theme_max.split(sep='|', maxsplit=1)
-        course_title = course_theme[0]
-        theme_title = course_theme[1]
-        theme = Theme.get_or_none(
-            title=theme_title,
-            course=Course.get(title=course_title),
-        )
-        if theme is None:
-            print(f'ERROR: Опрос {poll.id}')
-        return (poll, theme)
+        video_id = int(course_theme_max.split(sep='|', maxsplit=1)[0])
+        video = Video.get_by_id(video_id)
+        return (poll, video.task.theme)
 
 
 async def loop(bot: Bot):
