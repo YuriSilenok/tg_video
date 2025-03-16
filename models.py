@@ -152,7 +152,7 @@ def update_bloger_score_and_rating(bloger: User):
         .scalar()
     )
 
-    bloger.bloger_rating = bloger_rating
+    bloger.bloger_rating = bloger_rating if bloger_rating else 0.8
     result = f'Ваш рейтинг: {bloger_rating}\n'
     
     bloger_score = 0
