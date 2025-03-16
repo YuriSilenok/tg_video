@@ -1,8 +1,11 @@
 """Взаимодействие с блогером"""
 
+from datetime import datetime
+from typing import List
 from aiogram import Bot, Router, F
 from aiogram.filters import Command, BaseFilter
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.exceptions import TelegramBadRequest
 
 from admin import error_handler, get_admins, send_message_admins
 from models import (
@@ -10,7 +13,7 @@ from models import (
     User, TASK_STATUS, update_bloger_score_and_rating
 )
 from peewee import fn, JOIN
-from common import IsUser, get_id, get_user
+from common import IsUser, get_id, get_due_date
 
 router = Router()
 
@@ -90,7 +93,7 @@ async def bloger_on(message: Message):
     await send_message_admins(
         bot=message.bot,
         text=f'''<b>Роль Блогер выдана</b>
-Пользователь: {user.comment}''',
+Пользователь: @{user.username}|{user.comment}''',
     )
 
 
@@ -308,3 +311,47 @@ async def upload_video(message: Message):
 Курс: {task.theme.course.title}
 Тема: {task.theme.title}'''
     )
+
+
+@router.callback_query(F.data.startswith('to_extend_'))
+async def to_extend(callback_query: CallbackQuery):
+    task_id = get_id(callback_query.data)
+    task: Task = Task.get_by_id(task_id)
+    task.due_date = get_due_date(25)
+    task.save()
+    await callback_query.message.answer(
+        text=f'Срок сдвинут до {task.due_date}'
+    )
+
+@error_handler()
+async def check_old_task(bot:Bot):
+    now = datetime.now()
+    old_tasks: List[Task] = (
+        Task
+        .select(Task)
+        .where(
+            (Task.status==0) &
+            (Task.due_date < now)
+        )
+    )
+    for task in old_tasks:
+        try:
+            await bot.send_message(
+                chat_id=task.implementer.tg_id,
+                text='У вас просрочена задача, хотите продлить?',
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[[
+                        InlineKeyboardButton(
+                            text='Продлить',
+                            callback_data=f'to_extend_{task.id}'
+                        )
+                    ]]
+                )
+            )
+        except TelegramBadRequest as ex:
+            print(ex, task.implementer.comment)
+
+async def loop(bot: Bot):
+    now = datetime.now()
+    if now.hour == 8:
+        await check_old_task(bot)

@@ -8,10 +8,10 @@ from aiogram import Bot, Dispatcher
 
 from config import *
 from user import router as user_router
-from bloger import router as bloger_router
 from admin import router as admin_router
 from reviewer import router as reviewer_router, loop as reviewer_loop
 from channel import router as channel_router, loop as channel_loop
+from bloger import router as bloger_router, loop as bloger_loop
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TG_TOKEN)
@@ -32,6 +32,7 @@ async def loop():
     while Singletone.LOOP:
         await channel_loop(bot)
         await reviewer_loop(bot)
+        await bloger_loop(bot)
         await sleep()
 
 
