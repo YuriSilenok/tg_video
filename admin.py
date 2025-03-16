@@ -347,11 +347,37 @@ async def report_themes(message: Message):
         point.append(
             ': '.join([
                 'Блогер',
-                row["user"],
+                row["user"].split(maxsplit=1)[0],
             ])
         )
+
+        if row['overdue_count'] > 0:
+            line = ['<b>Просрочили:</b>']
+
+            query2: List[ReviewRequest] = (
+                ReviewRequest
+                .select(ReviewRequest)
+                .where(
+                    (ReviewRequest.video==row['video']) &
+                    (ReviewRequest.status==-1)
+                )
+            )
+
+            for rr in query2:
+                line.append(
+                    '|'.join([
+                        (rr.reviewer.comment.split(maxsplit=1)[0] if rr.reviewer.comment else 'нет ФИО'),
+                        str(rr.due_date),
+                        str(round(rr.reviewer.reviewer_rating, 2)),
+                    ])
+                )
+            
+            point.append(
+                '\n'.join(line)
+            )
+
         if row['pending_count'] > 0:
-            line = ['<b>Проверяющие:</b>']
+            line = ['<b>Проверяет:</b>']
 
             query2: List[ReviewRequest] = (
                 ReviewRequest
@@ -374,6 +400,32 @@ async def report_themes(message: Message):
             point.append(
                 '\n'.join(line)
             )
+
+        if row['reviewed_count'] > 0:
+            line = ['<b>Проверили:</b>']
+
+            query2: List[ReviewRequest] = (
+                ReviewRequest
+                .select(ReviewRequest)
+                .where(
+                    (ReviewRequest.video==row['video']) &
+                    (ReviewRequest.status==1)
+                )
+            )
+
+            for rr in query2:
+                line.append(
+                    '|'.join([
+                        (rr.reviewer.comment.split(maxsplit=1)[0] if rr.reviewer.comment else 'нет ФИО'),
+                        str(rr.due_date),
+                        str(round(rr.reviewer.reviewer_rating, 2)),
+                    ])
+                )
+            
+            point.append(
+                '\n'.join(line)
+            )
+        
         points.append('\n'.join(point))
 
     await message.answer(

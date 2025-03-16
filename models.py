@@ -289,4 +289,13 @@ if __name__ == '__main__':
     for user in User.select():
         update_reviewer_score(user)
         update_bloger_score_and_rating(user)
-    update_reviewers_rating()   
+    update_reviewers_rating()
+
+    # for theme in Theme.select():
+    #     title = theme.course.title
+
+    #     if theme.title.startswith(title):
+    #         if theme.title.startswith(f'{title} - '):
+    #             title = f'{title} - '
+    #         theme.title = theme.title.replace(title, '').strip()
+    #         theme.save()
