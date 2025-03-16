@@ -221,8 +221,8 @@ async def show_courses(message: Message):
 @router.callback_query(F.data.startswith('add_user_course_'), IsBloger())
 @error_handler()
 async def add_user_course(query: CallbackQuery):
-    user = await User.get(tg_id=query.from_user.id)
-    course=Course.get_by_id(int(query.data[(query.data.rfind('_')+1):]))
+    user = User.get(tg_id=query.from_user.id)
+    course = Course.get_by_id(int(query.data[(query.data.rfind('_')+1):]))
     UserCourse.get_or_create(
         user=user,
         course=course,
