@@ -30,10 +30,6 @@ class IsReviewer(IsUser):
             user=User.get(tg_id=message.from_user.id),
             role=self.role
         )
-        if user_role is None:
-            await message.answer(
-                text='У Вас нет привелегии проверяющего.'
-            )
         return user_role is not None
 
 

@@ -29,10 +29,6 @@ class IsAdmin(IsUser):
             user=User.get(tg_id=message.from_user.id),
             role=self.role
         )
-        if user_role is None:
-            await message.answer(
-                text='У Вас нет привелегии админа.'
-            )
         return user_role is not None
 
 
@@ -230,12 +226,11 @@ async def report_reviewers(message: Message):
 @router.message(Command('report_blogers'), IsAdmin())
 @error_handler()
 async def report_blogers(message: Message):
-    text = '\n'.join([f'{u.bloger_score} {u.comment}' for u in
+    text = '\n'.join([f'{u.bloger_score}|{u.bloger_rating}|{u.comment}' for u in
         User
         .select(User)
-        .join(UserRole)
-        .join(Role)
-        .where(Role.name=='Блогер')
+        .where(User.bloger_score>0)
+        .order_by(User.bloger_score)
     ])
     await message.answer(
         text=text

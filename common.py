@@ -1,12 +1,27 @@
 from datetime import datetime, timedelta
 import functools
 from typing import List, Union
-from aiogram import Bot
+from aiogram import Bot, Router
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import BaseFilter
 
 from models import Course, Task, Theme, User, UserCourse, Role, UserRole
 from peewee import fn, JOIN
+
+
+router = Router()
+
+@router.message()
+async def other_message(message: Message):
+    await message.answer(
+        text='Вы совершили незарегистрированное действие, обратитесь к администратору'
+    )
+
+@router.callback_query()
+async def other_callback(callback: CallbackQuery):
+    await callback.message.answer(
+        text='Вы совершили незарегистрированное действие, обратитесь к администратору'
+    )
 
 class IsUser(BaseFilter):
     async def __call__(self, subject: Union[Message, CallbackQuery]):
