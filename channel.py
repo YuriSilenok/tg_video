@@ -69,7 +69,7 @@ async def send_poll(bot: Bot):
         return True
     return False
 
-def get_poll_theme() -> Tuple[MPoll, Theme]:
+def get_poll_theme() -> Tuple[MPoll, Video]:
     """Получить опрос и тему из опроса"""
 
     # выбираем опросы которые были созданы вчера
@@ -85,16 +85,16 @@ def get_poll_theme() -> Tuple[MPoll, Theme]:
         course_theme_max = max(poll_result, key=poll_result.get)
         video_id = int(course_theme_max.split(sep='|', maxsplit=1)[0])
         video = Video.get_by_id(video_id)
-        return (poll, video.task.theme)
+        return (poll, video)
 
 
 async def loop(bot: Bot):
     """Одна итерация вызываемая из бесконечного цикла"""
     now = datetime.now()
     if now.hour == 18:
-        poll_theme = get_poll_theme()
-        if poll_theme:
-            poll, theme = poll_theme
+        poll_video = get_poll_theme()
+        if poll_video:
+            poll, video = poll_video
             poll.stop = True
             poll.save()
             
@@ -106,7 +106,7 @@ async def loop(bot: Bot):
             except TelegramBadRequest as e:
                 print('channel loop \n', e)
             
-            await send_video(bot, theme)
+            await send_video(bot, video)
         else:
             await send_video(bot)
     if now.hour == 19:
