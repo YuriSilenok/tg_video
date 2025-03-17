@@ -230,7 +230,7 @@ async def report_blogers(message: Message):
         User
         .select(User)
         .where(User.bloger_score>0)
-        .order_by(User.bloger_score)
+        .order_by(User.bloger_rating.desc())
     ])
     await message.answer(
         text=text
