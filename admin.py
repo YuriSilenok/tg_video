@@ -226,7 +226,7 @@ async def report_reviewers(message: Message):
 @router.message(Command('report_blogers'), IsAdmin())
 @error_handler()
 async def report_blogers(message: Message):
-    text = '\n'.join([f'{u.bloger_score}|{u.bloger_rating}|{u.comment}' for u in
+    text = '\n'.join([f'{u.bloger_score}|{round(u.bloger_rating, 2)}|{u.comment}' for u in
         User
         .select(User)
         .where(User.bloger_score>0)
