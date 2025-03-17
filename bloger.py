@@ -244,7 +244,7 @@ async def add_user_course(query: CallbackQuery):
 @router.callback_query(F.data.startswith('del_user_course_'), IsUser())
 @error_handler()
 async def del_user_course(query: CallbackQuery):
-    user = await User.get(tg_id=query.from_user.id)
+    user = User.get(tg_id=query.from_user.id)
     course=Course.get_by_id(int(query.data[(query.data.rfind('_')+1):]))
     user_course = UserCourse.get_or_none(
         user=user,
@@ -272,7 +272,7 @@ async def del_user_course(query: CallbackQuery):
 @router.message(F.video, IsBloger(), WaitVideo())
 @error_handler()
 async def upload_video(message: Message):
-    user = await User.get(tg_id=message.from_user.id)
+    user = User.get(tg_id=message.from_user.id)
     tasks = (Task
         .select()
         .where(
