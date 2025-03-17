@@ -226,12 +226,26 @@ async def report_reviewers(message: Message):
 @router.message(Command('report_blogers'), IsAdmin())
 @error_handler()
 async def report_blogers(message: Message):
-    text = '\n'.join([f'{u.bloger_score}|{round(u.bloger_rating, 2)}|{u.comment}' for u in
+    points = []
+    blogers = (
         User
         .select(User)
-        .where(User.bloger_score>0)
+        .where(User.bloger_score > 0)
         .order_by(User.bloger_rating.desc())
-    ])
+    )
+    for bloger in blogers:
+        points.append(
+            '\n'.join([
+                f'{bloger.bloger_score}|{round(bloger.bloger_rating, 2)}|{bloger.comment}',
+                '|'.join([uc.course.title for uc in
+                    UserCourse
+                    .select(UserCourse)
+                    .where((UserCourse.user_id == bloger.id))
+                ])
+            ])
+        )
+
+    text = '\n\n'.join(points)
     await message.answer(
         text=text
     )

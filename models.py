@@ -148,7 +148,10 @@ def update_bloger_score_and_rating(bloger: User):
 
     bloger_rating = (Task
         .select(fn.AVG(Task.score))
-        .where(Task.implementer == bloger)
+        .where(
+            (Task.implementer == bloger) &
+            (Task.status.not_in([0,1]))
+        )
         .scalar()
     )
 
