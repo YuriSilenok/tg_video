@@ -10,7 +10,7 @@ from aiogram.exceptions import TelegramAPIError
 from peewee import fn, JOIN, Case
 
 from common import IsUser, get_due_date
-from models import Role, User, UserCourse, UserRole, ReviewRequest, Task, Course, Theme, Video, update_bloger_score_and_rating
+from models import TASK_STATUS, Role, User, UserCourse, UserRole, ReviewRequest, Task, Course, Theme, Video, update_bloger_score_and_rating
 
 
 router = Router()
@@ -234,15 +234,35 @@ async def report_blogers(message: Message):
         .order_by(User.bloger_rating.desc())
     )
     for bloger in blogers:
-        points.append(
-            '\n'.join([
-                f'{bloger.bloger_score}|{round(bloger.bloger_rating, 2)}|{bloger.comment}',
-                '|'.join([uc.course.title for uc in
-                    UserCourse
-                    .select(UserCourse)
-                    .where((UserCourse.user_id == bloger.id))
+        point = [f'{bloger.bloger_score}|{round(bloger.bloger_rating, 2)}|{bloger.comment}']
+        
+        task = (
+            Task
+            .select(Task)
+            .where(
+                (Task.implementer == bloger.id) &
+                (Task.status.in_([0, 1]))
+            )
+            .first()
+        )
+        if task:
+            point.append(
+                '|'.join([
+                    task.theme.course.title,
+                    task.theme.title,
+                    *([TASK_STATUS[task.status], str(task.due_date)] if task.status==0 else [TASK_STATUS[task.status]])
                 ])
-            ])
+            )
+        
+        line = [uc.course.title for uc in
+            UserCourse
+            .select(UserCourse)
+            .where((UserCourse.user_id == bloger.id))
+        ]
+        if line:
+            point.append('|'.join(line))
+        points.append(
+            '\n'.join(point)
         )
 
     text = '\n\n'.join(points)
