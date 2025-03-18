@@ -328,7 +328,7 @@ async def check_reviewers(bot: Bot):
     for old_review_request in old_review_requests:
         old_review_request.status = -1
         old_review_request.save()
-        text = 'Задача на проверку с вас снята, ожидайте новую.'
+        text = 'Задача на проверку с Вас снята, ожидайте новую.'
         try:
             await bot.send_message(
                 chat_id=old_review_request.reviewer.tg_id,
@@ -347,6 +347,7 @@ async def check_reviewers(bot: Bot):
 Курс: {task.theme.course.title}
 Тема: {task.theme.title}'''
         )
+        update_reviewers_rating()
 
         await add_reviewer(bot, old_review_request.video_id)
         break
