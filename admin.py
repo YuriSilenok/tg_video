@@ -441,6 +441,7 @@ async def report_themes(message: Message):
             User.comment.alias('user'),
             Task.due_date.alias('due_date'),
             Video.id.alias('video'),
+            Video.at_created.alias('video_at_created'),
             fn.COUNT(Case(None, [(ReviewRequest.status == -1, 1)], None)).alias('overdue_count'),
             fn.COUNT(Case(None, [(ReviewRequest.status == 0, 1)], None)).alias('pending_count'),
             fn.COUNT(Case(None, [(ReviewRequest.status == 1, 1)], None)).alias('reviewed_count'),
@@ -452,14 +453,14 @@ async def report_themes(message: Message):
         .join(ReviewRequest, JOIN.LEFT_OUTER, on=(ReviewRequest.video == Video.id))
         .where(Task.status.between(0, 1))
         .group_by(Task.id)
-        .order_by(Task.due_date)
+        .order_by(Case(None, [(Task.status==0, Task.due_date)], Video.at_created))
     )
     points = []
     for row in query.dicts():
         point = []
         line = [
             TASK_STATUS[row["status"]],
-            str(row["due_date"]),
+            str(row["due_date"] if row['status'] == 0 else row['video_at_created']),
         ]
         if row['status'] == 1:
             line.extend([

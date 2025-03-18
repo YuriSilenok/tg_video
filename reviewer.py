@@ -375,7 +375,7 @@ async def check_job_reviewers(bot: Bot):
                 (ReviewRequest.status.is_null()))
             )
             .group_by(Video.id)
-            .order_by(Task.due_date)
+            .order_by(Video.at_created)
             .having(fn.COUNT(Video.id) < 5)
         ]
         for video_id in video_ids:
