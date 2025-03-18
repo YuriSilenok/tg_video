@@ -5,7 +5,7 @@ from aiogram import Bot, Router, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 from aiogram.exceptions import TelegramAPIError
 from peewee import fn, JOIN, Case
 
@@ -40,22 +40,38 @@ def error_handler():
     """Декоратор для обработки ошибок в хэндлерах и отправки сообщения админу"""
     def decorator(func):
         @functools.wraps(func)
-        async def wrapper(message: Message, *args, **kwargs):
+        async def wrapper(*args, **kwargs):
             try:
-                return await func(message, *args, **kwargs)
+                return await func(*args, **kwargs)
             except Exception as e:
                 print(f"Ошибка в хэндлере {func.__name__}: {e}")
-                error_text = f"🚨 <b>Ошибка в боте</b>\n\n📌 В хэндлере `{func.__name__}`\n❗ </b>Ошибка:</b> `{e}`"
+                if len(args) == 0:
+                    return None
+                bot: Bot = None
+                message: Message = None
+                if isinstance(args[0], Message) or isinstance(args[0], CallbackQuery):
+                    bot = args[0].bot
+                    message = args[0]
+                elif isinstance(args[0], Bot):
+                    bot = args[0]
                 
+                if bot is None:
+                    return None
+                 
+                error_text = f"🚨 <b>Ошибка в боте</b>\n\n📌 В хэндлере `{func.__name__}`\n❗ </b>Ошибка:</b> `{e}`"
                 # Отправляем сообщение админу
                 try:
                     await send_message_admins(
-                        bot=message.bot,
+                        bot=bot,
                         text=error_text
                     )
                 except TelegramAPIError:
                     print("Не удалось отправить сообщение админу.")
-                await message.answer("❌ Произошла ошибка. Администратор уже уведомлён.")
+                
+                if message:
+                    await message.send_message.answer(
+                        text="❌ Произошла ошибка. Администратор уже уведомлён."
+                    )
         return wrapper
     return decorator
 

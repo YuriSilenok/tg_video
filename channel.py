@@ -70,7 +70,7 @@ async def send_poll(bot: Bot):
         return True
     return False
 
-@error_handler()
+
 def get_poll_theme() -> Tuple[MPoll, Video]:
     """Получить опрос и тему из опроса"""
 
