@@ -22,7 +22,7 @@ async def send_video(bot:Bot, video:Video=None):
     task = video.task
     theme = task.theme
     caption = (
-            f'Курс: #{theme.course.title.replace(" ", "_")}\n'
+            f'Курс: #{theme.course.title.replace(" ", "_").replace('.','')}\n'
             f'Тема: <a href="{theme.url}">{theme.title}</a>'
     )
     message = await bot.send_video(
