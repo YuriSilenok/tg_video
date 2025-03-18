@@ -9,7 +9,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.exceptions import TelegramAPIError
 from peewee import fn, JOIN, Case
 
-from common import IsUser, get_due_date
+from common import IsUser, get_date_time
 from models import *
 
 
@@ -129,7 +129,7 @@ async def send_task(bot: Bot):
         .order_by(User.bloger_rating.desc(), fn.AVG(Task.score).desc())
     )
 
-    due_date = get_due_date(hours=73)
+    due_date = get_date_time(hours=73)
     user_ids = []
     course_ids = []
     table = query.dicts()
@@ -571,7 +571,7 @@ async def upload_video(message: Message, state: FSMContext):
         theme=theme,
         status=status,
         score=score,
-        due_date=get_due_date(0)
+        due_date=get_date_time(0)
     )
 
     Video.get_or_create(

@@ -11,7 +11,7 @@ from models import (
     Review, ReviewRequest, Role, Task, User, UserRole, Video,
     update_bloger_score_and_rating, update_reviewer_score, update_reviewers_rating, 
 )
-from common import IsUser, get_due_date, get_user
+from common import IsUser, get_date_time, get_user
 
 
 router = Router()
@@ -311,7 +311,7 @@ async def add_reviewer(bot: Bot, video_id: int):
 
             return
 
-        due_date = get_due_date(hours=25)
+        due_date = get_date_time(hours=25)
         review_request = ReviewRequest.create(
             reviewer_id=candidat_reviewer_ids[0],
             video_id=video_id,

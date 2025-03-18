@@ -46,7 +46,7 @@ async def get_user(bot: Bot, tg_id: int) -> User:
         )
     return user
 
-def get_due_date(hours:int):
+def get_date_time(hours:int=0):
     due_date = datetime.now()
     due_date = datetime(
         year=due_date.year,

@@ -1,6 +1,6 @@
 """Взаимодействие с блогером"""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List
 from aiogram import Bot, Router, F
 from aiogram.filters import Command, BaseFilter
@@ -13,7 +13,7 @@ from models import (
     User, TASK_STATUS, update_bloger_score_and_rating
 )
 from peewee import fn, JOIN
-from common import IsUser, get_id, get_due_date
+from common import IsUser, get_id, get_date_time
 
 router = Router()
 
@@ -342,28 +342,29 @@ async def upload_video(message: Message):
 async def to_extend(callback_query: CallbackQuery):
     task_id = get_id(callback_query.data)
     task: Task = Task.get_by_id(task_id)
-    task.due_date = get_due_date(25)
+    task.due_date += timedelta(days=1)
     task.save()
-    await callback_query.message.answer(
-        text=f'Срок сдвинут до {task.due_date}'
+    await callback_query.message.edit_text(
+        text=f'Срок сдвинут до {task.due_date}',
+        reply_markup=None,
     )
 
 @error_handler()
 async def check_old_task(bot:Bot):
-    now = datetime.now()
+    dd = get_date_time(24)
     old_tasks: List[Task] = (
         Task
         .select(Task)
         .where(
             (Task.status==0) &
-            (Task.due_date < now)
+            (Task.due_date == dd)
         )
     )
     for task in old_tasks:
         try:
             await bot.send_message(
                 chat_id=task.implementer.tg_id,
-                text='У вас просрочена задача, хотите продлить?',
+                text='До окончания срока осталось 24 часа. Воспользуйтесь этой кнопкой, что бы продлить срок на сутки',
                 reply_markup=InlineKeyboardMarkup(
                     inline_keyboard=[[
                         InlineKeyboardButton(
@@ -377,6 +378,4 @@ async def check_old_task(bot:Bot):
             print(ex, task.implementer.comment)
 
 async def loop(bot: Bot):
-    now = datetime.now()
-    if now.hour == 8:
-        await check_old_task(bot)
+    await check_old_task(bot)
