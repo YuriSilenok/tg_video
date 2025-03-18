@@ -10,7 +10,7 @@ from aiogram.exceptions import TelegramAPIError
 from peewee import fn, JOIN, Case
 
 from common import IsUser, get_due_date
-from models import TASK_STATUS, Role, User, UserCourse, UserRole, ReviewRequest, Task, Course, Theme, Video, update_bloger_score_and_rating
+from models import TASK_STATUS, Role, User, UserCourse, UserRole, ReviewRequest, Task, Course, Theme, Video, update_bloger_score_and_rating, update_reviewer_score
 
 
 router = Router()
@@ -466,48 +466,56 @@ async def report_themes(message: Message):
 @router.message(F.document.file_name.endswith(".csv"), IsAdmin())
 @error_handler()
 async def add_course(message: Message, state: FSMContext):
-    doc = message.document
-    course_title = doc.file_name[:-4]
-    course, _ = Course.get_or_create(
-        title=course_title
-    )
 
-    file = await message.bot.download(doc.file_id)
+    file = await message.bot.download(message.document.file_id)
     try:
         file.seek(0)  # Устанавливаем указатель в начало
         table = csv.reader(file.read().decode("utf-8").splitlines())  # Читаем строки
         
         load_videos = []
         for row in table:
-            theme_title = row[0]
-            theme_url = row[1]
+            course_title = row[0]
+            if not course_title:
+                break
+
+            course, _ = Course.get_or_create(
+                title=course_title
+            )
+            theme_title = row[1]
+            theme_url = row[2]
             theme, _ = Theme.get_or_create(
                 course=course,
                 title=theme_title,
                 url=theme_url
             )
-            if len(row) > 2 and row[2] != '':
+
+            theme_complexity = float(row[3].replace(',', '.'))
+            if theme.complexity != theme_complexity:
+                theme.complexity = theme_complexity
+                theme.save()
+
+            if len(row) > 4 and row[4] != '':
                 load_videos.append({
                     'theme': theme.id,
                     'title': theme.title,
-                    'implementer': row[2].replace('@', ''),
-                    'score': float(row[3].replace(',', '.')) if len(row) > 3 and row[3] != '' else 0.0,
-                    'status': 2 if len(row) > 3 and row[3] != '' else 1,
+                    'implementer': row[5].replace('@', ''),
+                    'score': float(row[5].replace(',', '.')) if len(row) > 5 and row[5] != '' else 0.0,
+                    'status': 2 if len(row) > 5 and row[5] != '' else 1,
                 })
 
         if len(load_videos) == 0:
             await message.answer(
-                text='Загрузка видео не требуется',
+                text='Темы курса загружены. Загрузка видео не требуется',
             )
-            return
-        
-        await state.set_data({
-            'load_videos': load_videos
-        })
-        await state.set_state(UploadVideo.wait_upload)
-        await message.answer(
-            text=f'Отправьте видео на тему "{load_videos[0]["title"]}"'
-        )
+
+        else:            
+            await state.set_data({
+                'load_videos': load_videos
+            })
+            await state.set_state(UploadVideo.wait_upload)
+            await message.answer(
+                text=f'Отправьте видео на тему "{load_videos[0]["title"]}"'
+            )
         
     except Exception as e:
         await message.answer(f"Ошибка при чтении CSV: {e}")

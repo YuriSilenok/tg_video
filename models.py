@@ -166,19 +166,19 @@ def update_bloger_score_and_rating(bloger: User):
             (Task.status.not_in([0,1]))
         )
     )
-    result += f'Видео которые Вы записали были оценены:\n'
+    result += f'Видео которые Вы записали были оценены:\n\n'
     i = 0
     for task in tasks:
-        for _ in range(task.theme.complexity):
-            k = 1.05**i
-            score = task.score * k
-            bloger_score += score
-            # print(task.theme.title, task.score, score, bloger_score)
-            i+=1
-            result += f'{task.theme.title} {k}*{task.score}={score}\n'
+        k = 1.05**i
+        complexity = task.theme.complexity
+        score = task.score * k * complexity
+        bloger_score += score
+        i+=1
+        result +=  f'{task.theme.title}\ns*k*c={round(task.score, 4)}*{round(k, 4)}*{complexity}={score}\n\n'
+    result += f's = Оценка за видео, k=за стаж, с=за объем материала\n'
     bloger.bloger_score = round(bloger_score, 2)
     bloger.save()
-    result += f'ИТОГО БАЛЛОВ:{bloger.bloger_score}'
+    result += f'ИТОГО БАЛЛОВ: {bloger.bloger_score}'
     return result
 
 
