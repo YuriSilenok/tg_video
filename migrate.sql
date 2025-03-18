@@ -1,44 +1,43 @@
 PRAGMA foreign_keys = 0;
 
 CREATE TABLE sqlitestudio_temp_table AS SELECT *
-                                          FROM user;
+                                          FROM theme;
 
-DROP TABLE user;
+DROP TABLE theme;
 
-CREATE TABLE user (
-    id              INTEGER       NOT NULL
-                                  PRIMARY KEY,
-    tg_id           INTEGER       NOT NULL,
-    username        VARCHAR (255) UNIQUE,
-    bloger_rating   REAL          NOT NULL
-                                  DEFAULT (0.8),
-    bloger_score    REAL          NOT NULL
-                                  DEFAULT (0),
-    reviewer_score  REAL          DEFAULT (0) 
-                                  NOT NULL,
-    comment         VARCHAR (255),
-    reviewer_rating REAL          NOT NULL
-                                  DEFAULT (0) 
+CREATE TABLE theme (
+    id         INTEGER       NOT NULL
+                             PRIMARY KEY,
+    course_id  INTEGER       NOT NULL,
+    title      VARCHAR (255) NOT NULL,
+    url        VARCHAR (255) NOT NULL,
+    complexity REAL          NOT NULL
+                             DEFAULT (1),
+    FOREIGN KEY (
+        course_id
+    )
+    REFERENCES course (id) ON DELETE CASCADE
+                           ON UPDATE CASCADE
 );
 
-INSERT INTO user (
-                     id,
-                     tg_id,
-                     username,
-                     bloger_rating,
-                     bloger_score,
-                     reviewer_score,
-                     comment
-                 )
-                 SELECT id,
-                        tg_id,
-                        username,
-                        bloger_rating,
-                        bloger_score,
-                        reviewer_score,
-                        comment
-                   FROM sqlitestudio_temp_table;
+INSERT INTO theme (
+                      id,
+                      course_id,
+                      title,
+                      url,
+                      complexity
+                  )
+                  SELECT id,
+                         course_id,
+                         title,
+                         url,
+                         complexity
+                    FROM sqlitestudio_temp_table;
 
 DROP TABLE sqlitestudio_temp_table;
+
+CREATE INDEX theme_course_id ON theme (
+    "course_id"
+);
 
 PRAGMA foreign_keys = 1;

@@ -70,7 +70,7 @@ class Theme(Table):
     course = ForeignKeyField(Course, **CASCADE)
     title = CharField()
     url = CharField()
-    complexity = IntegerField(default=1)
+    complexity = FloatField(default=1.0)
 
 
 class Task(Table):
