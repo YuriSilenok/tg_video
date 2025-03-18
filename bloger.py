@@ -348,6 +348,14 @@ async def to_extend(callback_query: CallbackQuery):
         text=f'Срок сдвинут до {task.due_date}',
         reply_markup=None,
     )
+    await send_message_admins(
+        bot=callback_query.bot,
+        text=f'''<b>Блогер продлил срок</b>
+Блогер: {task.implementer.comment}
+Курс: {task.theme.course.title}
+Тема: {task.theme.title}
+Срок: {task.due_date}'''
+    )
 
 @error_handler()
 async def check_old_task(bot:Bot):
