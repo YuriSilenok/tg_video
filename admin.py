@@ -460,13 +460,13 @@ async def report_themes(message: Message):
         point = []
         line = [
             TASK_STATUS[row["status"]],
-            str(row["due_date"] if row['status'] == 0 else row['video_at_created']),
+            (row["due_date"] if row['status'] == 0 else row['video_at_created']).strftime("%Y-%m-%d %H:%M"),
         ]
         if row['status'] == 1:
             line.extend([
-                str(row["overdue_count"]),
-                str(row["pending_count"]),
-                str(row["reviewed_count"]),
+                '❌'*row["overdue_count"],
+                '⚡'*row["pending_count"],
+                '✅'*row["reviewed_count"],
             ])
         point.append('|'.join(line))
         point.append(
@@ -498,7 +498,7 @@ async def report_themes(message: Message):
                 line.append(
                     '|'.join([
                         (rr.reviewer.comment.split(maxsplit=1)[0] if rr.reviewer.comment else 'нет ФИО'),
-                        str(rr.due_date),
+                        (rr.due_date).strftime("%Y-%m-%d %H:%M"),
                         str(round(rr.reviewer.reviewer_rating, 2)),
                     ])
                 )
@@ -523,7 +523,7 @@ async def report_themes(message: Message):
                 line.append(
                     '|'.join([
                         (rr.reviewer.comment.split(maxsplit=1)[0] if rr.reviewer.comment else 'нет ФИО'),
-                        str(rr.due_date),
+                        (rr.due_date).strftime("%Y-%m-%d %H:%M"),
                         str(round(rr.reviewer.reviewer_rating, 2)),
                     ])
                 )
@@ -548,7 +548,7 @@ async def report_themes(message: Message):
                 line.append(
                     '|'.join([
                         (rr.reviewer.comment.split(maxsplit=1)[0] if rr.reviewer.comment else 'нет ФИО'),
-                        str(rr.due_date),
+                        (rr.due_date).strftime("%Y-%m-%d %H:%M"),
                         str(round(rr.reviewer.reviewer_rating, 2)),
                     ])
                 )
