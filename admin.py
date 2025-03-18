@@ -100,6 +100,12 @@ AND NOT user.id IN (
     FROM user
     INNER JOIN task ON task.implementer_id=user.id
     WHERE task.status BETWEEN 0 and 1)
+AND NOT course.id IN (
+    SELECT theme.course_id
+    from theme
+    inner join task on task.theme_id=theme.id
+    where task.status between 0 and 1
+    group by theme.course_id)
 GROUP BY user.id, course.id
 ORDER BY user.bloger_rating DESC, 
 CASE WHEN (AVG(ucs.score) IS NULL) THEN user.bloger_rating ELSE AVG(ucs.score) END DESC
@@ -153,6 +159,23 @@ where not theme.id IN (
         .group_by(Task.implementer, Theme.course)
     )
 
+
+    ''' занятые курсы
+AND NOT course.id IN (
+    SELECT theme.course_id
+    from theme
+    inner join task on task.theme_id=theme.id
+    where task.status between 0 and 1
+    group by theme.course_id)
+    '''
+    subquery4 = (
+        Theme
+        .select(Theme.course)
+        .join(Task)
+        .where(Task.status.between(0, 1))
+        .group_by(Theme.course)
+    )
+
     query = (
         User
         .select(
@@ -173,7 +196,8 @@ where not theme.id IN (
         )
         .where(
             (~(Theme.id << subquery2)) &
-            (~(User.id << subquery))
+            (~(User.id << subquery)) &
+            (~(Course.id << subquery4))
         )
         .group_by(User.id, Course.id)
         .order_by(
