@@ -244,6 +244,8 @@ def update_reviewers_rating():
         .group_by(ReviewRequest.reviewer)
         .dicts()
     }
+    if len(reviewer_overs) == 0:
+        return None
     max_reviewer = max(reviewer_overs, key=reviewer_overs.get)
     max_reviewer_over = reviewer_overs[max_reviewer]
 

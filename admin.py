@@ -6,7 +6,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery
-from aiogram.exceptions import TelegramAPIError
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from peewee import fn, JOIN, Case
 
 from common import IsUser, get_date_time
@@ -78,15 +78,56 @@ def error_handler():
 
 async def send_task(bot: Bot):
 
+    '''
+select user.username, course.id, course.title, theme.title, user.bloger_rating, ucs.score, CASE WHEN (AVG(ucs.score) IS NULL) THEN user.bloger_rating ELSE AVG(ucs.score) END DESC
+from user
+inner join usercourse on usercourse.user_id=user.id
+inner join course on course.id=usercourse.course_id
+inner join theme on theme.course_id=course.id
+left join (
+    select task.implementer_id as user_id, theme.course_id as course_id, avg(task.score) as score
+    from task
+    inner join theme on task.theme_id=theme.id
+    group by task.implementer_id, theme.course_id
+) as ucs on ucs.user_id=user.id and ucs.course_id=course.id
+where not theme.id IN (
+    SELECT theme.id 
+    FROM theme 
+    INNER JOIN task ON task.theme_id=theme.id 
+    WHERE task.status >= 0)
+AND NOT user.id IN (
+    SELECT user.id
+    FROM user
+    INNER JOIN task ON task.implementer_id=user.id
+    WHERE task.status BETWEEN 0 and 1)
+GROUP BY user.id, course.id
+ORDER BY user.bloger_rating DESC, 
+CASE WHEN (AVG(ucs.score) IS NULL) THEN user.bloger_rating ELSE AVG(ucs.score) END DESC
+'''
+
     # Исполнители, которые заняты
+    '''
+AND NOT user.id IN (
+    SELECT user.id
+    FROM user
+    INNER JOIN task ON task.implementer_id=user.id
+    WHERE task.status BETWEEN 0 and 1)
+    '''
     subquery = (
         User
         .select(User.id)
         .join(Task, on=(Task.implementer == User.id))
-        .where((Task.status >= 0) & (Task.status <= 1))
+        .where(Task.status.between(0, 1))
     )
 
     # Темы которые выданы, на проверке, готовы к публикации, опубликованы
+    '''
+where not theme.id IN (
+    SELECT theme.id 
+    FROM theme 
+    INNER JOIN task ON task.theme_id=theme.id 
+    WHERE task.status >= 0)
+    '''
     subquery2 = (
         Theme
         .select(Theme.id)
@@ -94,17 +135,22 @@ async def send_task(bot: Bot):
         .where(Task.status >= 0)
     )
 
-    # Курсы по которым ведутся работы
+    # Подстчет средних оценко у блогеров по каждому курсу
+    '''
+    select task.implementer_id as user_id, theme.course_id as course_id, avg(task.score) as score
+    from task
+    inner join theme on task.theme_id=theme.id
+    group by task.implementer_id, theme.course_id
+    '''
     subquery3 = (
-        Course
-        .select(Course.id)
-        .join(Theme)
-        .join(Task)
-        .where(
-            (Task.status==0) |
-            (Task.status==1)
+        Task
+        .select(
+            Task.implementer.alias('user_id'),
+            Theme.course.alias('course_id'),
+            fn.AVG(Task.score).alias('score'),
         )
-        .group_by(Course)
+        .join(Theme)
+        .group_by(Task.implementer, Theme.course)
     )
 
     query = (
@@ -113,20 +159,28 @@ async def send_task(bot: Bot):
             User.id.alias('user_id'),
             Course.id.alias('course_id'),
             fn.MIN(Theme.id).alias('theme_id')
-            # Theme.title,
-            # Task.implementer,
         )
         .join(UserCourse)
         .join(Course)
         .join(Theme)
-        .join(Task, JOIN.LEFT_OUTER, on=(Task.theme_id==Theme.id))
+        .join(
+            subquery3,
+            JOIN.LEFT_OUTER,
+            on=( # ucs.user_id=user.id and ucs.course_id=course.id
+                (subquery3.c.user_id==User.id) &
+                (subquery3.c.course_id==Course.id)
+            )
+        )
         .where(
             (~(Theme.id << subquery2)) &
-            (~(User.id << subquery)) &
-            (~(Course.id << subquery3))
+            (~(User.id << subquery))
         )
         .group_by(User.id, Course.id)
-        .order_by(User.bloger_rating.desc(), fn.AVG(Task.score).desc())
+        .order_by(
+            User.bloger_rating.desc(),
+            # CASE WHEN (AVG(ucs.score) IS NULL) THEN user.bloger_rating ELSE AVG(ucs.score) END DESC
+            Case(None, [(fn.AVG(subquery3.c.score).is_null(), User.bloger_rating)], fn.AVG(subquery3.c.score)).desc()
+        )
     )
 
     due_date = get_date_time(hours=73)
@@ -153,21 +207,28 @@ async def send_task(bot: Bot):
             due_date=due_date
         )
 
-        await bot.send_message(
-            chat_id=user.tg_id,
-            text=f'Курс: {theme.course.title}\n'
-                f'Тема: {theme.title}\n'
-                f'url: {theme.url}\n'
-                f'Срок: {task.due_date}\n'
-                'Когда работа будет готова, вы должны отправить ваше видео'
-        )
+        try:
+            await bot.send_message(
+                chat_id=user.tg_id,
+                text=f'Курс: {theme.course.title}\n'
+                    f'Тема: <a href="theme.url">{theme.title}</a>\n'
+                    f'Срок: {task.due_date}\n'
+                    'Когда работа будет готова, вы должны отправить ваше видео',
+                parse_mode='HTML'
+            )
+        except TelegramBadRequest as ex:
+            await send_message_admins(
+                bot=bot,
+                text=str(ex)
+            )
         
         await send_message_admins(
-                    bot=bot,
-                    text=f'''<b>Блогер получил тему</b>
+            bot=bot,
+            text=f'''<b>Блогер получил тему</b>
 Блогер: {task.implementer.comment}
 Курс: {theme.course.title}
-Тема: {theme.title}'''
+f'Тема: <a href="{theme.url}">{theme.title}</a>
+'''
                 )
 
     if len(table) == 0:
@@ -250,7 +311,7 @@ async def report_blogers(message: Message):
         .order_by(User.bloger_rating.desc())
     )
     for bloger in blogers:
-        point = [f'{bloger.bloger_score}|{round(bloger.bloger_rating, 2)}|{bloger.comment}']
+        point = [f'{bloger.bloger_score}|{round(bloger.bloger_rating * 100, 2)}|{bloger.comment}']
         
         task = (
             Task
@@ -276,7 +337,7 @@ async def report_blogers(message: Message):
             .where((UserCourse.user_id == bloger.id))
         ]
         if line:
-            point.append('|'.join(line))
+            point.append('Подписки: ' + '|'.join(line))
         points.append(
             '\n'.join(point)
         )
