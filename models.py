@@ -67,7 +67,7 @@ class UserCourse(Table):
 
 
 class Theme(Table):
-    course = ForeignKeyField(Course, **CASCADE)
+    course = ForeignKeyField(Course, backref='themes', **CASCADE)
     title = CharField()
     url = CharField()
     complexity = FloatField(default=1.0)

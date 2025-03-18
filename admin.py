@@ -69,7 +69,7 @@ def error_handler():
                     print("Не удалось отправить сообщение админу.")
                 
                 if message:
-                    await message.send_message.answer(
+                    await message.answer(
                         text="❌ Произошла ошибка. Администратор уже уведомлён."
                     )
         return wrapper

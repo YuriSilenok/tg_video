@@ -183,34 +183,63 @@ async def del_task_yes(query: CallbackQuery):
 @error_handler()
 async def show_courses(message: Message):
 
-    user = User.get(tg_id=message.from_user.id)
-    query = (Course
-        .select(Course)
-        .join(Theme)
-        .join(Task, JOIN.LEFT_OUTER)
-        .where((Task.status < 0) | (Task.status.is_null()))
-        .group_by(Course)
-        .having(fn.COUNT(Theme) > 0))
+    themes_done = (
+        Theme
+        .select(Theme.id)
+        .join(Task)
+        .where(Task.status >= 2)
+    )
     
-    for course in query:
+    themes: List[Theme] = (Theme
+        .select(Theme)
+        .join(Task, JOIN.LEFT_OUTER, on=(Task.theme==Theme.id))
+        .where(
+            (~Theme.id << themes_done)
+        )
+        .group_by(
+            Theme.course,
+            Theme.id
+        )
+        .order_by(
+            Theme.course,
+            Theme.id,
+        )
+    )
+    
+    data = {}
+
+    for theme in themes:
+        key = (theme.course.id, theme.course.title)
+        if key not in data:
+            data[(theme.course.id, theme.course.title)] = []
+        data[key].append(theme)
         
+
+    for (course_id, course_title), themes in data.items():
+
+        if len(themes) == 0:
+            continue
+
+        user = User.get(tg_id=message.from_user.id)
         user_course = UserCourse.get_or_none(
             user=user,
-            course=course,
+            course=course_id,
         )
-        
+        themes_str = '\n'.join([ f'<a href="{t.url}">{t.title}</a>' for t in themes[:10]])
         await message.answer(
-            text=course.title,
+            text=f'<b>{course_title}</b>\n{themes_str}',
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
                         InlineKeyboardButton(
                             text='Отписаться' if user_course else 'Подписаться',
-                            callback_data=f'del_user_course_{course.id}' if user_course else f'add_user_course_{course.id}'
+                            callback_data=f'del_user_course_{course_id}' if user_course else f'add_user_course_{course_id}'
                         )
                     ]
                 ]
-            )
+            ),
+            parse_mode="HTML",
+            disable_web_page_preview=True,
         )
 
 
