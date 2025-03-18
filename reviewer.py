@@ -360,6 +360,7 @@ async def check_job_reviewers(bot: Bot):
         .select(User)
         .join(ReviewRequest, on=(ReviewRequest.reviewer_id==User.id))
         .where(ReviewRequest.status==0)
+        
     ]
     if len(reviewer_ids) < 5:
         # видео у которых не хватает проверяющих
@@ -374,6 +375,7 @@ async def check_job_reviewers(bot: Bot):
                 (ReviewRequest.status.is_null()))
             )
             .group_by(Video.id)
+            .order_by(Task.due_date)
             .having(fn.COUNT(Video.id) < 5)
         ]
         for video_id in video_ids:
