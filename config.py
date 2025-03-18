@@ -1,4 +1,0 @@
-"""Глобальные настройки"""
-
-TG_TOKEN = "6804266884:AAGUZlJNzgzQrahRJA3DATAzuhHJvwjbOxk"
-TG_CHANEL_ID = -1002229558639

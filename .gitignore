@@ -171,3 +171,4 @@ cython_debug/
 .pypirc
 .vscode/launch.json
 sqlite.db
+config.py
