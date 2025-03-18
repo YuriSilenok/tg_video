@@ -452,13 +452,13 @@ async def report_themes(message: Message):
         .join(ReviewRequest, JOIN.LEFT_OUTER, on=(ReviewRequest.video == Video.id))
         .where(Task.status.between(0, 1))
         .group_by(Task.id)
-        .order_by(Task.status, Task.due_date)
+        .order_by(Task.due_date)
     )
     points = []
     for row in query.dicts():
         point = []
         line = [
-            str(row["status"]),
+            TASK_STATUS[row["status"]],
             str(row["due_date"]),
         ]
         if row['status'] == 1:
