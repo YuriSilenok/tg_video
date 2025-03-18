@@ -10,7 +10,7 @@ from aiogram.exceptions import TelegramAPIError
 from peewee import fn, JOIN, Case
 
 from common import IsUser, get_due_date
-from models import TASK_STATUS, Role, User, UserCourse, UserRole, ReviewRequest, Task, Course, Theme, Video, update_bloger_score_and_rating, update_reviewer_score
+from models import *
 
 
 router = Router()
@@ -495,18 +495,30 @@ async def add_course(message: Message, state: FSMContext):
                 theme.save()
 
             if len(row) > 4 and row[4] != '':
+                score = 0.0
+                status = 1
+
+                if len(row) > 5 and row[5] != '':
+                    score = float(row[5].replace(',', '.'))
+                    if score  >= 0.8:
+                        status = 2
+                    else:
+                        status = -2
+
                 load_videos.append({
                     'theme': theme.id,
                     'title': theme.title,
-                    'implementer': row[5].replace('@', ''),
-                    'score': float(row[5].replace(',', '.')) if len(row) > 5 and row[5] != '' else 0.0,
-                    'status': 2 if len(row) > 5 and row[5] != '' else 1,
+                    'implementer': row[4].replace('@', ''),
+                    'score': score,
+                    'status': status,
                 })
 
         if len(load_videos) == 0:
             await message.answer(
                 text='Темы курса загружены. Загрузка видео не требуется',
             )
+            for user in User.select():
+                update_bloger_score_and_rating(user)
 
         else:            
             await state.set_data({
