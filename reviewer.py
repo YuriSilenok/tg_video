@@ -349,9 +349,6 @@ async def check_reviewers(bot: Bot):
         )
         update_reviewers_rating()
 
-        await add_reviewer(bot, old_review_request.video_id)
-        break
-
 
 async def check_job_reviewers(bot: Bot):
     # проверяющие у котых есть задачи
