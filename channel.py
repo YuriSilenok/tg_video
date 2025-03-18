@@ -14,6 +14,7 @@ from peewee import fn
 
 router = Router()
 
+@error_handler()
 async def send_video(bot:Bot, video:Video=None):
     if video is None:
         return
@@ -69,6 +70,7 @@ async def send_poll(bot: Bot):
         return True
     return False
 
+@error_handler()
 def get_poll_theme() -> Tuple[MPoll, Video]:
     """Получить опрос и тему из опроса"""
 
@@ -87,7 +89,7 @@ def get_poll_theme() -> Tuple[MPoll, Video]:
         video = Video.get_by_id(video_id)
         return (poll, video)
 
-
+@error_handler()
 async def loop(bot: Bot):
     """Одна итерация вызываемая из бесконечного цикла"""
     now = datetime.now()
@@ -104,7 +106,7 @@ async def loop(bot: Bot):
                     message_id=poll.message_id
                 )
             except TelegramBadRequest as e:
-                print('channel loop \n', e)
+                print(e)
             
             await send_video(bot, video)
         else:
@@ -113,6 +115,7 @@ async def loop(bot: Bot):
         await send_poll(bot)
 
 @router.poll()
+@error_handler()
 async def poll_answer(poll: Poll):
     mpoll = MPoll.get_or_none(
         poll_id=poll.id
