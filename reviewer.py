@@ -369,13 +369,14 @@ async def check_job_reviewers(bot: Bot):
             .select(Video)
             .join(ReviewRequest, JOIN.LEFT_OUTER, on=(ReviewRequest.video==Video.id))
             .join(Task, on=(Task.id==Video.task))
+            .join(User, on=(User.id==Task.implementer))
             .where(
                 (Task.status == 1) &
                 ((ReviewRequest.status >= 0) |
                 (ReviewRequest.status.is_null()))
             )
             .group_by(Video.id)
-            .order_by(Video.at_created)
+            .order_by(User.bloger_rating.desc())
             .having(fn.COUNT(Video.id) < 5)
         ]
         for video_id in video_ids:
