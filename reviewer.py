@@ -383,8 +383,7 @@ async def check_job_reviewers(bot: Bot):
 
 @router.message(Command('report'), IsUser())
 async def report(message: Message):
-    # user: User = User.get(tg_id=message.from_user.id)
-    user: User = User.get(id=2)
+    user: User = User.get(tg_id=message.from_user.id)
     rev_bloger: List[ReviewRequest] = (
         ReviewRequest
         .select(ReviewRequest)
