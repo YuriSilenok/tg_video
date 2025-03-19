@@ -3,7 +3,6 @@ from typing import List
 from aiogram import Bot, Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.filters import Command
 from peewee import fn, JOIN
 
 from admin import error_handler, send_message_admins, send_task
@@ -11,13 +10,14 @@ from models import (
     Review, ReviewRequest, Role, Task, User, UserRole, Video,
     update_bloger_score_and_rating, update_reviewer_score, update_reviewers_rating, 
 )
-from common import IsUser, get_date_time, get_id, get_user
+from common import IsUser, get_date_time, get_id
 
 
 router = Router()
 
 
 class IsReviewer(IsUser):
+    """Проверяет что польователь проверяющий"""
 
     role = Role.get(name='Проверяющий')    
 
@@ -33,7 +33,30 @@ class IsReviewer(IsUser):
         return user_role is not None
 
 
-@router.message(F.text, IsReviewer())
+class IsReview(IsReviewer()):
+    """Проверяет что у проверяющего есть задача"""
+    async def __call__(self, message: Message) -> bool:
+        check = super().__call__(message)
+        if not check:
+            return False
+        
+        if not isinstance(message, Message):
+            return False
+        
+        user = User.get(tg_id=message.from_user.id)
+        rr = (
+            ReviewRequest
+            .select(ReviewRequest)
+            .where(
+                (ReviewRequest.reviewer==user) &
+                (ReviewRequest.status==0)
+            )
+            .first()
+        )
+        return rr is not None
+
+
+@router.message(F.text, IsReview())
 @error_handler()
 async def get_review(message:Message):
     
@@ -136,6 +159,7 @@ async def get_review(message:Message):
     await send_task(message.bot)
 
 
+@error_handler()
 async def get_reviewer_user_role(bot: Bot, user: User):
     """Проверяем наличие привилегии блогера"""
     
@@ -167,6 +191,7 @@ async def get_reviewer_user_role(bot: Bot, user: User):
     return user_role
 
 
+@error_handler()
 async def send_video(bot: Bot, review_request: ReviewRequest):
     
     text = f'Ваше видео на тему "{review_request.video.task.theme.title}" выдано на проверку'
@@ -222,9 +247,6 @@ def update_task_score(task: Task):
     task.save()
 
 
-
-
-
 def get_reviewe_requests_by_notify() -> List[ReviewRequest]:
     '''ПОлучить запросы на проверку у которы прошел срок'''
     due_date = get_date_time(hours=1)
@@ -237,8 +259,6 @@ def get_reviewe_requests_by_notify() -> List[ReviewRequest]:
             (ReviewRequest.status == 0)
         )
     )
-
-
 
 
 def get_old_reviewe_requests() -> List[ReviewRequest]:
@@ -340,7 +360,7 @@ async def add_reviewer(bot: Bot, video_id: int):
         await send_video(bot, review_request)
 
 
-
+@error_handler()
 async def check_old_reviewer_requests(bot: Bot):
     """Проверка устаревших запросов на проверку"""
     
@@ -372,6 +392,7 @@ async def check_old_reviewer_requests(bot: Bot):
         update_reviewers_rating()
 
 
+@error_handler()
 async def send_new_review_request(bot: Bot):
     """Выдать новый запрос на проверку"""
     # проверяющие у котых есть задачи
@@ -404,8 +425,8 @@ async def send_new_review_request(bot: Bot):
             break
 
 
-
 @router.callback_query(F.data.startswith('rr_to_extend_'))
+@error_handler()
 async def to_extend(callback_query: CallbackQuery):
     rr_id = get_id(callback_query.data)
     rr: ReviewRequest = ReviewRequest.get_by_id(rr_id)
@@ -437,7 +458,7 @@ async def to_extend(callback_query: CallbackQuery):
     )
 
 
-
+@error_handler()
 async def send_notify_reviewers(bot: Bot):
     '''Послать напоминалку проверяющему об окончании строка'''
 
@@ -457,12 +478,12 @@ async def send_notify_reviewers(bot: Bot):
         )
 
 
-
-
+@error_handler()
 async def loop(bot: Bot):
     await send_notify_reviewers(bot)
     await check_old_reviewer_requests(bot)
     await send_new_review_request(bot)
+
 
 if __name__ == '__main__':
     rr: List[ReviewRequest] = (
