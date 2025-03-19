@@ -380,38 +380,6 @@ async def check_job_reviewers(bot: Bot):
             await add_reviewer(bot, Video.get_by_id(video_id))
             break
 
-
-@router.message(Command('report'), IsUser())
-async def report(message: Message):
-    user: User = User.get(tg_id=message.from_user.id)
-    rev_bloger: List[ReviewRequest] = (
-        ReviewRequest
-        .select(ReviewRequest)
-        .join(Video, on=(Video.id==ReviewRequest.video))
-        .where(
-            (ReviewRequest.status == 1) &
-            (ReviewRequest.reviewer == user)
-        )
-    )
-    if len(rev_bloger) > 0:
-        text = ['<b>Отчёт проверяющего</b>']
-        sum_score = 0
-        for t in rev_bloger:
-            score = t.video.duration / 1200
-            text.append(
-                f'{t.video.task.theme.title}:{t.video.duration}c.|{round(score, 2)} балла'
-            )
-            sum_score += score
-        text.append(f'ИТОГ: {user.reviewer_score}')
-        await message.answer(
-            text='\n'.join(text),
-            parse_mode='HTML',
-        )
-
-    if user.bloger_score > 0:
-        await message.answer(
-            text=update_bloger_score_and_rating(user)
-        )
         
 
 
