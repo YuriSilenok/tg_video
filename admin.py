@@ -459,15 +459,9 @@ async def report_themes(message: Message):
     for row in query.dicts():
         point = []
         line = [
-            TASK_STATUS[row["status"]],
+            '📹' if row["status"]==0 else '👀',
             (row["due_date"] if row['status'] == 0 else row['video_at_created']).strftime("%Y-%m-%d %H:%M"),
         ]
-        if row['status'] == 1:
-            line.extend([
-                '❌'*row["overdue_count"],
-                '⚡'*row["pending_count"],
-                '✅'*row["reviewed_count"],
-            ])
         point.append('|'.join(line))
         point.append(
             '|'.join([
@@ -476,14 +470,14 @@ async def report_themes(message: Message):
             ])
         )
         point.append(
-            ': '.join([
-                'Блогер',
+            '|'.join([
+                '👤',
                 row["user"].split(maxsplit=1)[0],
             ])
         )
 
         if row['overdue_count'] > 0:
-            line = ['<b>Просрочили:</b>']
+            line = []
 
             query2: List[ReviewRequest] = (
                 ReviewRequest
@@ -497,6 +491,7 @@ async def report_themes(message: Message):
             for rr in query2:
                 line.append(
                     '|'.join([
+                        '❌',
                         (rr.reviewer.comment.split(maxsplit=1)[0] if rr.reviewer.comment else 'нет ФИО'),
                         (rr.due_date).strftime("%Y-%m-%d %H:%M"),
                         str(round(rr.reviewer.reviewer_rating, 2)),
@@ -508,7 +503,7 @@ async def report_themes(message: Message):
             )
 
         if row['pending_count'] > 0:
-            line = ['<b>Проверяет:</b>']
+            line = []
 
             query2: List[ReviewRequest] = (
                 ReviewRequest
@@ -522,6 +517,7 @@ async def report_themes(message: Message):
             for rr in query2:
                 line.append(
                     '|'.join([
+                        '⚡',
                         (rr.reviewer.comment.split(maxsplit=1)[0] if rr.reviewer.comment else 'нет ФИО'),
                         (rr.due_date).strftime("%Y-%m-%d %H:%M"),
                         str(round(rr.reviewer.reviewer_rating, 2)),
@@ -533,7 +529,7 @@ async def report_themes(message: Message):
             )
 
         if row['reviewed_count'] > 0:
-            line = ['<b>Проверили:</b>']
+            line = []
 
             query2: List[ReviewRequest] = (
                 ReviewRequest
@@ -547,6 +543,7 @@ async def report_themes(message: Message):
             for rr in query2:
                 line.append(
                     '|'.join([
+                        '✅',
                         (rr.reviewer.comment.split(maxsplit=1)[0] if rr.reviewer.comment else 'нет ФИО'),
                         (rr.due_date).strftime("%Y-%m-%d %H:%M"),
                         str(round(rr.reviewer.reviewer_rating, 2)),
