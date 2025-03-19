@@ -3,7 +3,7 @@ from typing import List
 from aiogram import Bot, Router, F
 from aiogram.types import Message
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.filters import BaseFilter
+from aiogram.filters import Command
 from peewee import fn, JOIN
 
 from admin import error_handler, send_message_admins, send_task
@@ -379,6 +379,44 @@ async def check_job_reviewers(bot: Bot):
         for video_id in video_ids:
             await add_reviewer(bot, Video.get_by_id(video_id))
             break
+
+
+@router.message(Command('report'), IsUser())
+async def report(message: Message):
+    # user: User = User.get(tg_id=message.from_user.id)
+    user: User = User.get(id=2)
+    rev_bloger: List[ReviewRequest] = (
+        ReviewRequest
+        .select(ReviewRequest)
+        .join(Video, on=(Video.id==ReviewRequest.video))
+        .where(
+            (ReviewRequest.status == 1) &
+            (ReviewRequest.reviewer == user)
+        )
+    )
+    if len(rev_bloger) > 0:
+        text = ['<b>Отчёт проверяющего</b>']
+        sum_score = 0
+        for t in rev_bloger:
+            score = t.video.duration / 1200
+            text.append(
+                f'{t.video.task.theme.title}:{t.video.duration}c.|{round(score, 2)} балла'
+            )
+            sum_score += score
+        text.append(f'ИТОГ: {user.reviewer_score}')
+        await message.answer(
+            text='\n'.join(text),
+            parse_mode='HTML',
+        )
+
+    if user.bloger_score > 0:
+        await message.answer(
+            text=update_bloger_score_and_rating(user)
+        )
+        
+
+
+
 
 
 async def loop(bot: Bot):
