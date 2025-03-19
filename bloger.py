@@ -338,16 +338,31 @@ async def upload_video(message: Message):
     )
 
 
-@router.callback_query(F.data.startswith('to_extend_'))
+@router.callback_query(
+    (F.data.startswith('to_extend_')) | 
+    (F.data.startswith('task_to_extend_'))
+)
 async def to_extend(callback_query: CallbackQuery):
     task_id = get_id(callback_query.data)
     task: Task = Task.get_by_id(task_id)
+
+    if task.status != 0:
+        await callback_query.message.edit_text(
+            text='Срок не может быть продлен. '
+            f'Видео по теме <b>{task.theme.title}</b> уже получено.',
+            parse_mode='HTML',
+            reply_markup=None,
+        )
+        return
+    
     task.due_date += timedelta(days=1)
     task.save()
+
     await callback_query.message.edit_text(
         text=f'Срок сдвинут до {task.due_date}',
         reply_markup=None,
     )
+
     await send_message_admins(
         bot=callback_query.bot,
         text=f'''<b>Блогер продлил срок</b>
@@ -377,7 +392,7 @@ async def check_old_task(bot:Bot):
                     inline_keyboard=[[
                         InlineKeyboardButton(
                             text='Продлить',
-                            callback_data=f'to_extend_{task.id}'
+                            callback_data=f'task_to_extend_{task.id}'
                         )
                     ]]
                 )

@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List
 from aiogram import Bot, Router, F
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from peewee import fn, JOIN
@@ -11,7 +11,7 @@ from models import (
     Review, ReviewRequest, Role, Task, User, UserRole, Video,
     update_bloger_score_and_rating, update_reviewer_score, update_reviewers_rating, 
 )
-from common import IsUser, get_date_time, get_user
+from common import IsUser, get_date_time, get_id, get_user
 
 
 router = Router()
@@ -102,7 +102,7 @@ async def get_review(message:Message):
 Отзыв: {text}'''
     )
 
-    await check_job_reviewers(message.bot)
+    await send_new_review_request(message.bot)
 
     """Выставление итоговой оценки"""    
     reviews = (
@@ -222,7 +222,27 @@ def update_task_score(task: Task):
     task.save()
 
 
+
+
+
+def get_reviewe_requests_by_notify() -> List[ReviewRequest]:
+    '''ПОлучить запросы на проверку у которы прошел срок'''
+    due_date = get_date_time(hours=1)
+    # Запрос на выборку записей на проверке старше суток
+    return (
+        ReviewRequest
+        .select()
+        .where(
+            (ReviewRequest.due_date == due_date) &
+            (ReviewRequest.status == 0)
+        )
+    )
+
+
+
+
 def get_old_reviewe_requests() -> List[ReviewRequest]:
+    '''ПОлучить запросы на проверку у которы прошел срок'''
     now = datetime.now()
     # Запрос на выборку записей на проверке старше суток
     return (
@@ -320,9 +340,11 @@ async def add_reviewer(bot: Bot, video_id: int):
         await send_video(bot, review_request)
 
 
-async def check_reviewers(bot: Bot):
 
-    """Проверка устаревших задач"""
+async def check_old_reviewer_requests(bot: Bot):
+    """Проверка устаревших запросов на проверку"""
+    
+    
     old_review_requests = get_old_reviewe_requests()
 
     for old_review_request in old_review_requests:
@@ -350,7 +372,8 @@ async def check_reviewers(bot: Bot):
         update_reviewers_rating()
 
 
-async def check_job_reviewers(bot: Bot):
+async def send_new_review_request(bot: Bot):
+    """Выдать новый запрос на проверку"""
     # проверяющие у котых есть задачи
     reviewer_ids = [u.id for u in
         User
@@ -380,15 +403,66 @@ async def check_job_reviewers(bot: Bot):
             await add_reviewer(bot, Video.get_by_id(video_id))
             break
 
-        
 
+
+@router.callback_query(F.data.startswith('rr_to_extend_'))
+async def to_extend(callback_query: CallbackQuery):
+    rr_id = get_id(callback_query.data)
+    rr: ReviewRequest = ReviewRequest.get_by_id(rr_id)
+
+    if rr.status != 0:
+        await callback_query.message.edit_text(
+            text='Срок не может быть продлен. '
+            f'Отзыв по теме <b>{rr.video.task.theme.title}</b> уже получен.',
+            parse_mode='HTML',
+            reply_markup=None,
+        )
+        return
+
+    rr.due_date += timedelta(hours=1)
+    rr.save()
+
+    await callback_query.message.edit_text(
+        text=f'Срок сдвинут до {rr.due_date}',
+        reply_markup=None,
+    )
+
+    await send_message_admins(
+        bot=callback_query.bot,
+        text=f'''<b>Проверяющий продлил срок</b>
+Проверяющий: {rr.reviewer.comment.split(maxsplit=1)[0]}
+Курс: {rr.video.task.theme.course.title}
+Тема: {rr.video.task.theme.title}
+Срок: {rr.due_date}'''
+    )
+
+
+
+async def send_notify_reviewers(bot: Bot):
+    '''Послать напоминалку проверяющему об окончании строка'''
+
+    for rr in get_reviewe_requests_by_notify():
+        await bot.send_message(
+            chat_id=rr.reviewer.tg_id,
+            text='До окончания срока проверки видео остался 1 час. '
+            'Воспользуйтесь этой кнопкой, что бы продлить срок на 1 час',
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[[
+                    InlineKeyboardButton(
+                        text='Продлить',
+                        callback_data=f'rr_to_extend_{rr.id}',
+                    )
+                ]]
+            )
+        )
 
 
 
 
 async def loop(bot: Bot):
-    await check_reviewers(bot)
-    await check_job_reviewers(bot)
+    await send_notify_reviewers(bot)
+    await check_old_reviewer_requests(bot)
+    await send_new_review_request(bot)
 
 if __name__ == '__main__':
     rr: List[ReviewRequest] = (
