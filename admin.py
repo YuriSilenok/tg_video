@@ -428,6 +428,12 @@ async def set_comment(message: Message):
     )
 
 
+RR_STATUS = {
+    -1: '❌',
+    0: '⚡' ,
+    1: '✅',
+}
+
 @router.message(Command('report_themes'), IsAdmin())
 @error_handler()
 async def report_themes(message: Message):
@@ -441,10 +447,7 @@ async def report_themes(message: Message):
             User.comment.alias('user'),
             Task.due_date.alias('due_date'),
             Video.id.alias('video'),
-            Video.at_created.alias('video_at_created'),
-            fn.COUNT(Case(None, [(ReviewRequest.status == -1, 1)], None)).alias('overdue_count'),
-            fn.COUNT(Case(None, [(ReviewRequest.status == 0, 1)], None)).alias('pending_count'),
-            fn.COUNT(Case(None, [(ReviewRequest.status == 1, 1)], None)).alias('reviewed_count'),
+            Video.at_created.alias('video_at_created')
         )
         .join(User, on=(Task.implementer == User.id))
         .join(Theme, on=(Task.theme == Theme.id))
@@ -476,84 +479,31 @@ async def report_themes(message: Message):
             ])
         )
 
-        if row['overdue_count'] > 0:
-            line = []
-
-            query2: List[ReviewRequest] = (
+        query2: List[ReviewRequest] = (
+            ReviewRequest
+            .select(
                 ReviewRequest
-                .select(ReviewRequest)
-                .where(
-                    (ReviewRequest.video==row['video']) &
-                    (ReviewRequest.status==-1)
-                )
             )
-
-            for rr in query2:
-                line.append(
-                    '|'.join([
-                        '❌',
-                        (rr.reviewer.comment.split(maxsplit=1)[0] if rr.reviewer.comment else 'нет ФИО'),
-                        (rr.due_date).strftime("%Y-%m-%d %H:%M"),
-                        str(round(rr.reviewer.reviewer_rating, 2)),
-                    ])
-                )
-            
+            .join(Review, JOIN.LEFT_OUTER, on=(Review.review_request==ReviewRequest.id))
+            .where(
+                (ReviewRequest.video==row['video'])
+            )
+            .order_by(
+                ReviewRequest.status
+            )
+        )
+        for rr in query2:
             point.append(
-                '\n'.join(line)
+                '|'.join([
+                    RR_STATUS[rr.status],
+                    (rr.reviewer.comment.split(maxsplit=1)[0] if rr.reviewer.comment else 'нет ФИО'),
+                    rr.due_date.strftime("%Y-%m-%d %H:%M") if rr.status < 1 else rr.reviews.first().at_created.strftime("%Y-%m-%d %H:%M"),
+                ])
             )
+            if rr.status == 1:
+                point[-1] += f'|{rr.reviews.first().score}'
 
-        if row['pending_count'] > 0:
-            line = []
-
-            query2: List[ReviewRequest] = (
-                ReviewRequest
-                .select(ReviewRequest)
-                .where(
-                    (ReviewRequest.video==row['video']) &
-                    (ReviewRequest.status==0)
-                )
-            )
-
-            for rr in query2:
-                line.append(
-                    '|'.join([
-                        '⚡',
-                        (rr.reviewer.comment.split(maxsplit=1)[0] if rr.reviewer.comment else 'нет ФИО'),
-                        (rr.due_date).strftime("%Y-%m-%d %H:%M"),
-                        str(round(rr.reviewer.reviewer_rating, 2)),
-                    ])
-                )
-            
-            point.append(
-                '\n'.join(line)
-            )
-
-        if row['reviewed_count'] > 0:
-            line = []
-
-            query2: List[ReviewRequest] = (
-                ReviewRequest
-                .select(ReviewRequest)
-                .where(
-                    (ReviewRequest.video==row['video']) &
-                    (ReviewRequest.status==1)
-                )
-            )
-
-            for rr in query2:
-                line.append(
-                    '|'.join([
-                        '✅',
-                        (rr.reviewer.comment.split(maxsplit=1)[0] if rr.reviewer.comment else 'нет ФИО'),
-                        (rr.due_date).strftime("%Y-%m-%d %H:%M"),
-                        str(round(rr.reviewer.reviewer_rating, 2)),
-                    ])
-                )
-            
-            point.append(
-                '\n'.join(line)
-            )
-        
+      
         points.append('\n'.join(point))
 
     await message.answer(
