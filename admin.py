@@ -397,6 +397,7 @@ async def report_themes(message: Message):
             Theme.title.alias('theme'),
             Course.title.alias('course'),
             User.comment.alias('user'),
+            User.bloger_rating.alias('bloger_rating'),
             Task.due_date.alias('due_date'),
             Video.id.alias('video'),
             Video.at_created.alias('video_at_created')
@@ -408,7 +409,11 @@ async def report_themes(message: Message):
         .join(ReviewRequest, JOIN.LEFT_OUTER, on=(ReviewRequest.video == Video.id))
         .where(Task.status.between(0, 1))
         .group_by(Task.id)
-        .order_by(Case(None, [(Task.status==0, Task.due_date)], Video.at_created))
+        .order_by(
+            Task.status.desc(),
+            User.bloger_rating.desc(),
+            Case(None, [(Task.status==0, Task.due_date)], Video.at_created)
+        )
     )
     points = []
     for row in query.dicts():
@@ -429,6 +434,7 @@ async def report_themes(message: Message):
             '|'.join([
                 '👤',
                 row["user"].split(maxsplit=1)[0],
+                str(round(row["bloger_rating"], 2)),
             ])
         )
 
