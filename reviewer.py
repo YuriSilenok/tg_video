@@ -407,7 +407,14 @@ async def send_new_review_request(bot: Bot):
         .where(ReviewRequest.status==0)
         
     ]
-    if len(reviewer_ids) < 5:
+    reviewer_ids_len = len(reviewer_ids)
+    task_count_status_1 = (
+        Task
+        .select(fn.COUNT(Task.id))
+        .where(Task.status == 1)
+        .scalar()
+    )
+    if reviewer_ids_len < 5 or reviewer_ids_len < task_count_status_1:
         # видео у которых не хватает проверяющих
         video_ids = [v.id for v in 
             Video
