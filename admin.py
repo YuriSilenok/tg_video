@@ -456,6 +456,7 @@ async def report_themes(message: Message):
                 '|'.join([
                     RR_STATUS[rr.status],
                     (rr.reviewer.comment.split(maxsplit=1)[0] if rr.reviewer.comment else 'нет ФИО'),
+                    str(round(rr.reviewer.reviewer_rating, 2)),
                     rr.due_date.strftime("%Y-%m-%d %H:%M") if rr.status < 1 else rr.reviews.first().at_created.strftime("%Y-%m-%d %H:%M"),
                 ])
             )
