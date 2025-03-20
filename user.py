@@ -204,7 +204,7 @@ async def show_courses(message: Message):
             user=user,
             course=course_id,
         )
-        themes_str = '\n'.join([ f'<a href="{t.url}">{t.title}</a>' for t in themes[:3]])
+        themes_str = '\n'.join([ f'<a href="{t.url}">{t.title}</a>|{t.complexity}' for t in themes[:3]])
         await message.answer(
             text=f'<b>{course_title}</b>\n{themes_str}',
             reply_markup=InlineKeyboardMarkup(
