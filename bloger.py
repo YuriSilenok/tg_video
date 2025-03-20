@@ -16,7 +16,7 @@ router = Router()
 
 
 @error_handler()
-@router.message(F.document, WaitVideo)
+@router.message(F.document, WaitVideo())
 async def upload_file(message: Message):
     await message.answer(
         text='Видео нужно отправить как видео, а не как файл'
