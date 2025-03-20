@@ -14,7 +14,13 @@ router = Router()
 
 @router.message(Command('set_fio'))
 async def set_fio(message: Message):
-    fio = message.text.replace('  ', ' ').split(maxsplit=1)[1]
+    data = message.text.replace('  ', ' ').split(maxsplit=1)
+    if len(data) < 2:
+        await message.answer(
+            text='После команды ожидается ФИО'
+        )
+        return
+    fio = data[1]
     if len(fio.split()) != 3:
         await message.answer(
             text='Ожидается 3 слова'
