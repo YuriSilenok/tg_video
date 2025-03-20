@@ -53,7 +53,7 @@ async def start(message: Message):
 
     if user is None:
         
-        User.create(
+        user = User.create(
             tg_id=message.from_user.id,
             username=message.from_user.username,
         )
