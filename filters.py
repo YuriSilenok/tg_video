@@ -74,7 +74,7 @@ class IsBloger(IsUser):
 
 
 class WaitVideo(BaseFilter):
-    """Ожидает получение видео от пользователя"""
+    """Ожидает получение видео по задаче"""
 
     async def __call__(self, message: Message) -> bool:
         user = User.get(tg_id=message.from_user.id)

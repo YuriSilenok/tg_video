@@ -16,6 +16,14 @@ router = Router()
 
 
 @error_handler()
+@router.mesage(F.document, WaitVideo)
+async def upload_file(message: Message):
+    await message.answer(
+        text='Видео нужно отправить как видео, а не как файл'
+    )
+
+
+@error_handler()
 async def get_bloger_user_role(bot: Bot, user: User):
     """Проверяем наличие привилегии блогера"""
     
