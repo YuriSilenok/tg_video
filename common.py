@@ -1,12 +1,10 @@
 from datetime import datetime, timedelta
 import functools
-from typing import List, Union
 from aiogram import Bot, Router
 from aiogram.types import Message, CallbackQuery
-from aiogram.filters import BaseFilter
+from aiogram.exceptions import TelegramAPIError
 
-from models import Course, Task, Theme, User, UserCourse, Role, UserRole
-from peewee import fn, JOIN
+from models import User
 
 
 router = Router()
@@ -22,17 +20,6 @@ async def other_callback(callback: CallbackQuery):
     await callback.message.answer(
         text='Вы совершили незарегистрированное действие, обратитесь к администратору'
     )
-
-class IsUser(BaseFilter):
-    async def __call__(self, subject: Union[Message, CallbackQuery]):
-        user = User.get_or_none(
-            tg_id=subject.from_user.id
-        )
-        if user is None:
-            await subject.answer(
-                text='Пользователь не зарегистрирован, отправьте команду /start'
-            )
-        return user is not None
 
 def get_id(text):
     return int(text[(text.rfind('_')+1):])
@@ -58,3 +45,46 @@ def get_date_time(hours:int=0):
         hours=hours
     )
     return due_date
+
+
+
+def error_handler():
+    """Декоратор для обработки ошибок в хэндлерах и отправки сообщения админу"""
+    def decorator(func):
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            try:
+                return await func(*args, **kwargs)
+            except Exception as e:
+                print(f"Ошибка в хэндлере {func.__name__}: {e}")
+                if len(args) == 0:
+                    return None
+                bot: Bot = None
+                message: Message = None
+                if isinstance(args[0], Message) or isinstance(args[0], CallbackQuery):
+                    bot = args[0].bot
+                    message = args[0]
+                elif isinstance(args[0], Bot):
+                    bot = args[0]
+                
+                if bot is None:
+                    return None
+                 
+                error_text = f"🚨 <b>Ошибка в боте</b>\n\n📌 В хэндлере `{func.__name__}`\n❗ </b>Ошибка:</b> `{e}`"
+                # Отправляем сообщение админу
+                try:
+                    from admin import send_message_admins
+                    await send_message_admins(
+                        bot=bot,
+                        text=error_text
+                    )
+                except TelegramAPIError:
+                    print("Не удалось отправить сообщение админу.")
+                
+                if message:
+                    await message.answer(
+                        text="❌ Произошла ошибка. Администратор уже уведомлён."
+                    )
+        return wrapper
+    return decorator
+

@@ -9,73 +9,19 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from peewee import fn, JOIN, Case
 
-from common import IsUser, get_date_time
+from filters import IsAdmin
+from common import get_date_time, error_handler
 from models import *
 
 
 router = Router()
 
 
-class IsAdmin(IsUser):
-
-    role = Role.get(name='Админ')    
-
-    async def __call__(self, message: Message) -> bool:
-        is_user = await super().__call__(message)
-        if not is_user:
-            return False
-
-        user_role = UserRole.get_or_none(
-            user=User.get(tg_id=message.from_user.id),
-            role=self.role
-        )
-        return user_role is not None
-
 
 class UploadVideo(StatesGroup):
     wait_upload = State()
 
-
-def error_handler():
-    """Декоратор для обработки ошибок в хэндлерах и отправки сообщения админу"""
-    def decorator(func):
-        @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
-            try:
-                return await func(*args, **kwargs)
-            except Exception as e:
-                print(f"Ошибка в хэндлере {func.__name__}: {e}")
-                if len(args) == 0:
-                    return None
-                bot: Bot = None
-                message: Message = None
-                if isinstance(args[0], Message) or isinstance(args[0], CallbackQuery):
-                    bot = args[0].bot
-                    message = args[0]
-                elif isinstance(args[0], Bot):
-                    bot = args[0]
-                
-                if bot is None:
-                    return None
-                 
-                error_text = f"🚨 <b>Ошибка в боте</b>\n\n📌 В хэндлере `{func.__name__}`\n❗ </b>Ошибка:</b> `{e}`"
-                # Отправляем сообщение админу
-                try:
-                    await send_message_admins(
-                        bot=bot,
-                        text=error_text
-                    )
-                except TelegramAPIError:
-                    print("Не удалось отправить сообщение админу.")
-                
-                if message:
-                    await message.answer(
-                        text="❌ Произошла ошибка. Администратор уже уведомлён."
-                    )
-        return wrapper
-    return decorator
-
-
+@error_handler()
 async def send_task(bot: Bot):
 
     '''
@@ -176,6 +122,8 @@ AND NOT course.id IN (
         .group_by(Theme.course)
     )
 
+    bloger_role = Role.get(name='Блогер')
+
     query = (
         User
         .select(
@@ -183,9 +131,10 @@ AND NOT course.id IN (
             Course.id.alias('course_id'),
             fn.MIN(Theme.id).alias('theme_id')
         )
-        .join(UserCourse)
-        .join(Course)
-        .join(Theme)
+        .join(UserRole, on=(User.id==UserRole.user))
+        .join(UserCourse, on=(User.id==UserCourse.user))
+        .join(Course, on=(Course.id==UserCourse.course))
+        .join(Theme, on=(Theme.course==Course.id))
         .join(
             subquery3,
             JOIN.LEFT_OUTER,
@@ -197,7 +146,8 @@ AND NOT course.id IN (
         .where(
             (~(Theme.id << subquery2)) &
             (~(User.id << subquery)) &
-            (~(Course.id << subquery4))
+            (~(Course.id << subquery4)) &
+            (UserRole.role==bloger_role)
         )
         .group_by(User.id, Course.id)
         .order_by(
@@ -235,7 +185,7 @@ AND NOT course.id IN (
             await bot.send_message(
                 chat_id=user.tg_id,
                 text=f'Курс: {theme.course.title}\n'
-                    f'Тема: <a href="theme.url">{theme.title}</a>\n'
+                    f'Тема: <a href="{theme.url}">{theme.title}</a>\n'
                     f'Срок: {task.due_date}\n'
                     'Когда работа будет готова, вы должны отправить ваше видео',
                 parse_mode='HTML'
@@ -251,7 +201,7 @@ AND NOT course.id IN (
             text=f'''<b>Блогер получил тему</b>
 Блогер: {task.implementer.comment}
 Курс: {theme.course.title}
-f'Тема: <a href="{theme.url}">{theme.title}</a>
+Тема: <a href="{theme.url}">{theme.title}</a>
 '''
                 )
 
@@ -271,6 +221,7 @@ def get_admins() -> List[User]:
     )
 
 
+@error_handler()
 async def send_message_admins(bot:Bot, text: str):
     for admin in get_admins():
         try:
@@ -434,6 +385,7 @@ RR_STATUS = {
     1: '✅',
 }
 
+
 @router.message(Command('report_themes'), IsAdmin())
 @error_handler()
 async def report_themes(message: Message):
@@ -468,6 +420,7 @@ async def report_themes(message: Message):
         point.append('|'.join(line))
         point.append(
             '|'.join([
+                '📜',
                 row["course"],
                 row["theme"],
             ])

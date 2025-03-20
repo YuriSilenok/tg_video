@@ -1,49 +1,21 @@
 """Взаимодействие с блогером"""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import List
 from aiogram import Bot, Router, F
-from aiogram.filters import Command, BaseFilter
+from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
 
-from admin import error_handler, get_admins, send_message_admins
-from models import (
-    Course, Role, Task, Theme, UserCourse, UserRole, Video,
-    User, TASK_STATUS, update_bloger_score_and_rating
-)
-from peewee import fn, JOIN
-from common import IsUser, get_id, get_date_time
+from admin import error_handler, send_message_admins
+from filters import IsBloger, WaitVideo
+from models import Role, Task, UserRole, Video, User, TASK_STATUS, update_bloger_score_and_rating
+from common import get_id, get_date_time
 
 router = Router()
 
 
-class IsBloger(IsUser):
-
-    role = Role.get(name='Блогер')    
-
-    async def __call__(self, message: Message) -> bool:
-        is_user = await super().__call__(message)
-        if not is_user:
-            return False
-
-        user_role = UserRole.get_or_none(
-            user=User.get(tg_id=message.from_user.id),
-            role=self.role
-        )
-        return user_role is not None
-
-
-class WaitVideo(BaseFilter):
-    async def __call__(self, message: Message) -> bool:
-        user = User.get(tg_id=message.from_user.id)
-        task = Task.get(
-            implementer=user,
-            status=0
-        )
-        return task is not None
-
-
+@error_handler()
 async def get_bloger_user_role(bot: Bot, user: User):
     """Проверяем наличие привилегии блогера"""
     
@@ -69,30 +41,7 @@ async def get_bloger_user_role(bot: Bot, user: User):
     return user_role
 
 
-@router.message(Command('bloger_on'), IsUser())
 @error_handler()
-async def bloger_on(message: Message):
-    """Пользователь подает заявку стать блогером"""
-
-    user = User.get(tg_id=message.from_user.id)
-    UserRole.create(
-        user=user,
-        role=Role.get(name='Блогер'),
-    )
-
-    await message.answer(
-        text='Теперь вы Блогер.\n'
-        'Ожидайте, как только наступит Ваша очередь, '
-        'Вам будет выдана тема.'
-    )
-
-    await send_message_admins(
-        bot=message.bot,
-        text=f'''<b>Роль Блогер выдана</b>
-Пользователь: @{user.username}|{user.comment}''',
-    )
-
-
 async def drop_bloger(bot:Bot, user: User):
 
     user_role = await get_bloger_user_role(bot, user)   
@@ -128,11 +77,17 @@ async def drop_bloger(bot:Bot, user: User):
     if user_role:
         user_role.delete_instance()
 
+    await bot.send_message(
+        chat_id=user.tg_id,
+        text='Роль блогера с Вас снята'
+    )
+
     await send_message_admins(
         bot=bot,
         text=f'''<b>Роль Блогер снята</b>
 Пользователь: {user.comment}'''
     )
+
 
 @router.message(Command('bloger_off'), IsBloger())
 @error_handler()
@@ -179,121 +134,6 @@ async def del_task_yes(query: CallbackQuery):
     await drop_bloger(query.bot, user)
 
 
-@router.message(Command('courses'), IsUser())
-@error_handler()
-async def show_courses(message: Message):
-
-    themes_done = (
-        Theme
-        .select(Theme.id)
-        .join(Task)
-        .where(Task.status >= 2)
-    )
-    
-    themes: List[Theme] = (Theme
-        .select(Theme)
-        .join(Task, JOIN.LEFT_OUTER, on=(Task.theme==Theme.id))
-        .where(
-            (~Theme.id << themes_done)
-        )
-        .group_by(
-            Theme.course,
-            Theme.id
-        )
-        .order_by(
-            Theme.course,
-            Theme.id,
-        )
-    )
-    
-    data = {}
-
-    for theme in themes:
-        key = (theme.course.id, theme.course.title)
-        if key not in data:
-            data[(theme.course.id, theme.course.title)] = []
-        data[key].append(theme)
-        
-
-    for (course_id, course_title), themes in data.items():
-
-        if len(themes) == 0:
-            continue
-
-        user = User.get(tg_id=message.from_user.id)
-        user_course = UserCourse.get_or_none(
-            user=user,
-            course=course_id,
-        )
-        themes_str = '\n'.join([ f'<a href="{t.url}">{t.title}</a>' for t in themes[:3]])
-        await message.answer(
-            text=f'<b>{course_title}</b>\n{themes_str}',
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text='Отписаться' if user_course else 'Подписаться',
-                            callback_data=f'del_user_course_{course_id}' if user_course else f'add_user_course_{course_id}'
-                        )
-                    ]
-                ]
-            ),
-            parse_mode="HTML",
-            disable_web_page_preview=True,
-        )
-
-
-@router.callback_query(F.data.startswith('add_user_course_'), IsBloger())
-@error_handler()
-async def add_user_course(query: CallbackQuery):
-    user = User.get(tg_id=query.from_user.id)
-    course = Course.get_by_id(int(query.data[(query.data.rfind('_')+1):]))
-    UserCourse.get_or_create(
-        user=user,
-        course=course,
-    )
-    await query.message.edit_reply_markup(
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text='Отписаться',
-                        callback_data=f'del_user_course_{course.id}'
-                    )
-                ]
-            ]
-        )
-    )
-
-
-@router.callback_query(F.data.startswith('del_user_course_'), IsUser())
-@error_handler()
-async def del_user_course(query: CallbackQuery):
-    user = User.get(tg_id=query.from_user.id)
-    course=Course.get_by_id(int(query.data[(query.data.rfind('_')+1):]))
-    user_course = UserCourse.get_or_none(
-        user=user,
-        course=course,
-    )
-
-    if not user_course:
-        return
-
-    await query.message.edit_reply_markup(
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text='Подписаться',
-                        callback_data=f'add_user_course_{course.id}'
-                    )
-                ]
-            ]
-        )
-    )
-    user_course.delete_instance()
-
-
 @router.message(F.video, IsBloger(), WaitVideo())
 @error_handler()
 async def upload_video(message: Message):
@@ -338,10 +178,8 @@ async def upload_video(message: Message):
     )
 
 
-@router.callback_query(
-    (F.data.startswith('to_extend_')) | 
-    (F.data.startswith('task_to_extend_'))
-)
+@router.callback_query(F.data.startswith('to_extend_') | F.data.startswith('task_to_extend_'), IsBloger())
+@error_handler()
 async def to_extend(callback_query: CallbackQuery):
     task_id = get_id(callback_query.data)
     task: Task = Task.get_by_id(task_id)
@@ -372,6 +210,7 @@ async def to_extend(callback_query: CallbackQuery):
 Срок: {task.due_date}'''
     )
 
+
 @error_handler()
 async def check_old_task(bot:Bot):
     dd = get_date_time(24)
@@ -400,5 +239,7 @@ async def check_old_task(bot:Bot):
         except TelegramBadRequest as ex:
             print(ex, task.implementer.comment)
 
+
+@error_handler()
 async def loop(bot: Bot):
     await check_old_task(bot)

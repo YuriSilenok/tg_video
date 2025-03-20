@@ -10,7 +10,8 @@ from models import (
     Review, ReviewRequest, Role, Task, User, UserRole, Video,
     update_bloger_score_and_rating, update_reviewer_score, update_reviewers_rating, 
 )
-from common import IsUser, get_date_time, get_id
+from common import get_date_time, get_id
+from user import IsUser
 
 
 router = Router()
@@ -33,10 +34,10 @@ class IsReviewer(IsUser):
         return user_role is not None
 
 
-class IsReview(IsReviewer()):
+class IsReview(IsReviewer):
     """Проверяет что у проверяющего есть задача"""
     async def __call__(self, message: Message) -> bool:
-        check = super().__call__(message)
+        check = await super().__call__(message)
         if not check:
             return False
         
@@ -105,10 +106,12 @@ async def get_review(message:Message):
     update_reviewers_rating()
     new_score = update_reviewer_score(user)
     
-    await message.answer("Спасибо, ответ записан. "
-        f'Баллов за проверку видео {round(review_request.video.duration/1200, 2)}'
-        f"Всего заработано баллов {new_score}. "
-        "Ожидайте получение нового видео. ")
+    await message.answer(
+        text=f"""Спасибо, ответ записан.
+Баллов за проверку видео {round(review_request.video.duration/1200, 2)}
+Всего заработано баллов {new_score}.
+Ожидайте получение нового видео."""
+    )
     
     await message.bot.send_message(
         chat_id=review_request.video.task.implementer.tg_id,
@@ -303,6 +306,7 @@ def get_vacant_reviewer_ids() -> List[User]:
     return [i for i in reviewer_ids if i not in jobs_ids]
 
 
+@error_handler()
 async def add_reviewer(bot: Bot, video_id: int):
     # Свободные проверяющие
     vacant_reviewer_ids = get_vacant_reviewer_ids()
@@ -425,7 +429,7 @@ async def send_new_review_request(bot: Bot):
             break
 
 
-@router.callback_query(F.data.startswith('rr_to_extend_'))
+@router.callback_query(F.data.startswith('rr_to_extend_'), IsReview())
 @error_handler()
 async def to_extend(callback_query: CallbackQuery):
     rr_id = get_id(callback_query.data)
