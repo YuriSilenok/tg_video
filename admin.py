@@ -395,6 +395,7 @@ async def report_themes(message: Message):
         .select(
             Task.status.alias('status'),
             Theme.title.alias('theme'),
+            Theme.complexity.alias('complexity'),
             Course.title.alias('course'),
             User.comment.alias('user'),
             User.bloger_rating.alias('bloger_rating'),
@@ -430,6 +431,7 @@ async def report_themes(message: Message):
                 '📜',
                 row["course"],
                 row["theme"],
+                f'{row["complexity"]}',
             ])
         )
         query2: List[ReviewRequest] = (
