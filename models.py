@@ -198,10 +198,10 @@ def update_reviewers_rating():
 
   
     """Расчет завышения оценки"""
-    video_min_scores = {i['video']:i['score'] for i in
+    video_avg_scores = {i['video']:i['score'] for i in
         Review
         .select(
-            (fn.MIN(Review.score)).alias('score'),
+            (fn.AVG(Review.score)).alias('score'),
             ReviewRequest.video,
         )
         .join(ReviewRequest)
@@ -223,7 +223,10 @@ def update_reviewers_rating():
     score_over = {}
 
     for row in reviewer_scores.dicts():
-        score_over[row['reviewer']] = score_over.get(row['reviewer'], []) + [row['score'] - video_min_scores[row['video']]]
+        score_over[row['reviewer']] = (
+            score_over.get(row['reviewer'], []) 
+            + [abs(row['score'] - video_avg_scores[row['video']])]
+        )
 
     for reviewer in score_over:
         scores = score_over[reviewer]
