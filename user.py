@@ -7,7 +7,7 @@ from admin import send_message_admins
 from common import error_handler
 from filters import IsUser
 from models import Course, ReviewRequest, Role, Task, Theme, User, UserCourse, UserRole, Video, update_bloger_score_and_rating
-from peewee import JOIN
+from peewee import JOIN, fn
 
 router = Router()
 
@@ -164,10 +164,7 @@ async def bloger_on(message: Message):
     )
 
 
-@router.message(Command('courses'), IsUser())
-@error_handler()
-async def show_courses(message: Message):
-
+def get_data_by_courses(user: User):
     themes_done = (
         Theme
         .select(Theme.id)
@@ -177,6 +174,7 @@ async def show_courses(message: Message):
     
     themes: List[Theme] = (Theme
         .select(Theme)
+        .join(Course, on=(Course.id==Theme.course))
         .join(Task, JOIN.LEFT_OUTER, on=(Task.theme==Theme.id))
         .where(
             (~Theme.id << themes_done)
@@ -186,46 +184,73 @@ async def show_courses(message: Message):
             Theme.id
         )
         .order_by(
-            Theme.course,
+            fn.LENGTH(Course.title),
             Theme.id,
         )
     )
     
     data = {}
+    text = '<b>Список курсов</b>\n\n'
+    inline_keyboard=[]
 
     for theme in themes:
-        key = (theme.course.id, theme.course.title)
-        if key not in data:
-            data[(theme.course.id, theme.course.title)] = []
-        data[key].append(theme)
+        course = theme.course
         
-
-    for (course_id, course_title), themes in data.items():
-
-        if len(themes) == 0:
+        if course.id not in data:
+            data[course.id] = []
+        
+        if len(data[course.id]) >= 3:
             continue
+        
+        data[course.id].append(theme)
 
-        user = User.get(tg_id=message.from_user.id)
         user_course = UserCourse.get_or_none(
             user=user,
-            course=course_id,
+            course=course,
         )
-        themes_str = '\n'.join([ f'<a href="{t.url}">{t.title}</a>|{t.complexity}' for t in themes[:3]])
-        await message.answer(
-            text=f'<b>{course_title}</b>\n{themes_str}',
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text='Отписаться' if user_course else 'Подписаться',
-                            callback_data=f'del_user_course_{course_id}' if user_course else f'add_user_course_{course_id}'
-                        )
-                    ]
-                ]
-            ),
-            parse_mode="HTML",
-            disable_web_page_preview=True,
+
+        if len(data[course.id]) == 3:
+
+            themes_str = '\n'.join([ f'<a href="{t.url}">{t.title}</a>|{t.complexity}' for t in themes[:3]])
+            text+=f'<b>{course.title}</b>\n{themes_str}\n\n'
+            row = None
+
+            if len(inline_keyboard) == 0:
+                row = []
+            elif sum([len(i.text) for i in inline_keyboard[-1]]) + len(course.title) + 1 < 25:
+                row = inline_keyboard.pop()
+            else:
+                row = []
+            row.append(
+                InlineKeyboardButton(
+                    text=f'{"✅" if user_course else "❌"}{course.title}',
+                    callback_data=f'del_user_course_{course.id}' if user_course else f'add_user_course_{course.id}'
+                )
+            )
+            inline_keyboard.append(row)
+
+    print(text)
+
+    return {
+        'text': text,
+        'reply_markup': InlineKeyboardMarkup(
+            inline_keyboard=inline_keyboard
+        ),
+        'parse_mode': "HTML",
+        'disable_web_page_preview': True,
+    }
+
+
+
+@router.message(Command('courses'), IsUser())
+@error_handler()
+async def show_courses(message: Message):
+    await message.answer(
+        **get_data_by_courses(
+            User.get(tg_id=message.from_user.id)
         )
+    )
+
 
 
 @router.callback_query(F.data.startswith('add_user_course_'), IsUser())
@@ -237,17 +262,8 @@ async def add_user_course(callback: CallbackQuery):
         user=user,
         course=course,
     )
-    await callback.message.edit_reply_markup(
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text='Отписаться',
-                        callback_data=f'del_user_course_{course.id}'
-                    )
-                ]
-            ]
-        )
+    await callback.message.edit_text(
+        **get_data_by_courses(user)
     )
     await send_message_admins(
         bot=callback.bot,
@@ -258,31 +274,23 @@ async def add_user_course(callback: CallbackQuery):
 @router.callback_query(F.data.startswith('del_user_course_'), IsUser())
 @error_handler()
 async def del_user_course(callback: CallbackQuery):
+
     user = User.get(tg_id=callback.from_user.id)
     course=Course.get_by_id(int(callback.data[(callback.data.rfind('_')+1):]))
+
     user_course = UserCourse.get_or_none(
         user=user,
         course=course,
     )
 
-    if not user_course:
-        return
+    if user_course:
+        user_course.delete_instance()
 
-    await callback.message.edit_reply_markup(
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text='Подписаться',
-                        callback_data=f'add_user_course_{course.id}'
-                    )
-                ]
-            ]
-        )
+    await callback.message.edit_text(
+        **get_data_by_courses(user)
     )
-    user_course.delete_instance()
+
     await send_message_admins(
         bot=callback.bot,
         text=f'Пользователь {user.comment} отписался от курса {course.title}'
     )
-

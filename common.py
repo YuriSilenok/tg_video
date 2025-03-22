@@ -70,7 +70,7 @@ def error_handler():
                 if bot is None:
                     return None
                  
-                error_text = f"🚨 <b>Ошибка в боте</b>\n\n📌 В хэндлере `{func.__name__}`\n❗ </b>Ошибка:</b> `{e}`"
+                error_text = f"🚨 <b>Ошибка в боте</b>\n\n📌 В хэндлере <b>{func.__name__}</b>\n❗ </b>Ошибка:</b>\n<b>{e}</b>"
                 # Отправляем сообщение админу
                 try:
                     from admin import send_message_admins
