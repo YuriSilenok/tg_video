@@ -7,10 +7,10 @@ from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
 
-from admin import error_handler, send_message_admins
+
 from filters import IsBloger, WaitVideo
 from models import Role, Task, UserRole, Video, User, TASK_STATUS, update_bloger_score_and_rating
-from common import get_id, get_date_time
+from common import get_id, get_date_time, error_handler, send_message_admins
 
 router = Router()
 

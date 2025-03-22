@@ -3,8 +3,8 @@ from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, BotCommand, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 
-from admin import send_message_admins
-from common import error_handler
+
+from common import error_handler, send_task, send_message_admins
 from filters import IsUser
 from models import Course, ReviewRequest, Role, Task, Theme, User, UserCourse, UserRole, Video, update_bloger_score_and_rating
 from peewee import JOIN, fn
@@ -160,6 +160,8 @@ async def bloger_on(message: Message):
         text=f'''<b>Роль Блогер выдана</b>
 Пользователь: @{user.username}|{user.comment}''',
     )
+
+    await send_task(message.bot)
 
 
 def get_data_by_courses(user: User):

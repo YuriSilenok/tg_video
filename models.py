@@ -195,7 +195,7 @@ def get_max_score_over():
 
 
 def update_reviewers_rating():
-
+    '''Обновление рейтинга проверяющего'''
   
     """Расчет завышения оценки"""
     video_avg_scores = {i['video']:i['score'] for i in

@@ -1,16 +1,14 @@
 import csv
-import functools
 from typing import List
-from aiogram import Bot, Router, F
+from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message, CallbackQuery
-from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
+from aiogram.types import Message
 from peewee import fn, JOIN, Case
 
 from filters import IsAdmin
-from common import get_date_time, error_handler
+from common import get_date_time, error_handler, send_task
 from models import *
 
 
@@ -20,222 +18,6 @@ router = Router()
 
 class UploadVideo(StatesGroup):
     wait_upload = State()
-
-@error_handler()
-async def send_task(bot: Bot):
-
-    '''
-select user.username, course.id, course.title, theme.title, user.bloger_rating, ucs.score, CASE WHEN (AVG(ucs.score) IS NULL) THEN user.bloger_rating ELSE AVG(ucs.score) END DESC
-from user
-inner join usercourse on usercourse.user_id=user.id
-inner join course on course.id=usercourse.course_id
-inner join theme on theme.course_id=course.id
-left join (
-    select task.implementer_id as user_id, theme.course_id as course_id, avg(task.score) as score
-    from task
-    inner join theme on task.theme_id=theme.id
-    group by task.implementer_id, theme.course_id
-) as ucs on ucs.user_id=user.id and ucs.course_id=course.id
-where not theme.id IN (
-    SELECT theme.id 
-    FROM theme 
-    INNER JOIN task ON task.theme_id=theme.id 
-    WHERE task.status >= 0)
-AND NOT user.id IN (
-    SELECT user.id
-    FROM user
-    INNER JOIN task ON task.implementer_id=user.id
-    WHERE task.status BETWEEN 0 and 1)
-AND NOT course.id IN (
-    SELECT theme.course_id
-    from theme
-    inner join task on task.theme_id=theme.id
-    where task.status between 0 and 1
-    group by theme.course_id)
-GROUP BY user.id, course.id
-ORDER BY user.bloger_rating DESC, 
-CASE WHEN (AVG(ucs.score) IS NULL) THEN user.bloger_rating ELSE AVG(ucs.score) END DESC
-'''
-
-    # Исполнители, которые заняты
-    '''
-AND NOT user.id IN (
-    SELECT user.id
-    FROM user
-    INNER JOIN task ON task.implementer_id=user.id
-    WHERE task.status BETWEEN 0 and 1)
-    '''
-    subquery = (
-        User
-        .select(User.id)
-        .join(Task, on=(Task.implementer == User.id))
-        .where(Task.status.between(0, 1))
-    )
-
-    # Темы которые выданы, на проверке, готовы к публикации, опубликованы
-    '''
-where not theme.id IN (
-    SELECT theme.id 
-    FROM theme 
-    INNER JOIN task ON task.theme_id=theme.id 
-    WHERE task.status >= 0)
-    '''
-    subquery2 = (
-        Theme
-        .select(Theme.id)
-        .join(Task)
-        .where(Task.status >= 0)
-    )
-
-    # Подстчет средних оценко у блогеров по каждому курсу
-    '''
-    select task.implementer_id as user_id, theme.course_id as course_id, avg(task.score) as score
-    from task
-    inner join theme on task.theme_id=theme.id
-    group by task.implementer_id, theme.course_id
-    '''
-    subquery3 = (
-        Task
-        .select(
-            Task.implementer.alias('user_id'),
-            Theme.course.alias('course_id'),
-            fn.AVG(Task.score).alias('score'),
-        )
-        .join(Theme)
-        .group_by(Task.implementer, Theme.course)
-    )
-
-
-    ''' занятые курсы
-AND NOT course.id IN (
-    SELECT theme.course_id
-    from theme
-    inner join task on task.theme_id=theme.id
-    where task.status between 0 and 1
-    group by theme.course_id)
-    '''
-    subquery4 = (
-        Theme
-        .select(Theme.course)
-        .join(Task)
-        .where(Task.status.between(0, 1))
-        .group_by(Theme.course)
-    )
-
-    bloger_role = Role.get(name='Блогер')
-
-    query = (
-        User
-        .select(
-            User.id.alias('user_id'),
-            Course.id.alias('course_id'),
-            fn.MIN(Theme.id).alias('theme_id')
-        )
-        .join(UserRole, on=(User.id==UserRole.user))
-        .join(UserCourse, on=(User.id==UserCourse.user))
-        .join(Course, on=(Course.id==UserCourse.course))
-        .join(Theme, on=(Theme.course==Course.id))
-        .join(
-            subquery3,
-            JOIN.LEFT_OUTER,
-            on=( # ucs.user_id=user.id and ucs.course_id=course.id
-                (subquery3.c.user_id==User.id) &
-                (subquery3.c.course_id==Course.id)
-            )
-        )
-        .where(
-            (~(Theme.id << subquery2)) &
-            (~(User.id << subquery)) &
-            (~(Course.id << subquery4)) &
-            (UserRole.role==bloger_role)
-        )
-        .group_by(User.id, Course.id)
-        .order_by(
-            User.bloger_rating.desc(),
-            # CASE WHEN (AVG(ucs.score) IS NULL) THEN user.bloger_rating ELSE AVG(ucs.score) END DESC
-            Case(None, [(fn.AVG(subquery3.c.score).is_null(), User.bloger_rating)], fn.AVG(subquery3.c.score)).desc()
-        )
-    )
-
-    due_date = get_date_time(hours=73)
-    user_ids = []
-    course_ids = []
-    table = query.dicts()
-    for row in table:
-        user_id = row['user_id']
-        course_id = row['course_id']
-        theme_id = row['theme_id']
-        
-        if (user_id in user_ids or 
-            course_id in course_ids):
-            continue
-        user_ids.append(user_id)
-        course_ids.append(course_id)
-
-        theme = Theme.get_by_id(theme_id)
-        user = User.get_by_id(user_id)
-
-        task = Task.create(
-            implementer=user,
-            theme=theme,
-            due_date=due_date
-        )
-
-        try:
-            await bot.send_message(
-                chat_id=user.tg_id,
-                text=f'Курс: {theme.course.title}\n'
-                    f'Тема: <a href="{theme.url}">{theme.title}</a>\n'
-                    f'Срок: {task.due_date}\n'
-                    'Когда работа будет готова, вы должны отправить ваше видео',
-                parse_mode='HTML'
-            )
-        except TelegramBadRequest as ex:
-            await send_message_admins(
-                bot=bot,
-                text=str(ex)
-            )
-        
-        await send_message_admins(
-            bot=bot,
-            text=f'''<b>Блогер получил тему</b>
-Блогер: {task.implementer.comment}
-Курс: {theme.course.title}
-Тема: <a href="{theme.url}">{theme.title}</a>
-'''
-                )
-
-    if len(table) == 0:
-        await send_message_admins(
-            bot=bot,
-            text='Нет свобоных тем или блогеров',
-        )
-
-
-def get_admins() -> List[User]:
-    return (
-        User
-        .select(User)
-        .join(UserRole)
-        .where(UserRole.role==IsAdmin.role)
-    )
-
-
-@error_handler()
-async def send_message_admins(bot:Bot, text: str):
-    for admin in get_admins():
-        try:
-            await bot.send_message(
-                chat_id=admin.tg_id,
-                text=text,
-                parse_mode='HTML'
-            )
-        except Exception as ex:
-            print(ex)
-            await bot.send_message(
-                chat_id=admin.tg_id,
-                text=text
-            )
 
 
 @router.message(Command('send_task'), IsAdmin())
@@ -267,7 +49,7 @@ async def report_reviewers(message: Message):
     )
     result = 'Отчет о проверяющих\n\n'
     result += '\n'.join([
-        f"{i['count']}|{i['score']}|{round(i['rating'], 2)}|{i['fio']}" for i in reviewers.dicts()
+        f"{i['count']:02.0f}|{i['score']:05.2f}|{i['rating']:05.3f}|{i['fio']}" for i in reviewers.dicts()
     ])
 
     await message.answer(
@@ -286,38 +68,38 @@ async def report_blogers(message: Message):
         .order_by(User.bloger_rating.desc())
     )
     for bloger in blogers:
-        point = [f'{bloger.bloger_score}|{round(bloger.bloger_rating * 100, 2)}|{bloger.comment}']
+        point = [f'{bloger.bloger_score:05.2f}|{(bloger.bloger_rating*100):05.2f}|{bloger.comment.split(maxsplit=1)[0]}']
         
-        task = (
-            Task
-            .select(Task)
-            .where(
-                (Task.implementer == bloger.id) &
-                (Task.status.in_([0, 1]))
-            )
-            .first()
-        )
-        if task:
-            point.append(
-                '|'.join([
-                    task.theme.course.title,
-                    task.theme.title,
-                    *([TASK_STATUS[task.status], str(task.due_date)] if task.status==0 else [TASK_STATUS[task.status]])
-                ])
-            )
+        # task = (
+        #     Task
+        #     .select(Task)
+        #     .where(
+        #         (Task.implementer == bloger.id) &
+        #         (Task.status.in_([0, 1]))
+        #     )
+        #     .first()
+        # )
+        # if task:
+        #     point.append(
+        #         '|'.join([
+        #             task.theme.course.title,
+        #             task.theme.title,
+        #             *([TASK_STATUS[task.status], str(task.due_date)] if task.status==0 else [TASK_STATUS[task.status]])
+        #         ])
+        #     )
         
-        line = [uc.course.title for uc in
-            UserCourse
-            .select(UserCourse)
-            .where((UserCourse.user_id == bloger.id))
-        ]
-        if line:
-            point.append('Подписки: ' + '|'.join(line))
+        # line = [uc.course.title for uc in
+        #     UserCourse
+        #     .select(UserCourse)
+        #     .where((UserCourse.user_id == bloger.id))
+        # ]
+        # if line:
+        #     point.append('Подписки: ' + '|'.join(line))
         points.append(
             '\n'.join(point)
         )
 
-    text = '\n\n'.join(points)
+    text = '\n'.join(points)
     await message.answer(
         text=text
     )
