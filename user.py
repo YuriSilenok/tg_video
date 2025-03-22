@@ -228,9 +228,6 @@ def get_data_by_courses(user: User):
                 )
             )
             inline_keyboard.append(row)
-
-    print(text)
-
     return {
         'text': text,
         'reply_markup': InlineKeyboardMarkup(
