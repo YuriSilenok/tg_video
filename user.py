@@ -211,7 +211,7 @@ def get_data_by_courses(user: User):
 
         if len(data[course.id]) == 3:
 
-            themes_str = '\n'.join([ f'<a href="{t.url}">{t.title}</a>|{t.complexity}' for t in themes[:3]])
+            themes_str = '\n'.join([ f'<a href="{t.url}">{t.title}</a>|{t.complexity}' for t in data[course.id][:3]])
             text+=f'<b>{course.title}</b>\n{themes_str}\n\n'
             row = None
 
