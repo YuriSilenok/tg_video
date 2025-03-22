@@ -1,7 +1,7 @@
 from typing import Union
 from aiogram.filters import BaseFilter
 from aiogram.types import Message, CallbackQuery
-from models import Task, User, Role, UserRole
+from models import *
 
 class IsUser(BaseFilter):
     async def __call__(self, subject: Union[Message, CallbackQuery]):
@@ -83,3 +83,44 @@ class WaitVideo(BaseFilter):
             status=0
         )
         return task is not None
+
+
+class IsReviewer(IsUser):
+    """Проверяет что польователь проверяющий"""
+
+    role = Role.get(name='Проверяющий')    
+
+    async def __call__(self, message: Message) -> bool:
+        is_user = await super().__call__(message)
+        if not is_user:
+            return False
+
+        user_role = UserRole.get_or_none(
+            user=User.get(tg_id=message.from_user.id),
+            role=self.role
+        )
+        return user_role is not None
+
+
+class IsReview(IsReviewer):
+    """Проверяет что у проверяющего есть задача"""
+    async def __call__(self, message: Message) -> bool:
+        check = await super().__call__(message)
+        if not check:
+            return False
+        
+        if not isinstance(message, Message):
+            return False
+        
+        user = User.get(tg_id=message.from_user.id)
+        rr = (
+            ReviewRequest
+            .select(ReviewRequest)
+            .where(
+                (ReviewRequest.reviewer==user) &
+                (ReviewRequest.status==0)
+            )
+            .first()
+        )
+        return rr is not None
+

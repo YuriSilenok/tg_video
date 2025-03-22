@@ -6,55 +6,11 @@ from aiogram.exceptions import TelegramBadRequest
 from peewee import fn, JOIN
 
 
-from models import (
-    Review, ReviewRequest, Role, Task, User, UserRole, Video,
-    update_bloger_score_and_rating, update_reviewer_score, update_reviewers_rating, 
-)
-from common import get_date_time, get_id, send_new_review_request, update_task_score, error_handler, send_task
-from user import IsUser
-
+from filters import IsReview
+from models import *
+from common import *
 
 router = Router()
-
-
-class IsReviewer(IsUser):
-    """Проверяет что польователь проверяющий"""
-
-    role = Role.get(name='Проверяющий')    
-
-    async def __call__(self, message: Message) -> bool:
-        is_user = await super().__call__(message)
-        if not is_user:
-            return False
-
-        user_role = UserRole.get_or_none(
-            user=User.get(tg_id=message.from_user.id),
-            role=self.role
-        )
-        return user_role is not None
-
-
-class IsReview(IsReviewer):
-    """Проверяет что у проверяющего есть задача"""
-    async def __call__(self, message: Message) -> bool:
-        check = await super().__call__(message)
-        if not check:
-            return False
-        
-        if not isinstance(message, Message):
-            return False
-        
-        user = User.get(tg_id=message.from_user.id)
-        rr = (
-            ReviewRequest
-            .select(ReviewRequest)
-            .where(
-                (ReviewRequest.reviewer==user) &
-                (ReviewRequest.status==0)
-            )
-            .first()
-        )
-        return rr is not None
 
 
 @router.message(F.text, IsReview())
