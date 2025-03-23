@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import functools
+import traceback
 from typing import List
 from aiogram import Bot, Router
 from aiogram.types import Message, CallbackQuery
@@ -59,7 +60,7 @@ def error_handler():
             try:
                 return await func(*args, **kwargs)
             except Exception as e:
-                print(f"Ошибка в хэндлере {func.__name__}: {e}")
+                traceback.print_exc()
                 if len(args) == 0:
                     return None
                 bot: Bot = None
@@ -73,7 +74,7 @@ def error_handler():
                 if bot is None:
                     return None
                  
-                error_text = f"🚨 <b>Ошибка в боте</b>\n\n📌 В хэндлере <b>{func.__name__}</b>\n❗ </b>Ошибка:</b>\n<b>{e}</b>"
+                error_text = (f'🚨{traceback.format_exc()}')
                 # Отправляем сообщение админу
                 try:
                     await send_message_admins(

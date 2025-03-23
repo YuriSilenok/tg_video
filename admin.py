@@ -68,36 +68,13 @@ async def report_blogers(message: Message):
         .order_by(User.bloger_rating.desc())
     )
     for bloger in blogers:
-        point = [f'{bloger.bloger_score:05.2f}|{(bloger.bloger_rating*100):05.2f}|{bloger.comment.split(maxsplit=1)[0]}']
         
-        # task = (
-        #     Task
-        #     .select(Task)
-        #     .where(
-        #         (Task.implementer == bloger.id) &
-        #         (Task.status.in_([0, 1]))
-        #     )
-        #     .first()
-        # )
-        # if task:
-        #     point.append(
-        #         '|'.join([
-        #             task.theme.course.title,
-        #             task.theme.title,
-        #             *([TASK_STATUS[task.status], str(task.due_date)] if task.status==0 else [TASK_STATUS[task.status]])
-        #         ])
-        #     )
-        
-        # line = [uc.course.title for uc in
-        #     UserCourse
-        #     .select(UserCourse)
-        #     .where((UserCourse.user_id == bloger.id))
-        # ]
-        # if line:
-        #     point.append('Подписки: ' + '|'.join(line))
         points.append(
-            '\n'.join(point)
+            f'{bloger.bloger_score:05.2f}'
+            f'|{(bloger.bloger_rating*100):05.2f}'
+            f'|{bloger.link}'
         )
+
 
     text = '\n'.join(points)
     await message.answer(
@@ -179,7 +156,7 @@ async def report_themes(message: Message):
             Theme.title.alias('theme'),
             Theme.complexity.alias('complexity'),
             Course.title.alias('course'),
-            User.comment.alias('user'),
+            User.link_alias().alias('user'),
             User.bloger_rating.alias('bloger_rating'),
             Task.due_date.alias('due_date'),
             Video.id.alias('video'),
@@ -205,7 +182,7 @@ async def report_themes(message: Message):
             '📹' if row["status"]==0 else '👀',
             (row["due_date"] if row['status'] == 0 else row['video_at_created']).strftime("%Y-%m-%d %H:%M"),
             f'{row["bloger_rating"]:.2f}',
-            f'{row["user"].split(maxsplit=1)[0]}',
+            f'{row["user"]}',
         ]
         point.append('|'.join(line))
         point.append(
@@ -235,7 +212,7 @@ async def report_themes(message: Message):
                     RR_STATUS[rr.status],
                     rr.due_date.strftime("%Y-%m-%d %H:%M") if rr.status < 1 else rr.reviews.first().at_created.strftime("%Y-%m-%d %H:%M"),
                     f"{rr.reviewer.reviewer_rating:.2f}",
-                    f"{(rr.reviewer.comment.split(maxsplit=1)[0] if rr.reviewer.comment else 'нет ФИО')}",
+                    f"{rr.reviewer.link}",
                 ])
             )
             if rr.status == 1:
@@ -247,6 +224,7 @@ async def report_themes(message: Message):
     await message.answer(
         text='\n\n'.join(points),
         parse_mode='HTML',
+        disable_web_page_preview=True,
     )
 
 

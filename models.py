@@ -1,7 +1,7 @@
 from datetime import datetime
 import math
 from typing import List, Tuple
-from peewee import Model, SqliteDatabase, JOIN, fn, BooleanField, FloatField, CharField, IntegerField, ForeignKeyField, DateTimeField
+from peewee import Model, SqliteDatabase, JOIN, fn, Cast, BooleanField, FloatField, CharField, IntegerField, ForeignKeyField, DateTimeField, Value
 
 
 db = SqliteDatabase('sqlite.db')
@@ -46,6 +46,32 @@ class User(Table):
     comment = CharField(null=True)
 
 
+    @property
+    def link(self):
+        surname = self.comment.split(maxsplit=1)[0] if self.comment else 'Аноним'
+        return f'<a href="https://t.me/{self.username}">{surname}</a>'
+
+
+
+    @classmethod
+    def link_alias(cls):
+        # Извлекаем первое слово из comment или используем "Аноним", если comment пустой
+        surname = fn.COALESCE(
+            fn.SUBSTR(
+                cls.comment,
+                1,
+                fn.INSTR(cls.comment, ' ') - 1  # Находим позицию первого пробела
+            ),
+            Value("Аноним")
+        )
+        # Формируем строку с использованием fn.printf
+        result = fn.printf(
+            Value('<a href="https://t.me/%s">%s</a>'), cls.username, surname
+        )
+        return result.alias('link')
+
+
+
 class Role(Table):
     # Блогер, Проверяющий
     name = CharField()
@@ -71,6 +97,11 @@ class Theme(Table):
     title = CharField()
     url = CharField()
     complexity = FloatField(default=1.0)
+
+    
+    @property
+    def link(self):
+        return f'<a href="{self.url}">{self.title}</a>'
 
 
 class Task(Table):
