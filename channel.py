@@ -111,7 +111,7 @@ async def loop(bot: Bot):
             await send_video(bot, video)
         else:
             await send_video(bot)
-    if now.hour == 19:
+    if now.hour == 19 and now.minute == 0:
         await send_poll(bot)
 
 @router.poll()

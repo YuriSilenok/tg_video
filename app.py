@@ -46,11 +46,11 @@ async def main():
     dp.startup.register(on_startup)
     
     dp.include_routers(
+        channel_router,
         user_router,
         bloger_router,
         reviewer_router,
         admin_router,
-        channel_router,
     )
 
     await dp.start_polling(bot)

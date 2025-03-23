@@ -213,12 +213,6 @@ async def send_task(bot: Bot):
 '''
                 )
 
-    if len(table) == 0:
-        await send_message_admins(
-            bot=bot,
-            text='Нет свобоных тем или блогеров',
-        )
-
 
 @error_handler()
 async def send_message_admins(bot:Bot, text: str):
