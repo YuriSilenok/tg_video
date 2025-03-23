@@ -144,85 +144,93 @@ RR_STATUS = {
     1: '✅',
 }
 
+TASK_STATUS = {
+    0: '📹',
+    1: '👀',
+    2: '⏱️'
+}
+
 
 @router.message(Command('report_themes'), IsAdmin())
 @error_handler()
 async def report_themes(message: Message):
     
-    query = (
+    tasks: List[Task] = (
         Task
-        .select(
-            Task.status.alias('status'),
-            Theme.title.alias('theme'),
-            Theme.complexity.alias('complexity'),
-            Course.title.alias('course'),
-            User.link_alias().alias('user'),
-            User.bloger_rating.alias('bloger_rating'),
-            Task.due_date.alias('due_date'),
-            Video.id.alias('video'),
-            Video.at_created.alias('video_at_created')
-        )
-        .join(User, on=(Task.implementer == User.id))
-        .join(Theme, on=(Task.theme == Theme.id))
-        .join(Course, on=(Course.id==Theme.course))
-        .join(Video, JOIN.LEFT_OUTER, on=(Task.id == Video.task))
-        .join(ReviewRequest, JOIN.LEFT_OUTER, on=(ReviewRequest.video == Video.id))
-        .where(Task.status.between(0, 1))
-        .group_by(Task.id)
+        .select(Task)
+        .where(Task.status.between(0,2))
+        .join(User, on=(User.id==Task.implementer))
         .order_by(
             Task.status.desc(),
             User.bloger_rating.desc(),
-            Case(None, [(Task.status==0, Task.due_date)], Video.at_created)
         )
     )
-    points = []
-    for row in query.dicts():
-        point = []
-        line = [
-            '📹' if row["status"]==0 else '👀',
-            (row["due_date"] if row['status'] == 0 else row['video_at_created']).strftime("%Y-%m-%d %H:%M"),
-            f'{row["bloger_rating"]:.2f}',
-            f'{row["user"]}',
-        ]
-        point.append('|'.join(line))
-        point.append(
-            '|'.join([
-                '📜',
-                row["course"],
-                row["theme"],
-                f'{row["complexity"]}',
+
+    points = [[], [], []]
+
+    for task in tasks:
+        implementer: User = task.implementer
+        point = ['|'.join([
+            TASK_STATUS[task.status],
+            f'{task.theme.complexity}',
+            task.theme.course.title,
+            task.theme.title,
+            # (
+            #     task.due_date if task.status == 0 
+            #     else task.videos.first().at_created
+            # ).strftime("%Y-%m-%d %H:%M"),
+            (
+                '' if task.status < 2 
+                else f'{(task.score*100):05.2f}'
+            ),
+            implementer.link,
+            f'{(implementer.bloger_rating*100):05.2f}'
+        ])]
+        if task.status > 0:
+            rrs = (
+                task
+                .videos
+                .first()
+                .reviewrequests
+                .join(Review, JOIN.LEFT_OUTER)
+                .order_by(
+                    ReviewRequest.status.desc(),
+                    Case(
+                        None,
+                        [(ReviewRequest.status==0, ReviewRequest.due_date)],
+                        Review.at_created
+                    )
+                )
+            )
+
+            line = ''.join([
+                (
+                    f'{rr.reviews.first().score:3.1f}<a href="https://t.me/{rr.reviewer.username}">{RR_STATUS[rr.status]}</a>'
+                    if rr.status == 1 else
+                    f'<a href="https://t.me/{rr.reviewer.username}">{RR_STATUS[rr.status]}</a>'
+                ) for rr in rrs
             ])
+    
+            if line:
+                point.append(line)
+    
+        points[task.status].append(
+            '\n'.join(point)
         )
-        query2: List[ReviewRequest] = (
-            ReviewRequest
-            .select(
-                ReviewRequest
-            )
-            .join(Review, JOIN.LEFT_OUTER, on=(Review.review_request==ReviewRequest.id))
-            .where(
-                (ReviewRequest.video==row['video'])
-            )
-            .order_by(
-                ReviewRequest.status
-            )
-        )
-        for rr in query2:
-            point.append(
-                '|'.join([
-                    RR_STATUS[rr.status],
-                    rr.due_date.strftime("%Y-%m-%d %H:%M") if rr.status < 1 else rr.reviews.first().at_created.strftime("%Y-%m-%d %H:%M"),
-                    f"{rr.reviewer.reviewer_rating:.2f}",
-                    f"{rr.reviewer.link}",
-                ])
-            )
-            if rr.status == 1:
-                point[-1] += f'|{rr.reviews.first().score}'
 
-      
-        points.append('\n'.join(point))
 
+    end_points = []
+    char_count = 0
+    for status in (1,0,2):
+        for point in points[status]:
+            if len(point) + char_count < 4096:
+                end_points.append(point)
+                char_count += len(point)
+
+
+    print('\n'.join(end_points))
     await message.answer(
-        text='\n\n'.join(points),
+        text='\n'.join(end_points),
         parse_mode='HTML',
         disable_web_page_preview=True,
     )
