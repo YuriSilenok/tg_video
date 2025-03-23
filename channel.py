@@ -93,7 +93,7 @@ def get_poll_theme() -> Tuple[MPoll, Video]:
 async def loop(bot: Bot):
     """Одна итерация вызываемая из бесконечного цикла"""
     now = datetime.now()
-    if now.hour == 18:
+    if now.hour == 18 and now.minute == 0:
         poll_video = get_poll_theme()
         if poll_video:
             poll, video = poll_video
@@ -111,7 +111,7 @@ async def loop(bot: Bot):
             await send_video(bot, video)
         else:
             await send_video(bot)
-    if now.hour == 19:
+    if now.hour == 19 and now.minute == 0:
         await send_poll(bot)
 
 @router.poll()
