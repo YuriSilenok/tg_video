@@ -172,7 +172,7 @@ async def report_themes(message: Message):
         implementer: User = task.implementer
         point = ['|'.join([
             TASK_STATUS[task.status],
-            f'{task.theme.complexity}',
+            f'{task.theme.complexity:5.3f}',
             task.theme.course.title,
             task.theme.title,
             # (
@@ -180,7 +180,8 @@ async def report_themes(message: Message):
             #     else task.videos.first().at_created
             # ).strftime("%Y-%m-%d %H:%M"),
             (
-                '' if task.status < 2 
+                f'\n{task.due_date.strftime("%Y-%m-%d %H:%M")}' if task.status == 0 else
+                '' if task.status == 1 
                 else f'{(task.score*100):05.2f}'
             ),
             implementer.link,
@@ -230,7 +231,7 @@ async def report_themes(message: Message):
 
     print('\n'.join(end_points))
     await message.answer(
-        text='\n'.join(end_points),
+        text='\n\n'.join(end_points),
         parse_mode='HTML',
         disable_web_page_preview=True,
     )
