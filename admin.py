@@ -229,7 +229,6 @@ async def report_themes(message: Message):
                 char_count += len(point)
 
 
-    print('\n'.join(end_points))
     await message.answer(
         text='\n\n'.join(end_points),
         parse_mode='HTML',
