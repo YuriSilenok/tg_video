@@ -205,9 +205,9 @@ async def report_themes(message: Message):
 
             line = ''.join([
                 (
-                    f'{rr.reviews.first().score:3.1f}<a href="https://t.me/{rr.reviewer.username}">{RR_STATUS[rr.status]}</a>'
+                    f'<a href="https://t.me/{rr.reviewer.username}">{RR_STATUS[rr.status]}</a>{rr.reviews.first().score:3.1f}'
                     if rr.status == 1 else
-                    f'{rr.due_date.strftime("%d %H:%M")}<a href="https://t.me/{rr.reviewer.username}">{RR_STATUS[rr.status]}</a>'
+                    f'<a href="https://t.me/{rr.reviewer.username}">{RR_STATUS[rr.status]}</a>{rr.due_date.strftime("%d %H:%M")}'
                     if rr.status == 0 else
                     f'<a href="https://t.me/{rr.reviewer.username}">{RR_STATUS[rr.status]}</a>'
                 ) for rr in rrs
