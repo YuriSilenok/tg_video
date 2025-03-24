@@ -29,14 +29,9 @@ async def st(message: Message):
 @router.message(Command('report_reviewers'), IsAdmin())
 @error_handler()
 async def report_reviewers(message: Message):
-    reviewers = (
+    reviewers: List[User] = (
         User
-        .select(
-            User.comment.alias('fio'),
-            User.reviewer_score.alias('score'),
-            User.reviewer_rating.alias('rating'),
-            fn.COUNT(ReviewRequest).alias('count'),
-        )
+        .select(User)
         .join(UserRole)
         .join(Role)
         .join(ReviewRequest, on=(ReviewRequest.reviewer_id==User.id))
@@ -49,11 +44,13 @@ async def report_reviewers(message: Message):
     )
     result = 'Отчет о проверяющих\n\n'
     result += '\n'.join([
-        f"{i['count']:02.0f}|{i['score']:05.2f}|{i['rating']:05.3f}|{i['fio']}" for i in reviewers.dicts()
+        f"{u.reviewer_score:05.2f}|{u.reviewer_rating:05.3f}|{u.link}" for u in reviewers
     ])
 
     await message.answer(
-        text=result
+        text=result,
+        parse_mode='HTML',
+        disable_web_page_preview=True,
     )
 
 
@@ -78,7 +75,9 @@ async def report_blogers(message: Message):
 
     text = '\n'.join(points)
     await message.answer(
-        text=text
+        text=text,
+        parse_mode='HTML',
+        disable_web_page_preview=True,
     )
 
 
@@ -180,7 +179,7 @@ async def report_themes(message: Message):
             #     else task.videos.first().at_created
             # ).strftime("%Y-%m-%d %H:%M"),
             (
-                f'\n{task.due_date.strftime("%Y-%m-%d %H:%M")}' if task.status == 0 else
+                f'{task.due_date.strftime("%d %H:%M")}' if task.status == 0 else
                 '' if task.status == 1 
                 else f'{(task.score*100):05.2f}'
             ),
