@@ -12,6 +12,7 @@ from admin import router as admin_router
 from reviewer import router as reviewer_router, loop as reviewer_loop
 from channel import router as channel_router, loop as channel_loop
 from bloger import router as bloger_router, loop as bloger_loop
+from common import router as common_router
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TG_TOKEN)
@@ -51,6 +52,7 @@ async def main():
         bloger_router,
         reviewer_router,
         admin_router,
+        common_router,
     )
 
     await dp.start_polling(bot)

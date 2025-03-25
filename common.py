@@ -277,6 +277,7 @@ async def send_new_review_request(bot: Bot):
         ]
         for video_id in video_ids:
             await add_reviewer(bot, Video.get_by_id(video_id))
+            await send_new_review_request(bot)
             break
 
 
