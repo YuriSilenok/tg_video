@@ -31,9 +31,9 @@ async def sleep():
 
 async def loop():
     while Singletone.LOOP:
-        await channel_loop(bot)
-        await reviewer_loop(bot)
-        await bloger_loop(bot)
+        asyncio.create_task(channel_loop(bot))
+        asyncio.create_task(reviewer_loop(bot))
+        asyncio.create_task(bloger_loop(bot))
         await sleep()
 
 
