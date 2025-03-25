@@ -1,6 +1,6 @@
 """Взаимодействие с блогером"""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import List
 from aiogram import Bot, Router, F
 from aiogram.filters import Command
@@ -252,4 +252,6 @@ async def check_old_task(bot:Bot):
 
 @error_handler()
 async def loop(bot: Bot):
-    await check_old_task(bot)
+    now = datetime.now()
+    if now.minute == 0:
+        await check_old_task(bot)

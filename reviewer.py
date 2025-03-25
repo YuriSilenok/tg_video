@@ -267,9 +267,11 @@ async def send_notify_reviewers(bot: Bot):
 
 @error_handler()
 async def loop(bot: Bot):
-    await send_notify_reviewers(bot)
-    await check_old_reviewer_requests(bot)
-    await send_new_review_request(bot)
+    now = datetime.now()
+    if now.minute == 0:
+        await send_notify_reviewers(bot)
+        await check_old_reviewer_requests(bot)
+        await send_new_review_request(bot)
 
 
 if __name__ == '__main__':
