@@ -286,13 +286,48 @@ def update_reviewers_rating():
     rating = {}
     for reviewer in list(set(score_over.keys()) | set(reviewer_overs.keys())):
         rating[reviewer] = (
-            math.sqrt(score_over.get(reviewer, 0) + 
-            (reviewer_overs.get(reviewer, 0)/max_reviewer_over) ** 2)
+            score_over.get(reviewer, 0) + 
+            (reviewer_overs.get(reviewer, 0)/max_reviewer_over) ** 2
         )
+
+    max_hours = (
+        ReviewRequest
+        .select(
+            fn.MAX(
+                fn.ROUND(
+                    (fn.julianday(Review.at_created) - fn.julianday(ReviewRequest.at_created)) * 24,
+                    2
+                )
+            ).alias('max_hours')
+        )
+        .join(Review)
+        .scalar()
+    )
+    query: List[Review] = (
+        Review
+        .select(
+                ReviewRequest.reviewer.alias('reviewer'),
+                fn.AVG(
+                    fn.ROUND(
+                        (fn.julianday(Review.at_created) - fn.julianday(ReviewRequest.at_created)) * 24,
+                        2
+                    )
+                ).alias('hours')
+        )
+        .join(ReviewRequest)
+        .group_by(ReviewRequest.reviewer)
+    )
+    for row in query.dicts():
+        rating[row['reviewer']] = (
+            rating.get(row['reviewer'], 0) + 
+            (row['hours']/max_hours) ** 2
+        )
+
 
     for reviewer in rating:
         user: User = User.get_by_id(reviewer)
-        user.reviewer_rating = rating[reviewer]
+        print(user.comment, user.reviewer_rating, math.sqrt(rating[reviewer]))
+        user.reviewer_rating = math.sqrt(rating[reviewer])
         user.save()
 
 

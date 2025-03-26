@@ -271,7 +271,6 @@ async def loop(bot: Bot):
     if now.minute == 0:
         await send_notify_reviewers(bot)
         await check_old_reviewer_requests(bot)
-        await send_new_review_request(bot)
 
 
 if __name__ == '__main__':
