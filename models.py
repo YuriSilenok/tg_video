@@ -290,19 +290,22 @@ def update_reviewers_rating():
             (reviewer_overs.get(reviewer, 0)/max_reviewer_over) ** 2
         )
 
-    max_hours = (
+    max_hours = max([row['hours'] for row in 
         ReviewRequest
         .select(
-            fn.MAX(
+            fn.AVG(
                 fn.ROUND(
                     (fn.julianday(Review.at_created) - fn.julianday(ReviewRequest.at_created)) * 24,
                     2
                 )
-            ).alias('max_hours')
+            ).alias('hours')
         )
         .join(Review)
-        .scalar()
-    )
+        .group_by(
+            ReviewRequest.reviewer
+        ).dicts()
+    ])
+
     query: List[Review] = (
         Review
         .select(
