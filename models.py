@@ -329,7 +329,6 @@ def update_reviewers_rating():
 
     for reviewer in rating:
         user: User = User.get_by_id(reviewer)
-        print(user.comment, user.reviewer_rating, math.sqrt(rating[reviewer]))
         user.reviewer_rating = math.sqrt(rating[reviewer])
         user.save()
 
