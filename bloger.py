@@ -222,6 +222,34 @@ async def to_extend(callback_query: CallbackQuery):
 
 
 @error_handler()
+async def check_expired_task(bot:Bot):
+    dd = get_date_time()
+    old_tasks: List[Task] = (
+        Task
+        .select(Task)
+        .where(
+            (Task.status==0) &
+            (Task.due_date == dd)
+        )
+    )
+    for task in old_tasks:
+        try:
+            await bot.send_message(
+                chat_id=task.implementer.tg_id,
+                text='Вы просрочили срок записи видео. Тема с Вас снята',
+            )
+            task.status = -2
+            task.save()
+            await send_message_admins(
+                bot=bot,
+                text=f'Тема {task.theme.link} просрочена {task.implementer.link}'
+            )
+        except TelegramBadRequest as ex:
+            print(ex, task.implementer.comment)
+
+
+
+@error_handler()
 async def check_old_task(bot:Bot):
     dd = get_date_time(24)
     old_tasks: List[Task] = (
@@ -248,10 +276,10 @@ async def check_old_task(bot:Bot):
             )
         except TelegramBadRequest as ex:
             print(ex, task.implementer.comment)
+    
 
 
 @error_handler()
 async def loop(bot: Bot):
-    now = datetime.now()
-    if now.minute == 0:
-        await check_old_task(bot)
+    await check_old_task(bot)
+    await check_expired_task(bot)
