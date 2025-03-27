@@ -96,6 +96,8 @@ async def drop_bloger(bot:Bot, user: User):
 Пользователь: {user.comment}'''
     )
 
+    await send_task(bot)
+
 
 @router.message(Command('bloger_off'), IsBloger())
 @error_handler()
