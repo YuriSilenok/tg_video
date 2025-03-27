@@ -10,7 +10,7 @@ from aiogram.exceptions import TelegramBadRequest
 
 from filters import IsBloger, WaitVideo
 from models import Role, Task, UserRole, Video, User, TASK_STATUS, update_bloger_score_and_rating
-from common import get_id, get_date_time, error_handler, send_message_admins, send_new_review_request
+from common import get_id, get_date_time, error_handler, send_message_admins, send_new_review_request, send_task
 
 router = Router()
 
@@ -244,6 +244,7 @@ async def check_expired_task(bot:Bot):
                 bot=bot,
                 text=f'Тема {task.theme.link} просрочена {task.implementer.link}'
             )
+            await send_task(bot)
         except TelegramBadRequest as ex:
             print(ex, task.implementer.comment)
 
