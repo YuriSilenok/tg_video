@@ -1,5 +1,6 @@
 """Взаимодействие с блогером"""
 
+import traceback
 from datetime import datetime, timedelta
 from typing import List
 from aiogram import Bot, Router, F
@@ -232,11 +233,6 @@ async def check_expired_task(bot:Bot):
     )
     for task in old_tasks:
         try:
-            await bot.send_message(
-                chat_id=task.implementer.tg_id,
-                text='Вы просрочили срок записи видео. '
-                'Тема и Роль блогера с Вас снята',
-            )
             task.status = -2
             task.save()
             
@@ -247,10 +243,23 @@ async def check_expired_task(bot:Bot):
             if user_role:
                 user_role.delete_instance()        
             
+            try:
+                await bot.send_message(
+                    chat_id=task.implementer.tg_id,
+                    text='Вы просрочили срок записи видео. '
+                    'Тема и Роль блогера с Вас снята',
+                )
+            except TelegramBadRequest:
+                await send_message_admins(
+                    bot=bot,
+                    text=traceback.format_exc()
+                )
+
             await send_message_admins(
                 bot=bot,
                 text=f'Тему {task.theme.link} просрочил {task.implementer.link}'
             )
+
             await send_task(bot)
 
             new_task = Task.get_or_none(
@@ -281,11 +290,17 @@ async def check_expired_task(bot:Bot):
                 )
             )
             for user_role in query:
-                await bot.send_message(
-                    chat_id=user_role.user.tg_id,
-                    text=f'Для курса {task.theme.course.title} нет исполнителя'
-                    ', подпишитесь на него и получите задачу на разработку видео'
-                )
+                try:
+                    await bot.send_message(
+                        chat_id=user_role.user.tg_id,
+                        text=f'Для курса {task.theme.course.title} нет исполнителя'
+                        ', подпишитесь на него и получите задачу на разработку видео'
+                    )
+                except TelegramBadRequest:
+                    await send_message_admins(
+                        bot=bot,
+                        text=traceback.format_exc()
+                    )
  
         except TelegramBadRequest as ex:
             print(ex, task.implementer.comment)
