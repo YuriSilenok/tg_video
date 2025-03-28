@@ -9,7 +9,7 @@ from aiogram.exceptions import TelegramBadRequest
 
 
 from filters import IsBloger, WaitVideo
-from models import Role, Task, UserRole, Video, User, TASK_STATUS, update_bloger_score_and_rating
+from models import Course, Role, Task, UserCourse, UserRole, Video, User, TASK_STATUS, update_bloger_score_and_rating
 from common import get_id, get_date_time, error_handler, send_message_admins, send_new_review_request, send_task
 
 router = Router()
@@ -234,15 +234,59 @@ async def check_expired_task(bot:Bot):
         try:
             await bot.send_message(
                 chat_id=task.implementer.tg_id,
-                text='Вы просрочили срок записи видео. Тема с Вас снята',
+                text='Вы просрочили срок записи видео. '
+                'Тема и Роль блогера с Вас снята',
             )
             task.status = -2
             task.save()
+            
+            user_role: UserRole = UserRole.get_or_none(
+                user=task.implementer,
+                role=IsBloger.role
+            )
+            if user_role:
+                user_role.delete_instance()        
+            
             await send_message_admins(
                 bot=bot,
-                text=f'Тема {task.theme.link} просрочена {task.implementer.link}'
+                text=f'Тему {task.theme.link} просрочил {task.implementer.link}'
             )
             await send_task(bot)
+
+            new_task = Task.get_or_none(
+                theme=task.theme,
+                status=0,
+            )
+            if new_task:
+                continue
+
+            query: List[UserRole] = (
+                UserRole
+                .select()
+                .where(
+                    (UserRole.role_id == IsBloger.role.id) &
+                    (~UserRole.user_id << (
+                        User
+                        .select(User.id)
+                        .join(UserCourse)
+                        .where(UserCourse.course_id==task.theme.course_id)
+                    )) &
+                    (~UserRole.user_id<<(
+                        Task
+                        .select(Task.implementer_id)
+                        .where(
+                            (Task.status.between(0, 1))
+                        )
+                    ))
+                )
+            )
+            for user_role in query:
+                await bot.send_message(
+                    chat_id=user_role.user.tg_id,
+                    text=f'Для курса {task.theme.course.title} нет исполнителя'
+                    ', подпишитесь на него и получите задачу на разработку видео'
+                )
+ 
         except TelegramBadRequest as ex:
             print(ex, task.implementer.comment)
 

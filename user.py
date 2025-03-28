@@ -266,6 +266,7 @@ async def add_user_course(callback: CallbackQuery):
         bot=callback.bot,
         text=f'Пользователь {user.comment} подписался на курс {course.title}'
     )
+    await send_task(callback.bot)
 
 
 @router.callback_query(F.data.startswith('del_user_course_'), IsUser())

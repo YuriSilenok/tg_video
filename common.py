@@ -221,7 +221,8 @@ async def send_message_admins(bot:Bot, text: str):
             await bot.send_message(
                 chat_id=admin.tg_id,
                 text=text,
-                parse_mode='HTML'
+                parse_mode='HTML',
+                disable_web_page_preview=True,
             )
         except Exception as ex:
             print(ex)
