@@ -19,7 +19,7 @@ router = Router()
 @router.message(F.document, IsBloger(), WaitVideo())
 async def upload_file(message: Message):
     await message.answer(
-        text='Видео нужно отправить как видео, а не как файл'
+        text='📹🔜📨📹🚫📁.Видео нужно отправить как видео, а не как файл'
     )
 
 
@@ -33,7 +33,7 @@ async def get_bloger_user_role(bot: Bot, user: User):
         await bot.send_message(
             chat_id=user.tg_id,
             text=(
-                "Роль блогера не найдена! "
+                "🕴🔑🚫🔎Роль блогера не найдена! "
                 "Это проблема администратора! "
                 "Cообщите ему всё, что Вы о нем думаете. @YuriSilenok"
             )
@@ -56,7 +56,7 @@ async def drop_bloger(bot:Bot, user: User):
     if user_role is None:
         await bot.send_message(
             chat_id=user.tg_id,
-            text='Вам не выдавалась роль блогера.'
+            text='✔️👆🛠🔑🕴Вам не выдавалась роль блогера.'
         )
         return
 
@@ -70,11 +70,11 @@ async def drop_bloger(bot:Bot, user: User):
     if task:
         await bot.send_message(
             chat_id=user.tg_id,
-            text=f'У Вас выдана задача на тему "{task.theme.title}", '
+            text=f'👆💭👆💚☑👅❓У Вас выдана задача на тему "{task.theme.title}", '
             'Вы уверены что хотите отказаться?',
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(
-                    text='Да',
+                    text='👌Да',
                     callback_data=f'del_task_yes_{task.id}',
                 )
             ]])
@@ -175,16 +175,14 @@ async def upload_video(message: Message):
         text=(
             'Видео принято на проверку. '
             'Пока новая тема не выдана, '
-            'Вы можете отказаться быть блогером без штрафов.'
+            'Вы можете отказаться быть блогером без снижения рейтинга.'
         )
     )
 
     await send_message_admins(
         bot=message.bot,
-        text=f'''<b>Блогер прислал видео</b>
-Блогер: {user.comment}
-Курс: {task.theme.course.title}
-Тема: {task.theme.title}'''
+        text=f'''🕴📨📹<b>Блогер {user.link} прислал видео</b>
+Тема: {task.theme.course.title}|{task.theme.link}'''
     )
 
     await send_new_review_request(message.bot)
@@ -215,10 +213,8 @@ async def to_extend(callback_query: CallbackQuery):
 
     await send_message_admins(
         bot=callback_query.bot,
-        text=f'''<b>Блогер продлил срок</b>
-Блогер: {task.implementer.comment}
-Курс: {task.theme.course.title}
-Тема: {task.theme.title}
+        text=f'''<b>Блогер {task.implementer.link} продлил срок</b>
+Тема: {task.theme.course.title}|{task.theme.link}
 Срок: {task.due_date}'''
     )
 

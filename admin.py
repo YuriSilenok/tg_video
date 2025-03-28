@@ -42,7 +42,7 @@ async def report_reviewers(message: Message):
         .group_by(User)
         .order_by(User.reviewer_rating)
     )
-    result = 'Отчет о проверяющих\n\n'
+    result = '🔬📄Отчет о проверяющих\n\n'
     result += '\n'.join([
         f"{u.reviewer_score:05.2f}|{u.reviewer_rating:05.3f}|{u.link}" for u in reviewers
     ])
@@ -57,7 +57,7 @@ async def report_reviewers(message: Message):
 @router.message(Command('report_blogers'), IsAdmin())
 @error_handler()
 async def report_blogers(message: Message):
-    points = []
+    points = ['<b>🕴📄Отчет о блогерах</b>']
     blogers = (
         User
         .select(User)
@@ -88,22 +88,22 @@ async def add_role(message: Message):
     data = message.text.strip().replace('  ', '').split()
     if len(data) != 3:
         await message.answer(
-            text=' Не верное коичетво параметров. Команда, роль, юзернейм'
+            text=' ❌🔢🔢Неверное количество параметров. Команда, роль, юзернейм'
         )
         return
     role_name = data[2]
     role = Role.get_or_none(name=role_name)
     if role is None:
         await message.answer(
-            text=f'Нет роли {role_name}'
+            text=f'📤🙅‍♂🔑Нет роли {role_name}'
         )
         return
     
-    username = data[1].strip()
+    username = data[1].replace('@', '').strip()
     user = User.get_or_none(username=username)
     if user is None:
         await message.answer(
-            text=f'Нет пользователя с юзернейм {username}'
+            text=f'📤🙅‍♂👩‍💻⏮🆔Нет пользователя с юзернейм {username}'
         )
         return
     UserRole.get_or_create(
@@ -111,7 +111,7 @@ async def add_role(message: Message):
         role=role
     )
     await message.answer(
-        text='Роль добавлена'
+        text='🔑🚮Роль добавлена'
     )
 
 
@@ -121,11 +121,11 @@ async def set_comment(message: Message):
     
     data = message.text.strip().replace('  ', '').split(maxsplit=1)[1]
     data = data.split(maxsplit=1)
-    username = data[0]
+    username = data[0].replace('@','').strip()
     user = User.get_or_none(username=username)
     if user is None:
         await message.answer(
-            text='Пользователь с таким юзернейм не найден'
+            text='👩‍💻⏮👉🆔🚫🔎Пользователь с таким юзернейм не найден'
         )
         return
 
@@ -133,7 +133,7 @@ async def set_comment(message: Message):
     user.save()
 
     await message.answer(
-        text='Комментарий записан'
+        text='🏤⏺Комментарий записан'
     )
 
 
@@ -289,7 +289,7 @@ async def add_course(message: Message, state: FSMContext):
 
         if len(load_videos) == 0:
             await message.answer(
-                text='Темы курса загружены. Загрузка видео не требуется',
+                text='↗️❔📐Темы курса загружены. Загрузка видео не требуется',
             )
             for user in User.select():
                 update_bloger_score_and_rating(user)
@@ -300,7 +300,7 @@ async def add_course(message: Message, state: FSMContext):
             })
             await state.set_state(UploadVideo.wait_upload)
             await message.answer(
-                text=f'Отправьте видео на тему "{load_videos[0]["title"]}"'
+                text=f'📨📹Отправьте видео на тему "{load_videos[0]["title"]}"'
             )
         
     except Exception as e:
@@ -315,7 +315,7 @@ async def upload_video(message: Message, state: FSMContext):
     load_videos = data['load_videos']
     if len(load_videos) == 0:
         await message.answer(
-            text='Все видео загружены',
+            text='🌐📹✔️📂Все видео загружены',
         )
         return
     
@@ -341,13 +341,13 @@ async def upload_video(message: Message, state: FSMContext):
     text = update_bloger_score_and_rating(implementer)
     await message.bot.send_message(
         chat_id=implementer.tg_id,
-        text=f'Видео на тему {theme.title} загружено администратором.\n\n{text}'
+        text=f'📹📂👨‍💼Видео на тему {theme.title} загружено администратором.\n\n{text}'
     )
 
     if len(load_videos) == 0:
         await state.clear()
         await message.answer(
-            text='Все видео загружены'
+            text='🌐📹✔️📂Все видео загружены'
         )
         return
 
@@ -356,5 +356,5 @@ async def upload_video(message: Message, state: FSMContext):
     })
 
     await message.answer(
-        text=f'Отправьте видео на тему "{load_videos[0]["title"]}"'
+        text=f'📨📹Отправьте видео на тему "{load_videos[0]["title"]}"'
     )
