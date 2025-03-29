@@ -29,15 +29,18 @@ async def st(message: Message):
 @router.message(Command('report_reviewers'), IsAdmin())
 @error_handler()
 async def report_reviewers(message: Message):
+    old_date = get_date_time(hours=-24*14)
     reviewers: List[User] = (
         User
         .select(User)
-        .join(UserRole)
-        .join(Role)
-        .join(ReviewRequest, on=(ReviewRequest.reviewer_id==User.id))
         .where(
-            (Role.name == 'Проверяющий') &
-            (ReviewRequest.status == 1) # Видео проверено
+            (User.reviewer_score > 0) &
+            (User.id << (
+                ReviewRequest
+                .select(ReviewRequest.reviewer)
+                .join(Review)
+                .where(Review.at_created >= old_date)
+            ))
         )
         .group_by(User)
         .order_by(User.reviewer_rating)
@@ -58,10 +61,19 @@ async def report_reviewers(message: Message):
 @error_handler()
 async def report_blogers(message: Message):
     points = ['<b>🕴📄Отчет о блогерах</b>']
+    old_date = get_date_time(hours=-24*14)
     blogers = (
         User
         .select(User)
-        .where(User.bloger_score > 0)
+        .where(
+            (User.bloger_score > 0) &
+            (User.id << (
+                Task
+                .select(Task.implementer)
+                .join(Video)
+                .where(Video.at_created >= old_date)
+            ))
+        )
         .order_by(User.bloger_rating.desc())
     )
     for bloger in blogers:

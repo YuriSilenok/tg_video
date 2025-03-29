@@ -344,29 +344,29 @@ async def add_reviewer(bot: Bot, video_id: int):
 @error_handler()
 async def send_video(bot: Bot, review_request: ReviewRequest):
     
-    text = f'Ваше видео на тему "{review_request.video.task.theme.title}" выдано на проверку'
+    text = f'Ваше видео на тему "{review_request.video.task.theme.link}" выдано на проверку'
     try:
         await bot.send_message(
             chat_id=review_request.video.task.implementer.tg_id,
             text=text,
+            parse_mode='HTML',
+            disable_web_page_preview=True,
         )
     except TelegramBadRequest as ex:
         print(ex, text)
 
     caption = (
         f'Это видео нужно проверить до {review_request.due_date}.\n'
-        f'Курс: "{review_request.video.task.theme.course.title}"\n'
-        f'Тема: "{review_request.video.task.theme.title}"\n'
-        f'url: "{review_request.video.task.theme.url}"\n'
+        f'Тема: "{review_request.video.task.theme.course.title}|{review_request.video.task.theme.link}"\n'
         'Для оценки видео напишите одно сообщение '
-        'в начале которого будет оценка в интервале [0.0; 5.0], '
-        'а через пробел отзыв о видео'
+        'в начале которого будет оценка в интервале [0.0; 5.0], а через пробел отзыв о видео'
     )
     try:
         await bot.send_video(
             chat_id=review_request.reviewer.tg_id,
             video=review_request.video.file_id,
-            caption=caption
+            caption=caption,
+            parse_mode='HTML',
         )
     except TelegramBadRequest as ex:
         print(ex, caption, sep='\n')
