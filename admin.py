@@ -213,9 +213,9 @@ TASK_STATUS = {
 }
 
 
-@router.message(Command('report_themes'), IsAdmin())
+@router.message(Command('report_tasks'), IsAdmin())
 @error_handler()
-async def report_themes(message: Message):
+async def report_tasks(message: Message):
     
     tasks: List[Task] = (
         Task
