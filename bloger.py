@@ -189,7 +189,7 @@ async def upload_video(message: Message):
     await send_new_review_request(message.bot)
 
 
-@router.callback_query(F.data.startswith('to_extend_') | F.data.startswith('task_to_extend_'), IsBloger())
+@router.callback_query(F.data.startswith('task_to_extend_'), IsBloger())
 @error_handler()
 async def to_extend(callback_query: CallbackQuery):
     task_id = get_id(callback_query.data)
@@ -198,13 +198,14 @@ async def to_extend(callback_query: CallbackQuery):
     if task.status != 0:
         await callback_query.message.edit_text(
             text='Срок не может быть продлен. '
-            f'Видео по теме <b>{task.theme.title}</b> уже получено.',
+            f'Видео по теме {task.theme.link} уже получено.',
             parse_mode='HTML',
             reply_markup=None,
         )
         return
     
     task.due_date += timedelta(days=1)
+    task.extension = 0
     task.save()
 
     await callback_query.message.edit_text(
@@ -212,12 +213,14 @@ async def to_extend(callback_query: CallbackQuery):
         reply_markup=None,
     )
 
+
     await send_message_admins(
         bot=callback_query.bot,
         text=f'''<b>Блогер {task.implementer.link} продлил срок</b>
 Тема: {task.theme.course.title}|{task.theme.link}
 Срок: {task.due_date}'''
     )
+    
 
 
 @error_handler()
@@ -314,15 +317,17 @@ async def check_old_task(bot:Bot):
         Task
         .select(Task)
         .where(
-            (Task.status==0) &
-            (Task.due_date == dd)
+            (Task.status == 0) &
+            (Task.extension == 0) &
+            (Task.due_date <= dd)
         )
     )
     for task in old_tasks:
         try:
             await bot.send_message(
                 chat_id=task.implementer.tg_id,
-                text='До окончания срока осталось 24 часа. Воспользуйтесь этой кнопкой, что бы продлить срок на сутки',
+                text='До окончания срока осталось мене 24 часов. '
+                'Воспользуйтесь этой кнопкой, что бы продлить срок на сутки',
                 reply_markup=InlineKeyboardMarkup(
                     inline_keyboard=[[
                         InlineKeyboardButton(
@@ -332,6 +337,8 @@ async def check_old_task(bot:Bot):
                     ]]
                 )
             )
+            task.extension = 1
+            task.save()
         except TelegramBadRequest as ex:
             print(ex, task.implementer.comment)
     

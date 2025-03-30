@@ -112,6 +112,9 @@ class Task(Table):
     due_date = DateTimeField()
     status = IntegerField(default=0)
     score = FloatField(default=0.0)
+    # 0 - кнопка с продлением не отправлялась или ей воспользовались
+    # 1 - кнопка о продлении отправлена
+    extension = IntegerField(default=0)
 
 
 class Video(Table):
