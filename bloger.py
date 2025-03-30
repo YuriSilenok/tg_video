@@ -250,7 +250,9 @@ async def check_expired_task(bot:Bot):
                 await bot.send_message(
                     chat_id=task.implementer.tg_id,
                     text='Вы просрочили срок записи видео. '
-                    'Тема и Роль блогера с Вас снята',
+                    'Тема и Роль блогера с Вас снята. '
+                    'Если Вы хотите снова получить темы для видео, '
+                    'пошлите команду /bloger_on'
                 )
             except TelegramBadRequest:
                 await send_message_admins(

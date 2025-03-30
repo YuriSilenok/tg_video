@@ -5,7 +5,7 @@ from aiogram.types import Message, BotCommand, CallbackQuery, InlineKeyboardMark
 
 
 from common import error_handler, send_task, send_message_admins
-from filters import IsUser
+from filters import IsBloger, IsReviewer, IsUser
 from models import Course, ReviewRequest, Role, Task, Theme, User, UserCourse, UserRole, Video, update_bloger_score_and_rating
 from peewee import JOIN, fn
 
@@ -211,8 +211,18 @@ def get_data_by_courses(user: User):
 
         if len(data[course.id]) == 3:
 
+            bloger_count = (
+                UserCourse
+                .select(fn.COUNT(UserCourse.id))
+                .join(UserRole, on=(UserRole.user == UserCourse.user))
+                .where(
+                    (UserCourse.course_id == course.id) &
+                    (UserRole.role_id == IsBloger.role.id)
+                )
+                .scalar()
+            )
             themes_str = '\n'.join([ f'<a href="{t.url}">{t.title}</a>|{t.complexity}' for t in data[course.id][:3]])
-            text+=f'<b>{course.title}</b>\n{themes_str}\n\n'
+            text+=f'<b>{course.title}</b>|{bloger_count}\n{themes_str}\n\n'
             row = None
 
             if len(inline_keyboard) == 0:
