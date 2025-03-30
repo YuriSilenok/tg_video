@@ -288,10 +288,16 @@ async def send_new_review_request(bot: Bot):
 @error_handler()
 async def add_reviewer(bot: Bot, video_id: int):
     # Свободные проверяющие
-    vacant_reviewer_ids = get_vacant_reviewer_ids()
+    vacant_reviewer_ids: List[int] = get_vacant_reviewer_ids()
+    
+    video: Video = Video.get_by_id(video_id)
+    task: Task = video.task
+    theme: Theme = task.theme
+    
+    if task.implementer_id in vacant_reviewer_ids:
+        vacant_reviewer_ids.remove(task.implementer_id)
     
     if len(vacant_reviewer_ids) == 0:
-        theme = Video.get_by_id(video_id).task.theme
         await send_message_admins(
             bot=bot,
             text=f'''<b>Закончились cвободные проверяющие</b>
