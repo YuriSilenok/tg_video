@@ -77,12 +77,18 @@ async def get_review(message:Message):
 
     await send_message_admins(
         bot=message.bot,
-        text=f'''<b>Проверяющий отправил отзыв</b>
-Проверяющий: {user.comment}
-Блогер: {review_request.video.task.implementer.comment}
-Курс: {review_request.video.task.theme.course.title}
-Тема: {review_request.video.task.theme.title}
-Отзыв: {text}'''
+
+        text=f'Проверяющий {user.link} отправил отзыв '
+        f'на видео {review_request.video.task.theme.course.title}|{review_request.video.task.theme.link} '
+        f'блогера {review_request.video.task.implementer.link}\n\n'
+        f'{text}',
+
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(
+                text='Удалить отзыв и запрос',
+                callback_data=f'del_rr_{review_request.id}'
+            )
+        ]])
     )
 
 

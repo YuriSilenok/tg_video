@@ -215,7 +215,7 @@ async def send_task(bot: Bot):
 
 
 @error_handler()
-async def send_message_admins(bot:Bot, text: str):
+async def send_message_admins(bot:Bot, text: str, reply_markup = None):
     for admin in get_admins():
         try:
             await bot.send_message(
@@ -223,12 +223,14 @@ async def send_message_admins(bot:Bot, text: str):
                 text=text,
                 parse_mode='HTML',
                 disable_web_page_preview=True,
+                reply_markup=reply_markup,
             )
         except Exception as ex:
             print(ex)
             await bot.send_message(
                 chat_id=admin.tg_id,
-                text=text
+                text=text,
+                reply_markup=reply_markup,
             )
 
 

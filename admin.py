@@ -4,11 +4,11 @@ from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 from peewee import fn, JOIN, Case
 
 from filters import IsAdmin
-from common import get_date_time, error_handler, send_task
+from common import add_reviewer, get_date_time, error_handler, get_id, send_task
 from models import *
 
 
@@ -18,6 +18,57 @@ router = Router()
 
 class UploadVideo(StatesGroup):
     wait_upload = State()
+
+
+@router.callback_query(F.data.startswith('del_rr_'))
+@error_handler()
+async def del_rr(callback: CallbackQuery):
+
+    rr_id = get_id(callback.data)
+    rr: ReviewRequest = ReviewRequest.get_or_none(
+        id=rr_id
+    )
+    
+    if not rr:
+        await callback.answer(
+            text='Запрос на проверку не найден'
+        )
+        return
+
+    r: Review = rr.reviews.first()
+    if not r:
+        await callback.answer(
+            text='Не найден отзыв'
+        )
+        return
+    video: Video = rr.video
+    task: Task = video.task
+    if task.status != 1:
+        task.status = 1
+        task.save()
+        await callback.message.reply(
+            text='Проверка по задаче возобновлена',
+        )
+     
+    await callback.message.reply(
+        text=f'Запрос на проверку и отзыв удалён'
+    )
+
+    await callback.bot.send_message(
+        chat_id=rr.reviewer.tg_id,
+        text='Ваш отзыв и запрос на проверку видео удален. '
+        'Ожидайте следующее видео на проверку. '
+        'Возможно бот выдаст видео на проверку повторно.\n\n'
+        f'{r.comment}'
+    )
+
+    await callback.bot.send_message(
+        chat_id=task.implementer.tg_id,
+        text=f'Отзыв по вашему видео удален.\n\n{r.comment}'
+    )
+
+    rr.delete_instance()
+    await add_reviewer(callback.bot, video.id)
 
 
 @router.message(Command('send_task'), IsAdmin())
