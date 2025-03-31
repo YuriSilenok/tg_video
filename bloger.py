@@ -10,7 +10,7 @@ from aiogram.exceptions import TelegramBadRequest
 
 
 from filters import IsBloger, WaitVideo
-from models import Course, Role, Task, UserCourse, UserRole, Video, User, TASK_STATUS, update_bloger_score_and_rating
+from models import Course, Role, Task, Theme, UserCourse, UserRole, Video, User, TASK_STATUS, update_bloger_score_and_rating
 from common import get_id, get_date_time, error_handler, send_message_admins, send_new_review_request, send_task
 
 router = Router()
@@ -197,19 +197,23 @@ async def to_extend(callback_query: CallbackQuery):
 
     if task.status != 0:
         await callback_query.message.edit_text(
-            text='Срок не может быть продлен. '
+            text='Срок не может быть продлён. '
             f'Видео по теме {task.theme.link} уже получено.',
             parse_mode='HTML',
             reply_markup=None,
         )
         return
+    theme: Theme = task.theme
+    hours = int(theme.complexity * 72 / 2)
+    if hours < 24:
+        hours = 24
     
-    task.due_date += timedelta(days=1)
+    task.due_date += timedelta(hours=hours)
     task.extension = 0
     task.save()
 
     await callback_query.message.edit_text(
-        text=f'Срок сдвинут до {task.due_date}',
+        text=f'Срок Вашей задачи продлен до {task.due_date}',
         reply_markup=None,
     )
 
@@ -314,26 +318,38 @@ async def check_expired_task(bot:Bot):
 
 @error_handler()
 async def check_old_task(bot:Bot):
-    dd = get_date_time(24)
+    
+    now = get_date_time()
+
     old_tasks: List[Task] = (
         Task
         .select(Task)
         .where(
             (Task.status == 0) &
-            (Task.extension == 0) &
-            (Task.due_date <= dd)
+            (Task.extension == 0)
         )
     )
+    
+    
     for task in old_tasks:
+
+        theme: Theme = task.theme
+        hours = int(theme.complexity * 72 / 2)
+        if hours < 24:
+            hours = 24
+        reserve_time: timedelta = timedelta(hours=hours)
+        left_time: datetime = task.due_date - now
+        if left_time > reserve_time:
+            continue
+
         try:
             await bot.send_message(
                 chat_id=task.implementer.tg_id,
-                text='До окончания срока осталось менее 24 часов. '
-                'Воспользуйтесь этой кнопкой, что бы продлить срок на сутки',
+                text=f'Воспользуйтесь этой кнопкой, что бы продлить срок Вашей задачи до {task.due_date + reserve_time} ',
                 reply_markup=InlineKeyboardMarkup(
                     inline_keyboard=[[
                         InlineKeyboardButton(
-                            text='Продлить',
+                            text=f'Продлить до {task.due_date + reserve_time}',
                             callback_data=f'task_to_extend_{task.id}'
                         )
                     ]]

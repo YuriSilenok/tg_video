@@ -165,11 +165,12 @@ async def send_task(bot: Bot):
         )
     )
 
-    due_date = get_date_time(hours=73)
     user_ids = []
     course_ids = []
     table = query.dicts()
+
     for row in table:
+
         user_id = row['user_id']
         course_id = row['course_id']
         theme_id = row['theme_id']
@@ -177,16 +178,21 @@ async def send_task(bot: Bot):
         if (user_id in user_ids or 
             course_id in course_ids):
             continue
+
         user_ids.append(user_id)
         course_ids.append(course_id)
 
-        theme = Theme.get_by_id(theme_id)
+        theme: Theme = Theme.get_by_id(theme_id)
         user = User.get_by_id(user_id)
+
+        hours = int(theme.complexity*72+1)
+        if hours < 72:
+            hours = 72
 
         task = Task.create(
             implementer=user,
             theme=theme,
-            due_date=due_date
+            due_date=get_date_time(hours=hours)
         )
 
         try:
