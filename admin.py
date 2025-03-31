@@ -96,7 +96,7 @@ async def report_reviewers(message: Message):
         .group_by(User)
         .order_by(User.reviewer_rating)
     )
-    result = '🔬📄Отчет о проверяющих\n\n'
+    result = '👀📄<b>Отчет о проверяющих</b>\n'
     result += '\n'.join([
         f"{u.reviewer_score:05.2f}|{u.reviewer_rating:05.3f}|{u.link}" for u in reviewers
     ])
@@ -111,7 +111,7 @@ async def report_reviewers(message: Message):
 @router.message(Command('report_blogers'), IsAdmin())
 @error_handler()
 async def report_blogers(message: Message):
-    points = ['<b>🕴📄Отчет о блогерах</b>']
+    points = ['📹📄<b>Отчет о блогерах</b>']
     old_date = get_date_time(hours=-24*14)
     blogers = (
         User

@@ -328,7 +328,7 @@ async def check_old_task(bot:Bot):
         try:
             await bot.send_message(
                 chat_id=task.implementer.tg_id,
-                text='До окончания срока осталось мене 24 часов. '
+                text='До окончания срока осталось менее 24 часов. '
                 'Воспользуйтесь этой кнопкой, что бы продлить срок на сутки',
                 reply_markup=InlineKeyboardMarkup(
                     inline_keyboard=[[
