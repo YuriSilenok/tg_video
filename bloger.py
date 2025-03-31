@@ -345,7 +345,7 @@ async def check_old_task(bot:Bot):
         try:
             await bot.send_message(
                 chat_id=task.implementer.tg_id,
-                text=f'Воспользуйтесь этой кнопкой, что бы продлить срок Вашей задачи до {task.due_date + reserve_time} ',
+                text=f'Воспользуйтесь этой кнопкой, чтобы продлить срок Вашей задачи до {task.due_date + reserve_time} ',
                 reply_markup=InlineKeyboardMarkup(
                     inline_keyboard=[[
                         InlineKeyboardButton(
