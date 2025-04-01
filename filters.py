@@ -78,7 +78,7 @@ class WaitVideo(BaseFilter):
 
     async def __call__(self, message: Message) -> bool:
         user = User.get(tg_id=message.from_user.id)
-        task = Task.get(
+        task = Task.get_or_none(
             implementer=user,
             status=0
         )

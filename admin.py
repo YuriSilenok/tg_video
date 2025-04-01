@@ -319,17 +319,33 @@ async def add_course(message: Message, state: FSMContext):
                 title=course_title
             )
             theme_title = row[1]
-            theme_url = row[2]
-            theme, _ = Theme.get_or_create(
+            theme: Theme = Theme.get_or_none(
                 course=course,
                 title=theme_title,
-                url=theme_url
             )
 
+            theme_url = row[2]
             theme_complexity = float(row[3].replace(',', '.'))
-            if theme.complexity != theme_complexity:
-                theme.complexity = theme_complexity
-                theme.save()
+            if not theme:
+                theme = Theme.create(
+                    course=course,
+                    title=theme_title,
+                    url=theme_url,
+                    complexity=theme_complexity
+                )
+            else:
+                is_save = False
+                
+                if theme.complexity != theme_complexity:
+                    theme.complexity = theme_complexity
+                    is_save = True
+                
+                if theme.url != theme_url:
+                    theme.url = theme_url
+                    is_save = True
+                
+                if is_save:
+                    theme.save()
 
             if len(row) > 4 and row[4] != '':
                 score = 0.0
