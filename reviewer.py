@@ -105,22 +105,27 @@ async def get_review(message:Message):
         await send_new_review_request(message.bot)
         return
 
-    task = review_request.video.task
-    update_task_score(task)
+    task: Task = update_task_score(review_request.video.task)
     report = update_bloger_score_and_rating(task.implementer)
     await send_new_review_request(message.bot)
 
+    text='Закончена проверка Вашего видео.\n'
+    
+    if task.status == 2:
+        text += 'Оно достойного качества и будет опубликовано.'
+    elif task.status == -2:
+        text += 'Оно низкого качества и будет отправлено на переделку.'
+    text += f'\n\n{report}'
+
     await message.bot.send_message(
         chat_id=task.implementer.tg_id,
-        text=f'Закончена проверка вашего видео.\n\n{report}',
+        text=text
     )
 
     await send_message_admins(
         bot=message.bot,
         text=f'''<b>Проверка видео завершена</b>
-Блогер: {task.implementer.comment}
-Курс: {task.theme.course.title}
-Тема: {task.theme.title}'''
+{task.implementer.link}|{task.theme.course.title}|{task.theme.link}|{task.score}|{TASK_STATUS[task.status]}'''
     )
 
     await send_task(message.bot)
@@ -278,20 +283,3 @@ async def loop(bot: Bot):
         await send_notify_reviewers(bot)
         await check_old_reviewer_requests(bot)
 
-
-if __name__ == '__main__':
-    rr: List[ReviewRequest] = (
-        ReviewRequest
-        .select(ReviewRequest)
-        .join(Video)
-        .join(Task)
-        .where(
-            (ReviewRequest.status==1) &
-            (Task.status==1)
-        )
-        .group_by(ReviewRequest.video)
-        .having(fn.COUNT(ReviewRequest.video) == 5)
-    )
-    for r in rr:
-        print(r.video_id)
-        update_task_score(r.video.task)

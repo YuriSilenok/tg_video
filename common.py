@@ -396,7 +396,7 @@ async def send_video(bot: Bot, review_request: ReviewRequest):
 
 
 
-def update_task_score(task: Task):
+def update_task_score(task: Task) -> Task:
 
     task_score = sum([review.score for review in 
         Review
@@ -407,9 +407,17 @@ def update_task_score(task: Task):
         .where(Task.id==task.id)
     ]) / 25
 
+    limit_score = (
+        Task
+        .select(fn.AVG(Task.score))
+        .where(Task.status.not_in([0, 1]))
+        .scalar()
+    )
     task.score = task_score
-    task.status = 2 if task_score >= 0.8 else -2
+    task.status = 2 if task_score >= limit_score else -2
     task.save()
+
+    return task
 
 
 def get_vacant_reviewer_ids() -> List[User]:
