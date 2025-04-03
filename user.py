@@ -71,25 +71,40 @@ async def start(message: Message):
         user.username = message.from_user.username
         user.save()
 
-    
-    commands = commands=[
+
+    commands = [
         BotCommand(
             command='/courses',
-            description='Выбрать курсы, по которым будут выдаваться темы'
+            description='Выбрать курсы'
         ),
         BotCommand(
             command='/bloger_on',
-            description='Готов получить тему для видео'
+            description='Выдавать темы'
         ),
         BotCommand(
             command='/bloger_off',
-            description='Больше не выдавать мне темы для видео'
+            description='Не выдавать темы'
         ),
         BotCommand(
             command='/report',
-            description='Получить отчет о заработанных баллах'
+            description='Мои баллы'
         ),
     ]
+    if UserRole.role == 3:
+        commands.append(
+            BotCommand(
+                command='/report_reviewers',
+                description='Отчет о проверяющих'
+            ),
+            BotCommand(
+                command='/report_blogers',
+                description='Отчет о блогерах'
+            ),
+            BotCommand(
+                command='/report_tasks',
+                description='Отчет о задачах'
+            ),
+        )
     await message.bot.set_my_commands(
         commands=commands   
     )
