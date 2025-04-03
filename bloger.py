@@ -10,7 +10,7 @@ from aiogram.exceptions import TelegramBadRequest
 
 
 from filters import IsBloger, WaitVideo
-from models import Course, Role, Task, Theme, UserCourse, UserRole, Video, User, TASK_STATUS, update_bloger_score_and_rating
+from models import Role, Task, Theme, UserCourse, UserRole, Video, User, TASK_STATUS
 from common import get_id, get_date_time, error_handler, send_message_admins, send_new_review_request, send_task
 
 router = Router()
@@ -135,11 +135,11 @@ async def del_task_yes(query: CallbackQuery):
     task.status = -1
     task.save()
 
-    user = User.get(tg_id=query.from_user.id)
-    report = update_bloger_score_and_rating(user)
+    user: User = User.get(tg_id=query.from_user.id)
+    user.update_bloger_rating()
 
     await query.message.answer(
-        text=f'Задача cнята\n\n{report}'
+        text=f'Задача cнята\n\n{user.get_bloger_report()}'
     )
 
     await drop_bloger(query.bot, user)
@@ -361,8 +361,22 @@ async def check_old_task(bot:Bot):
             print(ex, task.implementer.comment)
     
 
+def update_rating_all_blogers():
+    blogers: List[User] = (
+        User
+        .select(User)
+        .join(Task)
+        .where(
+            (Task.status == 0)
+        )
+    )
+
+    for bloger in blogers:
+        bloger.update_bloger_rating()
+
 
 @error_handler()
 async def loop(bot: Bot):
     await check_old_task(bot)
     await check_expired_task(bot)
+    update_rating_all_blogers()

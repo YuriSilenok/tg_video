@@ -5,8 +5,8 @@ from aiogram.types import Message, BotCommand, CallbackQuery, InlineKeyboardMark
 
 
 from common import error_handler, send_task, send_message_admins
-from filters import IsBloger, IsReviewer, IsUser
-from models import Course, ReviewRequest, Role, Task, Theme, User, UserCourse, UserRole, Video, update_bloger_score_and_rating
+from filters import IsBloger, IsUser
+from models import Course, Role, Task, Theme, User, UserCourse, UserRole
 from peewee import JOIN, fn
 
 router = Router()
@@ -107,34 +107,11 @@ async def start(message: Message):
 @router.message(Command('report'), IsUser())
 async def report(message: Message):
     user: User = User.get(tg_id=message.from_user.id)
-    rev_bloger: List[ReviewRequest] = (
-        ReviewRequest
-        .select(ReviewRequest)
-        .join(Video, on=(Video.id==ReviewRequest.video))
-        .where(
-            (ReviewRequest.status == 1) &
-            (ReviewRequest.reviewer == user)
-        )
+    await message.answer(
+        text=user.get_report(),
+        parse_mode='HTML',
+        disable_web_page_preview=True,
     )
-    if len(rev_bloger) > 0:
-        text = ['<b>Отчёт проверяющего</b>']
-        sum_score = 0
-        for t in rev_bloger:
-            score = t.video.duration / 1200
-            text.append(
-                f'{t.video.task.theme.title}:{t.video.duration}c.|{round(score, 2)} балла'
-            )
-            sum_score += score
-        text.append(f'ИТОГ: {user.reviewer_score}')
-        await message.answer(
-            text='\n'.join(text),
-            parse_mode='HTML',
-        )
-
-    if user.bloger_score > 0:
-        await message.answer(
-            text=update_bloger_score_and_rating(user)
-        )
 
 
 

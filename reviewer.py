@@ -19,9 +19,9 @@ async def get_review(message:Message):
     """Получение оценки и отзыва"""
 
     """Поиск запроса на проверку"""
-    user = User.get(tg_id=message.from_user.id)
+    reviewer: User = User.get(tg_id=message.from_user.id)
     review_request: ReviewRequest = ReviewRequest.get_or_none(
-        reviewer=user,
+        reviewer=reviewer,
         status=0 # На проверке
     )
 
@@ -60,25 +60,22 @@ async def get_review(message:Message):
     review_request.status = 1 # Проверено
     review_request.save()
     
-    update_reviewers_rating()
-    new_score = update_reviewer_score(user)
-    
+    reviewer.update_reviewer_score()
+    reviewer.update_reviewer_rating()
     await message.answer(
-        text=f"""Спасибо, ответ записан.
-Баллов за проверку видео {round(review_request.video.duration/1200, 2)}
-Всего заработано баллов {new_score}.
-Ожидайте получение нового видео."""
+        text=f"Спасибо, ответ записан.\n\n{reviewer.get_reviewer_report()}"
     )
     
+    implementer: User = review_request.video.task.implementer
     await message.bot.send_message(
-        chat_id=review_request.video.task.implementer.tg_id,
+        chat_id=implementer.tg_id,
         text=f'Ваше видео оценили\n\n{text}',
     )
 
     await send_message_admins(
         bot=message.bot,
 
-        text=f'Проверяющий {user.link} отправил отзыв '
+        text=f'Проверяющий {reviewer.link} отправил отзыв '
         f'на видео {review_request.video.task.theme.course.title}|{review_request.video.task.theme.link} '
         f'блогера {review_request.video.task.implementer.link}\n\n'
         f'{text}',
@@ -106,7 +103,10 @@ async def get_review(message:Message):
         return
 
     task: Task = update_task_score(review_request.video.task)
-    report = update_bloger_score_and_rating(task.implementer)
+
+    implementer.update_bloger_score()
+    implementer.update_bloger_rating()
+
     await send_new_review_request(message.bot)
 
     text='Закончена проверка Вашего видео.\n'
@@ -115,7 +115,7 @@ async def get_review(message:Message):
         text += 'Оно ❤️достойного❤️ качества и будет опубликовано.'
     elif task.status == -2:
         text += 'Оно 💩низкого💩 качества и будет отправлено на переделку.'
-    text += f'\n\n{report}'
+    text += f'\n\n{implementer.get_bloger_report()}'
 
     await message.bot.send_message(
         chat_id=task.implementer.tg_id,
@@ -125,7 +125,7 @@ async def get_review(message:Message):
     await send_message_admins(
         bot=message.bot,
         text=f'''<b>Проверка видео завершена</b>
-{task.implementer.link}|{task.theme.course.title}|{task.theme.link}|{task.score}|{TASK_STATUS[task.status]}'''
+{task.implementer.link}|{task.theme.link}|{task.score}|{TASK_STATUS[task.status]}'''
     )
 
     await send_task(message.bot)
@@ -196,31 +196,36 @@ async def check_old_reviewer_requests(bot: Bot):
     """Проверка устаревших запросов на проверку"""
     
     
-    old_review_requests = get_old_reviewe_requests()
+    rrs: List[ReviewRequest] = get_old_reviewe_requests()
 
-    for old_review_request in old_review_requests:
-        old_review_request.status = -1
-        old_review_request.save()
-        text = 'Задача на проверку с Вас снята, ожидайте новую.'
+    for rr in rrs:
+        rr.status = -1
+        rr.save()
+        reviewer: User = rr.reviewer
+        task: Task = rr.video.task
+        reviewer.update_reviewer_rating()
+        
+        
+        text = (
+            'Задача на проверку с Вас снята, '
+            f'ожидайте новую.\n\n{reviewer.get_reviewer_report()}'
+        )
         try:
             await bot.send_message(
-                chat_id=old_review_request.reviewer.tg_id,
+                chat_id=reviewer.tg_id,
                 text=text
             )
         except TelegramBadRequest as ex:
             print(ex, text)
         
-        rr: ReviewRequest = old_review_request
-        task: Task = rr.video.task
         await send_message_admins(
             bot=bot,
-            text=f'''<b>Проверяющий просрочил тему</b>
-Проверяющий: {rr.reviewer.comment}
-Блогер: {task.implementer.comment}
-Курс: {task.theme.course.title}
-Тема: {task.theme.title}'''
+            text=(
+                f'Проверяющий {reviewer.link} просрочил '
+                f'тему {task.theme.link} '
+                f'блогера {task.implementer.link}'
+            )
         )
-        update_reviewers_rating()
 
 
 @router.callback_query(F.data.startswith('rr_to_extend_'), IsReview())
