@@ -52,8 +52,8 @@ class User(Table):
         return f'<a href="https://t.me/{self.username}">{surname}</a>'
 
 
-    def get_avg_duration(self):
-        """Получить общую продолжительность всех проверенных видео в секундах"""
+    def get_sum_video_duration(self):
+        """Получить сумму продолжительности всех проверенных видео в секундах"""
         return (
             ReviewRequest
             .select(fn.SUM(Video.duration))
@@ -69,20 +69,20 @@ class User(Table):
     def update_reviewer_score(self):
         """Пересчитать баллы проверяющего"""
 
-        self.reviewer_score = self.get_avg_duration() / 1200
+        self.reviewer_score = self.get_sum_duration() / 1200
         self.save()
 
 
     def get_reviewer_rating_from_score(self):
-        '''Получить рейтинг проверяющего по оценками'''
+        '''Получить процент объективности оценок'''
         
         min_score, max_score = Review.get_minmax_score()
         delta = max_score - min_score
         video_avg_scores = Review.get_avg_scores()
         
-        data = [
-            abs(video_avg_scores[row['video']] - row['score']) / delta for row in
-            Review
+        data = [ # проценты отклонений оценок. Чем меньше отклонение, тем рейтинг выше
+            (max_score - abs(video_avg_scores[row['video']] - row['score'])) / delta for row in
+            Review # Запрос на получение оценок текущего пользователя
             .select(
                 ReviewRequest.video,
                 Review.score,
@@ -96,70 +96,65 @@ class User(Table):
 
 
     def get_reviewer_rating_from_over(self):
-        """Получить рейтинг проверяющего по просрочкам"""
+        """Получить процент просрочек"""
 
+        min_over, max_over = ReviewRequest.get_minmax_over()
+        delta = max_over - min_over
+        over_count = (
+            ReviewRequest
+            .select(fn.COUNT(ReviewRequest.id))
+            .where(
+                (ReviewRequest.status == -1) &
+                (ReviewRequest.reviewer == self.id)
+            )
+            .score()
+        )
+        # Чем меньше просрочек, тем выше рейтинг
+        return (max_over - over_count) / delta
+
+    def get_reviewer_rating_from_review_duration(self):
+        """Получить рейтинг блогера по продолжительности проверки видео"""
+
+        min_dur, max_dur = ReviewRequest.get_minmax_review_duration()
+        delta = max_dur - min_dur
+        dur = int(
+            ReviewRequest
+            .select(
+                fn.AVG(
+                    (fn.julianday(Review.at_created) - fn.julianday(ReviewRequest.at_created)) * 24,
+                ).alias('avg_hours'),
+            )
+            .join(Review)
+            .where(
+                (ReviewRequest.status == 1) &
+                (ReviewRequest.reviewer == self.id)
+            )
+            .score()
+        )
+        return (max_dur - dur) / delta
 
     def update_reviewers_rating(self):
         '''Обновление рейтинга проверяющего'''
     
-        rating_from_score = self.get_reviewer_rating_from_score()
-
-
-        """Расчет пропусков проверок"""
-
-        if len(reviewer_overs) == 0:
-            return None
-        max_reviewer = max(reviewer_overs, key=reviewer_overs.get)
-        max_reviewer_over = reviewer_overs[max_reviewer]
-
-        rating = {}
-        for reviewer in list(set(score_over.keys()) | set(reviewer_overs.keys())):
-            rating[reviewer] = (
-                score_over.get(reviewer, 0) + 
-                (reviewer_overs.get(reviewer, 0)/max_reviewer_over) ** 2
-            )
-
-        max_hours = max([row['hours'] for row in 
-            ReviewRequest
-            .select(
-                fn.AVG(
-                    fn.ROUND(
-                        (fn.julianday(Review.at_created) - fn.julianday(ReviewRequest.at_created)) * 24,
-                        2
-                    )
-                ).alias('hours')
-            )
-            .join(Review)
-            .group_by(
-                ReviewRequest.reviewer
-            ).dicts()
-        ])
-
-        query: List[Review] = (
-            Review
-            .select(
-                    ReviewRequest.reviewer.alias('reviewer'),
-                    fn.AVG(
-                        fn.ROUND(
-                            (fn.julianday(Review.at_created) - fn.julianday(ReviewRequest.at_created)) * 24,
-                            2
-                        )
-                    ).alias('hours')
-            )
-            .join(ReviewRequest)
-            .group_by(ReviewRequest.reviewer)
+        rat_score = self.get_reviewer_rating_from_score()
+        rat_over = self.get_reviewer_rating_from_over()
+        rat_duration = self.get_reviewer_rating_from_review_duration()
+        
+        rating = math.sqrt(
+            rat_score ** 2 +
+            rat_over ** 2 +
+            rat_duration ** 2
         )
-        for row in query.dicts():
-            rating[row['reviewer']] = (
-                rating.get(row['reviewer'], 0) + 
-                (row['hours']/max_hours) ** 2
-            )
+        
+        self.reviewer_rating = rating
+        self.save()
+        
+        return rating, rat_score, rat_over, rat_duration
 
 
-        for reviewer in rating:
-            user: User = User.get_by_id(reviewer)
-            user.reviewer_rating = math.sqrt(rating[reviewer])
-            user.save()
+
+    def get_bloger_rating_score(self):
+        """Получить рейтинг по оценкам за задачи"""
 
 
     def update_bloger_score(self):
@@ -320,6 +315,39 @@ class ReviewRequest(Table):
             Table.raw(sql_query).dicts()
         }
 
+
+    @staticmethod
+    def get_minmax_over():
+        data = ReviewRequest.get_overs()
+        return (
+            data[min(data, key=data.get)],
+            data[max(data, key=data.get)]
+        )
+
+
+    @staticmethod
+    def get_minmax_review_duration():
+        """Получить минимальное и максимальное время проверки видео в часах"""
+        query = (
+            ReviewRequest
+            .select(
+                fn.MIN(
+                    (fn.julianday(Review.at_created) - fn.julianday(ReviewRequest.at_created)) * 24,
+                ).alias('min_hours'),
+                fn.MAX(
+                    (fn.julianday(Review.at_created) - fn.julianday(ReviewRequest.at_created)) * 24,
+                ).alias('max_hours')
+            )
+            .join(Review)
+            .where(
+                (ReviewRequest.status == 1)
+            )
+            .first()
+        )
+        return int(query.min_hours), int(query.max_hours)
+
+
+
 class Review(Table):
     """Результат проверки видео"""
     review_request = ForeignKeyField(ReviewRequest, backref='reviews', **CASCADE)
@@ -346,7 +374,7 @@ class Review(Table):
 
     @staticmethod
     def get_minmax_score() -> Tuple[int, int]:
-        """Получить минимальное и максимальное отклонения оценки от средней оценки"""
+        """Получить минимальное и максимальное отклонения оценки"""
 
         data = [
             (
@@ -389,5 +417,4 @@ if __name__ == '__main__':
         UserCourse, Poll, Var
     ])        
 
-    for row in ReviewRequest.get_overs().items():
-        print(*row)
+    ReviewRequest.get_minmax_review_duration()
