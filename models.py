@@ -33,6 +33,13 @@ REVIEW_REQUEST_STATUS = {
 class Table(Model):
     class Meta:
         database = db
+    
+    @staticmethod
+    def get_minmax(data: Dict[int, int]):
+        return (
+            data.get(-1 if len(data) == 0 else min(data, key=data.get), 0),
+            data.get(-1 if len(data) == 0 else max(data, key=data.get), 0),
+        )
 
 
 class User(Table):
@@ -117,7 +124,7 @@ class User(Table):
             .dicts()
         ]
 
-        return (sum(data) / len(data)) if len(data) > 0 else 1
+        return 1 if len(data) == 0 else (sum(data) / len(data))
 
 
     def get_reviewer_rating_from_over(self):
@@ -132,10 +139,10 @@ class User(Table):
                 (ReviewRequest.status == -1) &
                 (ReviewRequest.reviewer == self.id)
             )
-            .scalar() or min_over
+            .scalar()
         )
         # Чем меньше просрочек, тем выше рейтинг
-        return (max_over - over_count) / delta
+        return 1 if over_count is None or delta == 0 else (max_over - over_count) / delta
 
 
     def get_reviewer_rating_from_duration(self):
@@ -143,7 +150,7 @@ class User(Table):
 
         min_dur, max_dur = ReviewRequest.get_minmax_review_duration()
         delta = max_dur - min_dur
-        dur = int(
+        dur = (
             ReviewRequest
             .select(
                 fn.AVG(
@@ -155,9 +162,9 @@ class User(Table):
                 (ReviewRequest.status == 1) &
                 (ReviewRequest.reviewer == self.id)
             )
-            .scalar() or min_dur
+            .scalar()
         )
-        return (max_dur - dur) / delta
+        return 1 if dur is None or delta == 0 else (max_dur - dur) / delta
 
 
     def update_reviewer_rating(self):
@@ -190,8 +197,8 @@ class User(Table):
                 (Task.status.not_in([0,1]))
             )
             .scalar()
-        ) or max_score
-        return (score - min_score) / delta 
+        )
+        return 0.8 if score is None or delta == 0 else ((score - min_score) / delta)
     
 
     def get_bloger_rating_from_duration(self):
@@ -219,10 +226,10 @@ class User(Table):
                 (Task.status != -1) &
                 (Task.implementer == self.id)
             )
-            .scalar() or min_duration
+            .scalar()
         )
 
-        return (max_duration - duration) / delta
+        return 0.8 if duration is None or delta == 0 else ((max_duration - duration) / delta)
 
 
     def get_bloger_rating_from_over(self):
@@ -239,10 +246,10 @@ class User(Table):
                 (Task.status == -1) &
                 (Task.implementer == self.id)
             )
-            .scalar() or min_over
+            .scalar()
         )
 
-        return (max_over - over) / delta
+        return 0.8 if over is None or delta == 0 else ((max_over - over) / delta)
 
 
     def update_bloger_rating(self):
@@ -401,10 +408,8 @@ class Task(Table):
     def get_minmax_over():
         """Получить минимакс для количества просрочек"""
 
-        data = Task.get_count_overs()
-        return (
-            data[min(data, key=data.get)],
-            data[max(data, key=data.get)]
+        return Table.get_minmax(
+            Task.get_count_overs()
         )
 
 
@@ -442,10 +447,8 @@ class Task(Table):
     def get_minmax_duration():
         """Получить минимакс для продожительности выполнения задач"""
 
-        data = Task.get_avg_duration()
-        return (
-            data[min(data, key=data.get)],
-            data[max(data, key=data.get)]
+        return Table.get_minmax(
+            data = Task.get_avg_duration()
         )
 
 
@@ -473,10 +476,8 @@ class Task(Table):
     def get_minmax_score():
         """Получить мин и макс средние оценки по задачам"""
 
-        data = Task.get_avg_scores()
-        return (
-            data[min(data, key=data.get)],
-            data[max(data, key=data.get)]
+        return Table.get_minmax(
+            data = Task.get_avg_scores()
         )
 
 
@@ -520,10 +521,8 @@ class ReviewRequest(Table):
 
     @staticmethod
     def get_minmax_over():
-        data = ReviewRequest.get_count_overs()
-        return (
-            data[min(data, key=data.get)],
-            data[max(data, key=data.get)]
+        return Table.get_minmax(
+            data = ReviewRequest.get_count_overs()
         )
 
 
@@ -546,7 +545,10 @@ class ReviewRequest(Table):
             )
             .first()
         )
-        return int(query.min_hours), int(query.max_hours)
+        return (
+            0 if query.min_hours is None else int(query.min_hours), 
+            0 if query.max_hours is None else int(query.max_hours),
+        )
 
 
 class Review(Table):
@@ -593,8 +595,8 @@ class Review(Table):
             .dicts()
         ]
         return (
-            min(data, key=lambda i: i[0])[0],
-            max(data, key=lambda i: i[1])[1]
+            0 if len(data) == 0 else min(data, key=lambda i: i[0])[0],
+            0 if len(data) == 0 else max(data, key=lambda i: i[1])[1],
         )
 
 
