@@ -94,11 +94,11 @@ async def report_reviewers(message: Message):
             ))
         )
         .group_by(User)
-        .order_by(User.reviewer_rating)
+        .order_by(User.reviewer_rating.desc())
     )
     result = '👀📄<b>Отчет о проверяющих</b>\n'
     result += '\n'.join([
-        f"{u.reviewer_score:05.2f}|{u.reviewer_rating:05.3f}|{u.link}" for u in reviewers
+        f"{u.reviewer_score:05.2f}|{(u.reviewer_rating*100):05.2f}|{u.link}" for u in reviewers
     ])
 
     await message.answer(
