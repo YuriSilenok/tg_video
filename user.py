@@ -5,7 +5,7 @@ from aiogram.types import Message, BotCommand, CallbackQuery, InlineKeyboardMark
 
 
 from common import error_handler, send_task, send_message_admins
-from filters import IsBloger, IsUser
+from filters import IsBloger, IsReviewer, IsUser
 from models import Course, Role, Task, Theme, User, UserCourse, UserRole
 from peewee import JOIN, fn
 
@@ -121,9 +121,13 @@ async def bloger_on(message: Message):
     """Пользователь подает заявку стать блогером"""
 
     user = User.get(tg_id=message.from_user.id)
-    UserRole.create(
+    UserRole.get_or_create(
         user=user,
-        role=Role.get(name='Блогер'),
+        role=IsBloger.role,
+    )
+    UserRole.get_or_create(
+        user=user,
+        role=IsReviewer.role,
     )
 
     await message.answer(

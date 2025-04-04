@@ -284,10 +284,10 @@ async def send_new_review_request(bot: Bot):
             .order_by(User.bloger_rating.desc())
             .having(fn.COUNT(Video.id) < 5)
         ]
-        for video_id in video_ids:
+        if video_ids:
+            video_id = video_ids[0]
             await add_reviewer(bot, Video.get_by_id(video_id))
             await send_new_review_request(bot)
-            break
 
 
 
@@ -306,9 +306,10 @@ async def add_reviewer(bot: Bot, video_id: int):
     if len(vacant_reviewer_ids) == 0:
         await send_message_admins(
             bot=bot,
-            text=f'''<b>Закончились cвободные проверяющие</b>
-Курс: {theme.course.title}
-Тема: {theme.title}'''
+            text=(
+                f'<b>Закончились cвободные проверяющие</b>'
+                f'{theme.course.title}|{theme.link}'
+            )
         )
         return
     else:
@@ -316,34 +317,23 @@ async def add_reviewer(bot: Bot, video_id: int):
         reviewer_ids = [ rr.reviewer_id for rr in
             ReviewRequest
             .select(ReviewRequest.reviewer)
-            .where(ReviewRequest.video_id==video_id)
+            .join(Video, on=(Video.id == ReviewRequest.video))
+            .join(Task, on=(Task.id == Video.task))
+            .where(Task.theme == video.task.theme_id)
             .group_by(ReviewRequest.reviewer)
         ]
 
         candidat_reviewer_ids = [i for i in vacant_reviewer_ids if i not in reviewer_ids]
         if len(candidat_reviewer_ids) == 0:
-            # все проверяющие
-            all_reviewer_ids = get_reviewer_ids()
-            # занятые над других видео
-            other_job_reviews = ', '.join([f'@{u.username}' for u in
-                User
-                .select(User)
-                .where(
-                    User.id.in_([i for i in all_reviewer_ids if i not in reviewer_ids])
-                )
-            ])
-            
 
             theme = Video.get_by_id(video_id).task.theme
             await send_message_admins(
                 bot=bot,
-                text=f'''<b>Нет кандидатов среди свободных проверяющих</b>
-Курс: {theme.course.title}
-Тема: {theme.title}
-Пнуть проверяющих: {other_job_reviews}
-'''
+                text=(
+                    f'<b>Нет кандидатов среди свободных проверяющих</b>'
+                    f'{theme.course.title}|{theme.link}'
+                )
             )
-
             return
 
         due_date = get_date_time(hours=25)
@@ -431,7 +421,7 @@ def get_vacant_reviewer_ids() -> List[User]:
             (ReviewRequest.status==0)
         )
         .group_by(ReviewRequest.reviewer)
-        .order_by(User.reviewer_rating)
+        .order_by(User.reviewer_rating.desc())
     ]
     return [i for i in reviewer_ids if i not in jobs_ids]
 
