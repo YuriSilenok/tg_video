@@ -198,7 +198,7 @@ class User(Table):
             )
             .scalar()
         )
-        return 0.8 if score is None or delta == 0 else ((score - min_score) / delta)
+        return 0.7 if score is None or delta == 0 else ((score - min_score) / delta)
     
 
     def get_bloger_rating_from_duration(self):
@@ -229,7 +229,7 @@ class User(Table):
             .scalar()
         )
 
-        return 0.8 if duration is None or delta == 0 else ((max_duration - duration) / delta)
+        return 0.7 if duration is None or delta == 0 else ((max_duration - duration) / delta)
 
 
     def get_bloger_rating_from_over(self):
@@ -249,7 +249,7 @@ class User(Table):
             .scalar()
         )
 
-        return 0.8 if over == 0 or delta == 0 else ((max_over - over) / delta)
+        return 1 if over == 0 or delta == 0 else ((max_over - over) / delta)
 
 
     def update_bloger_rating(self):
