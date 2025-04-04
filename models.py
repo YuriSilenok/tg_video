@@ -249,7 +249,7 @@ class User(Table):
             .scalar()
         )
 
-        return 0.8 if over is None or delta == 0 else ((max_over - over) / delta)
+        return 0.8 if over == 0 or delta == 0 else ((max_over - over) / delta)
 
 
     def update_bloger_rating(self):
