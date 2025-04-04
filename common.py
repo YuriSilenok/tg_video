@@ -388,21 +388,26 @@ async def send_video(bot: Bot, review_request: ReviewRequest):
 
 def update_task_score(task: Task) -> Task:
 
-    task_score = sum([review.score for review in 
+    task_scores = [review.score for review in 
         Review
         .select(Review)
         .join(ReviewRequest)
         .join(Video)
         .join(Task)
         .where(Task.id==task.id)
-    ]) / 25
+    ]
 
+    if len(task_scores) == 0:
+        return task
+
+    task_score = sum(task_scores) / len(task_scores) / 5
     limit_score = (
         Task
         .select(fn.AVG(Task.score))
         .where(Task.status.not_in([0, 1]))
         .scalar()
     )
+
     task.score = task_score
     task.status = 2 if task_score >= limit_score else -2
     task.save()
@@ -437,3 +442,8 @@ def get_reviewer_ids() -> List[User]:
         .order_by(User.reviewer_rating)
     ]
 
+
+if __name__ == '__main__':
+    tasks: List[Task] = Task.select().where(Task.status.not_in([0,1]))
+    for task in tasks:
+        update_task_score(task)    

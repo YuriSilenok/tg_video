@@ -628,4 +628,4 @@ if __name__ == '__main__':
         user.update_bloger_score()
         user.update_reviewer_score()
         user.update_reviewer_rating()
-        # print(user.get_report())
+
