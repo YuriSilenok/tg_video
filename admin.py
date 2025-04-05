@@ -94,11 +94,11 @@ async def report_reviewers(message: Message):
             ))
         )
         .group_by(User)
-        .order_by(User.reviewer_rating)
+        .order_by(User.reviewer_rating.desc())
     )
     result = '👀📄<b>Отчет о проверяющих</b>\n'
     result += '\n'.join([
-        f"{u.reviewer_score:05.2f}|{u.reviewer_rating:05.3f}|{u.link}" for u in reviewers
+        f"{u.reviewer_score:05.2f}|{(u.reviewer_rating*100):05.2f}|{u.link}" for u in reviewers
     ])
 
     await message.answer(
@@ -370,8 +370,9 @@ async def add_course(message: Message, state: FSMContext):
             await message.answer(
                 text='↗️❔📐Темы курса загружены. Загрузка видео не требуется',
             )
-            for user in User.select():
-                update_bloger_score_and_rating(user)
+            users: List[User] = User.select()
+            for user in users:
+                user.update_bloger_score()
 
         else:            
             await state.set_data({
@@ -399,7 +400,7 @@ async def upload_video(message: Message, state: FSMContext):
         return
     
     load_video = load_videos.pop(0)
-    implementer = User.get(username=load_video['implementer'])
+    implementer:User = User.get(username=load_video['implementer'])
     theme = Theme.get(id=load_video['theme'])
     status=load_video['status']
     score=load_video['score']
@@ -417,10 +418,10 @@ async def upload_video(message: Message, state: FSMContext):
         duration=message.video.duration,
     )
 
-    text = update_bloger_score_and_rating(implementer)
+    implementer.update_bloger_score()
     await message.bot.send_message(
         chat_id=implementer.tg_id,
-        text=f'📹📂👨‍💼Видео на тему {theme.title} загружено администратором.\n\n{text}'
+        text=f'📹📂👨‍💼Видео на тему {theme.title} загружено администратором.\n\n{implementer.get_bloger_report()}'
     )
 
     if len(load_videos) == 0:

@@ -7,10 +7,11 @@ from aiogram import Bot, Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
+from peewee import JOIN
 
 
-from filters import IsBloger, WaitVideo
-from models import Course, Role, Task, Theme, UserCourse, UserRole, Video, User, TASK_STATUS, update_bloger_score_and_rating
+from filters import IsBloger, IsReviewer, WaitVideo
+from models import Role, Table, Task, Theme, UserCourse, UserRole, Video, User, TASK_STATUS
 from common import get_id, get_date_time, error_handler, send_message_admins, send_new_review_request, send_task
 
 router = Router()
@@ -135,11 +136,11 @@ async def del_task_yes(query: CallbackQuery):
     task.status = -1
     task.save()
 
-    user = User.get(tg_id=query.from_user.id)
-    report = update_bloger_score_and_rating(user)
+    user: User = User.get(tg_id=query.from_user.id)
+    user.update_bloger_rating()
 
     await query.message.answer(
-        text=f'Задача cнята\n\n{report}'
+        text=f'Задача cнята\n\n{user.get_bloger_report()}'
     )
 
     await drop_bloger(query.bot, user)
@@ -343,6 +344,29 @@ async def check_old_task(bot:Bot):
             continue
 
         try:
+            sql_query = f'''
+select u.user_id
+from (
+    select ur.user_id
+    from userrole as ur
+    inner join usercourse as uc on ur.user_id=uc.user_id
+    where uc.course_id = {task.theme.course_id} and ur.role_id={IsReviewer.role.id}
+) as u
+left join task on task.implementer_id=u.user_id and task.status in (0, 1)
+where task.id is NULL;
+'''
+            users: List[int] = [r['user_id'] for r in Table.raw(sql_query).dicts()]
+            cont = False
+            
+            for user_id in users:
+                u: User = User.get_by_id(user_id)
+                if u.bloger_rating > task.implementer.bloger_rating:
+                    cont = True
+                    break
+            
+            if cont:
+                continue
+
             await bot.send_message(
                 chat_id=task.implementer.tg_id,
                 text=f'Воспользуйтесь этой кнопкой, чтобы продлить срок Вашей задачи до {task.due_date + reserve_time} ',
@@ -361,8 +385,22 @@ async def check_old_task(bot:Bot):
             print(ex, task.implementer.comment)
     
 
+def update_rating_all_blogers():
+    blogers: List[User] = (
+        User
+        .select(User)
+        .join(Task)
+        .where(
+            (Task.status == 0)
+        )
+    )
+
+    for bloger in blogers:
+        bloger.update_bloger_rating()
+
 
 @error_handler()
 async def loop(bot: Bot):
+    update_rating_all_blogers()
     await check_old_task(bot)
     await check_expired_task(bot)
