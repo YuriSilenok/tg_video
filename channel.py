@@ -94,15 +94,17 @@ def get_poll_theme() -> Tuple[MPoll, Video]:
     )
 
     for poll in polls:
-        poll_result = eval(poll.result)
-        course_theme_max = max(poll_result, key=poll_result.get)
-        video_id = int(course_theme_max.split(sep='|', maxsplit=1)[0])
-        video = Video.get_by_id(video_id)
-        return (poll, video)
+        data = sorted(eval(poll.result).items(), key=lambda kv: kv[1], reverse=True)
+        for course_theme_max, _ in data:
+            video_id = int(course_theme_max.split(sep='|', maxsplit=1)[0])
+            video: Video = Video.get_by_id(video_id)
+            if video.task.status == 2:
+                return (poll, video)
 
 @error_handler()
 async def loop(bot: Bot):
     """Одна итерация вызываемая из бесконечного цикла"""
+
     now = datetime.now()
     if now.hour == 18 and now.minute == 0:
         poll_video = get_poll_theme()
@@ -137,3 +139,6 @@ async def poll_answer(poll: Poll):
     mpoll.result = str({o.text:o.voter_count for o in poll.options})
     mpoll.save()
 
+if __name__ == '__main__':
+    _, video = get_poll_theme()
+    print(video.task.theme.link)
