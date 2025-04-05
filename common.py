@@ -408,12 +408,15 @@ def update_task_score(task: Task) -> Task:
         return task
 
     task_score = sum(task_scores) / len(task_scores) / 5
-    limit_score = (
+    data = [
+        t.score for t in 
         Task
-        .select(fn.AVG(Task.score))
-        .where(Task.status.not_in([0, 1]))
-        .scalar()
-    )
+        .select(Task.score)
+        .where(Task.status.not_in([0, 1, -1]))
+        .order_by(Task.id.desc())
+        .limit(100)
+    ]
+    limit_score = sum(data)/len(data)
 
     task.score = task_score
     task.status = 2 if task_score >= limit_score else -2
@@ -451,9 +454,14 @@ def get_reviewer_ids() -> List[User]:
 
 
 if __name__ == '__main__':
-    # tasks: List[Task] = Task.select().where(Task.status.not_in([0,1]))
-    # for task in tasks:
-    #     update_task_score(task)    
-    print()
+    data = [
+        t.score for t in 
+        Task
+        .select(Task.score)
+        .where(Task.status.not_in([0,1,-1]))
+        .order_by(Task.id.desc())
+        .limit(100)
+    ]
+    print(sum(data)/len(data))
 
 
