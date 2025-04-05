@@ -125,10 +125,6 @@ async def bloger_on(message: Message):
         user=user,
         role=IsBloger.role,
     )
-    UserRole.get_or_create(
-        user=user,
-        role=IsReviewer.role,
-    )
 
     await message.answer(
         text='Теперь вы Блогер.\n'
