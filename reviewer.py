@@ -60,8 +60,8 @@ async def get_review(message:Message):
     review_request.status = 1 # Проверено
     review_request.save()
     
-    update_reviewers_rating()
-    new_score = update_reviewer_score(user)
+    User.update_reviewers_rating()
+    new_score = User.update_reviewer_score(user)
     
     await message.answer(
         text=f"""Спасибо, ответ записан.
@@ -220,7 +220,7 @@ async def check_old_reviewer_requests(bot: Bot):
 Курс: {task.theme.course.title}
 Тема: {task.theme.title}'''
         )
-        update_reviewers_rating()
+        User.update_reviewers_rating()
 
 
 @router.callback_query(F.data.startswith('rr_to_extend_'), IsReview())
