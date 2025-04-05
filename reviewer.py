@@ -63,7 +63,9 @@ async def get_review(message:Message):
     reviewer.update_reviewer_score()
     reviewer.update_reviewer_rating()
     await message.answer(
-        text=f"Спасибо, ответ записан.\n\n{reviewer.get_reviewer_report()}"
+        text=f"Спасибо, ответ записан.\n\n{reviewer.get_reviewer_report()}",
+        parse_mode='HTML',
+        disable_web_page_preview=True,
     )
     
     implementer: User = review_request.video.task.implementer
@@ -109,7 +111,7 @@ async def get_review(message:Message):
 
     await send_new_review_request(message.bot)
 
-    text='Закончена проверка Вашего видео.\n'
+    text=f'Закончена проверка Вашего видео по теме {task.theme.link}.\n'
 
     if task.status == 2:
         text += 'Оно ❤️достойного❤️ качества и будет опубликовано.'
@@ -119,7 +121,9 @@ async def get_review(message:Message):
 
     await message.bot.send_message(
         chat_id=task.implementer.tg_id,
-        text=text
+        text=text,
+        parse_mode='HTML',
+        disable_web_page_preview=True,
     )
 
     await send_message_admins(
@@ -213,7 +217,9 @@ async def check_old_reviewer_requests(bot: Bot):
         try:
             await bot.send_message(
                 chat_id=reviewer.tg_id,
-                text=text
+                text=text,
+                parse_mode='HTML',
+                disable_web_page_preview=True,
             )
         except TelegramBadRequest as ex:
             print(ex, text)

@@ -1,13 +1,15 @@
+import asyncio
 from datetime import datetime, timedelta
 import functools
 import traceback
-from typing import List
+from typing import List, Set
 from aiogram import Bot, Router
 from aiogram.types import Message, CallbackQuery
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 
 from peewee import fn, Case, JOIN
 
+from filters import IsBloger, IsReviewer
 from models import *
 
 
@@ -94,114 +96,123 @@ def error_handler():
 
 @error_handler()
 async def send_task(bot: Bot):
-    # Исполнители, которые заняты
-    subquery = (
-        User
-        .select(User.id)
-        .join(Task, on=(Task.implementer == User.id))
-        .where(Task.status.between(0, 1))
-    )
+    '''Выдать задачу блогеру'''
 
-    # Темы которые выданы, на проверке, готовы к публикации, опубликованы
-    subquery2 = (
-        Theme
-        .select(Theme.id)
-        .join(Task)
-        .where(Task.status >= 0)
-    )
 
-    # Подстчет средних оценко у блогеров по каждому курсу
-    subquery3 = (
+    # Список пользователей у которых есть роль блогера 
+    blogers: Set[User] = {
+        user_role.user for user_role in 
+        UserRole
+        .select(UserRole.user)
+        .where(UserRole.role==IsBloger.role.id)
+    }
+
+    # Список задач, по которым ведутся работы
+    tasks: Set[Task] = set(
         Task
-        .select(
-            Task.implementer.alias('user_id'),
-            Theme.course.alias('course_id'),
-            fn.AVG(Task.score).alias('score'),
-        )
-        .join(Theme)
-        .group_by(Task.implementer, Theme.course)
+        .select(Task)
+        .where(Task.status.in_([0,1]))
     )
 
-    subquery4 = (
-        Theme
-        .select(Theme.course)
-        .join(Task)
-        .where(Task.status.between(0, 1))
-        .group_by(Theme.course)
-    )
+    # убрать блогеров у которых идет работа над задачей
+    blogers -= {
+        task.implementer for task in 
+        Task
+        .select(Task.implementer)
+        .where(Task.status.in_([0,1]))
+    }
+    
+    # Список курсов
+    courses: Set[Course] = set(Course.select())
 
-    bloger_role = Role.get(name='Блогер')
+    # Свободные курсы: убираем курсы по которым ведутся работы
+    courses -= {task.theme.course for task in tasks}
+    course_ids = [course.id for course in courses]
 
-    query = (
-        User
-        .select(
-            User.id.alias('user_id'),
-            Course.id.alias('course_id'),
-            fn.MIN(Theme.id).alias('theme_id')
-        )
-        .join(UserRole, on=(User.id==UserRole.user))
-        .join(UserCourse, on=(User.id==UserCourse.user))
-        .join(Course, on=(Course.id==UserCourse.course))
-        .join(Theme, on=(Theme.course==Course.id))
-        .join(
-            subquery3,
-            JOIN.LEFT_OUTER,
-            on=( # ucs.user_id=user.id and ucs.course_id=course.id
-                (subquery3.c.user_id==User.id) &
-                (subquery3.c.course_id==Course.id)
+
+    # получаем список блогеров в порядке их рейтинга
+    blogers: List[User] = sorted(blogers, key=lambda user: user.bloger_rating, reverse=True)
+
+    # Отбираем для каждого блогера подходящий курс
+    for bloger in blogers:
+
+        # Список курсов на которые подписан блогер
+        courses_by_bloger: Set[UserCourse] = {
+            user_course.course for user_course in
+            UserCourse
+            .select()
+            .where(
+                (UserCourse.user==bloger.id) &
+                (UserCourse.course.in_(course_ids))
             )
-        )
-        .where(
-            (~(Theme.id << subquery2)) &
-            (~(User.id << subquery)) &
-            (~(Course.id << subquery4)) &
-            (UserRole.role==bloger_role)
-        )
-        .group_by(User.id, Course.id)
-        .order_by(
-            User.bloger_rating.desc(),
-            # CASE WHEN (AVG(ucs.score) IS NULL) THEN user.bloger_rating ELSE AVG(ucs.score) END DESC
-            Case(None, [(fn.AVG(subquery3.c.score).is_null(), User.bloger_rating)], fn.AVG(subquery3.c.score)).desc()
-        )
-    )
+        }
 
-    user_ids = []
-    course_ids = []
-    table = query.dicts()
-
-    for row in table:
-
-        user_id = row['user_id']
-        course_id = row['course_id']
-        theme_id = row['theme_id']
-        
-        if (user_id in user_ids or 
-            course_id in course_ids):
+        # Если у блогера нет подписок, то фиг ему, а не задачу
+        if len(courses_by_bloger) == 0:
             continue
 
-        user_ids.append(user_id)
-        course_ids.append(course_id)
+        # Пересечение свободных курсов и списка курсов блогера
+        courses_by_bloger &= courses
+        
+        # Нет свободных курсов для блогера, не фартануло
+        if len(courses_by_bloger) == 0:
+            continue
 
-        theme: Theme = Theme.get_by_id(theme_id)
-        user = User.get_by_id(user_id)
+        # Сортируем курсы в порядке убывания средней оценки
+        courses_by_bloger = sorted(
+            courses_by_bloger,
+            key=lambda course: (
+                Task
+                .select(fn.AVG(Task.score))
+                .join(Theme)
+                .where(
+                    (Theme.course == course.id) &
+                    (Task.implementer == bloger.id)
+                )
+                .scalar()
+            ),
+            reverse=True
+        )
 
-        hours = int(theme.complexity*72+1)
+        # выбранный курс для блогера
+        course_by_bloger: Course = courses_by_bloger[0]
+        
+        # Список тем этого курса
+        themes: Set[Theme] = set(Theme.select().where(Theme.course==course_by_bloger.id))
+
+        # Убираем из списка темы, по которым ведутся или удачно закончены работы
+        themes -= {
+            theme for theme in
+            Theme
+            .select()
+            .join(Task)
+            .where(
+                (Task.status >= 0) &
+                (Theme.course == course_by_bloger.id)
+            )
+        }
+
+        # Сортируем тыме по ID
+        themes: List[Theme] = sorted(themes, key=lambda theme: theme.id)
+
+        # Тема для блогера
+        theme_by_bloger: Theme = themes[0]
+
+        hours = int(theme_by_bloger.complexity * 72 + 1)
         if hours < 72:
             hours = 72
 
-        task = Task.create(
-            implementer=user,
-            theme=theme,
+        task_by_bloger: Task = Task.create(
+            implementer=bloger,
+            theme=theme_by_bloger,
             due_date=get_date_time(hours=hours)
         )
 
         try:
             await bot.send_message(
-                chat_id=user.tg_id,
-                text=f'Курс: {theme.course.title}\n'
-                    f'Тема: <a href="{theme.url}">{theme.title}</a>\n'
-                    f'Срок: {task.due_date}\n'
-                    'Когда работа будет готова, вы должны отправить ваше видео',
+                chat_id=bloger.tg_id,
+                text=f'Вам выдана тема {theme_by_bloger.link}.\n'
+                f'Срок: {task_by_bloger.due_date}',
                 parse_mode='HTML'
             )
         except TelegramBadRequest as ex:
@@ -212,12 +223,8 @@ async def send_task(bot: Bot):
         
         await send_message_admins(
             bot=bot,
-            text=f'''<b>Блогер получил тему</b>
-Блогер: {task.implementer.comment}
-Курс: {theme.course.title}
-Тема: <a href="{theme.url}">{theme.title}</a>
-'''
-                )
+            text=f'Блогеру {bloger.link} выдана тема {theme_by_bloger.link}',
+        )
 
 
 @error_handler()
@@ -444,6 +451,9 @@ def get_reviewer_ids() -> List[User]:
 
 
 if __name__ == '__main__':
-    tasks: List[Task] = Task.select().where(Task.status.not_in([0,1]))
-    for task in tasks:
-        update_task_score(task)    
+    # tasks: List[Task] = Task.select().where(Task.status.not_in([0,1]))
+    # for task in tasks:
+    #     update_task_score(task)    
+    print()
+
+

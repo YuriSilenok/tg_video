@@ -421,7 +421,9 @@ async def upload_video(message: Message, state: FSMContext):
     implementer.update_bloger_score()
     await message.bot.send_message(
         chat_id=implementer.tg_id,
-        text=f'📹📂👨‍💼Видео на тему {theme.title} загружено администратором.\n\n{implementer.get_bloger_report()}'
+        text=f'📹📂👨‍💼Видео на тему {theme.title} загружено администратором.\n\n{implementer.get_bloger_report()}',
+        parse_mode='HTML',
+        disable_web_page_preview=True,
     )
 
     if len(load_videos) == 0:

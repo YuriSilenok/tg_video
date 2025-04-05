@@ -94,8 +94,7 @@ async def drop_bloger(bot:Bot, user: User):
 
     await send_message_admins(
         bot=bot,
-        text=f'''<b>Роль Блогер снята</b>
-Пользователь: {user.comment}'''
+        text= f'Блогер {user.link} отказался от роли.'
     )
 
     await send_task(bot)
@@ -140,7 +139,9 @@ async def del_task_yes(query: CallbackQuery):
     user.update_bloger_rating()
 
     await query.message.answer(
-        text=f'Задача cнята\n\n{user.get_bloger_report()}'
+        text=f'Задача cнята\n\n{user.get_bloger_report()}',
+        parse_mode='HTML',
+        disable_web_page_preview=True,
     )
 
     await drop_bloger(query.bot, user)
