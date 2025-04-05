@@ -118,18 +118,18 @@ async def start(message: Message):
 
     user = User.get(tg_id=message.from_user.id)
 
-    await message.answer(
-        "Здравствуйте, Вы запустили бота который выдает темы для записи видео."
-    )
+    user_text = "Здравствуйте, Вы запустили бота который выдает темы для записи видео."
 
     if user.comment is None:
         await message.answer(
-            text = (
-                "Представьтесь, укажите свои ФИО отправив команду в следующем формате "
+            text = (user_text +
+                " Представьтесь, укажите свои ФИО отправив команду в следующем формате "
                 "<b>/set_fio Иванов Иван Иванович</b>"
             ),
             parse_mode='HTML',
         )
+    else:
+        await message.answer(user_text)
 
 
 @router.message(Command('report'), IsUser())
