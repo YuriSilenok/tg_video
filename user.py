@@ -5,7 +5,7 @@ from aiogram.types import Message, BotCommand, CallbackQuery, InlineKeyboardMark
 
 
 from common import error_handler, send_task, send_message_admins
-from filters import IsBloger, IsReviewer, IsUser
+from filters import IsBloger, IsReviewer, IsUser, IsAdmin
 from models import Course, ReviewRequest, Role, Task, Theme, User, UserCourse, UserRole, Video, update_bloger_score_and_rating
 from peewee import JOIN, fn
 
@@ -90,7 +90,13 @@ async def start(message: Message):
             description='Мои баллы'
         ),
     ]
-    if UserRole.role == 3:
+    
+    admin = UserRole.select().where(
+        (UserRole.user == user) and 
+        (UserRole.role == Role.get(name='Админ'))
+        ).exists()
+
+    if admin:
         commands.append(
             BotCommand(
                 command='/report_reviewers',
