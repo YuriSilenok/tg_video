@@ -233,6 +233,8 @@ async def check_old_reviewer_requests(bot: Bot):
             )
         )
 
+        await send_new_review_request(bot)
+
 
 @router.callback_query(F.data.startswith('rr_to_extend_'), IsReview())
 @error_handler()
