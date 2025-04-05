@@ -168,7 +168,7 @@ async def get_reviewer_user_role(bot: Bot, user: User):
 
 
 def get_reviewe_requests_by_notify() -> List[ReviewRequest]:
-    '''ПОлучить запросы на проверку у которы прошел срок'''
+    '''ПОлучить запросы на проверку у которы подходит срок'''
     due_date = get_date_time(hours=1)
     # Запрос на выборку записей на проверке старше суток
     return (

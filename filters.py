@@ -109,7 +109,7 @@ class IsReview(IsReviewer):
         if not check:
             return False
         
-        if not isinstance(message, Message):
+        if not isinstance(message, (Message, CallbackQuery)):
             return False
         
         user = User.get(tg_id=message.from_user.id)

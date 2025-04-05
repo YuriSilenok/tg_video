@@ -15,16 +15,26 @@ from models import *
 
 router = Router()
 
+@router.callback_query()
+async def other_callback(callback: CallbackQuery):
+    await callback.message.answer(
+        text='Вы совершили незарегистрированное действие, обратитесь к администратору'
+    )
+    user = User.get_or_none(tg_id=callback.from_user.id)
+    await send_message_admins(
+        bot=callback.bot,
+        text=f"other_callback {user.comment}\n{callback.message.text}\n{callback.data}"
+    )
+
 @router.message()
 async def other_message(message: Message):
     await message.answer(
         text='Вы совершили незарегистрированное действие, обратитесь к администратору'
     )
-
-@router.callback_query()
-async def other_callback(callback: CallbackQuery):
-    await callback.message.answer(
-        text='Вы совершили незарегистрированное действие, обратитесь к администратору'
+    user = User.get_or_none(tg_id=message.from_user.id)
+    await send_message_admins(
+        bot=message.bot,
+        text=f"other_message {user.comment}\n{message.text}"
     )
 
 def get_id(text):
