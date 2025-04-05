@@ -5,7 +5,7 @@ from aiogram.types import Message, BotCommand, CallbackQuery, InlineKeyboardMark
 
 
 from common import error_handler, send_task, send_message_admins
-from filters import IsBloger, IsReviewer, IsUser
+from filters import IsBloger, IsReviewer, IsUser, IsAdmin
 from models import Course, Role, Task, Theme, User, UserCourse, UserRole
 from peewee import JOIN, fn
 
@@ -71,25 +71,47 @@ async def start(message: Message):
         user.username = message.from_user.username
         user.save()
 
-    
-    commands = commands=[
+
+    commands = [
         BotCommand(
             command='/courses',
-            description='Выбрать курсы, по которым будут выдаваться темы'
+            description='Выбрать курсы'
         ),
         BotCommand(
             command='/bloger_on',
-            description='Готов получить тему для видео'
+            description='Выдавать темы'
         ),
         BotCommand(
             command='/bloger_off',
-            description='Больше не выдавать мне темы для видео'
+            description='Не выдавать темы'
         ),
         BotCommand(
             command='/report',
-            description='Получить отчет о заработанных баллах'
+            description='Мои баллы'
         ),
     ]
+    
+    is_admin = UserRole.get_or_none(
+        user = user,
+        role = IsAdmin.role,
+    )
+
+    if is_admin:
+        admin_command = [
+            BotCommand(
+                command='/report_reviewers',
+                description='Отчет о проверяющих'
+            ),
+            BotCommand(
+                command='/report_blogers',
+                description='Отчет о блогерах'
+            ),
+            BotCommand(
+                command='/report_tasks',
+                description='Отчет о задачах'
+            ),
+        ]
+        commands.extend(admin_command)
     await message.bot.set_my_commands(
         commands=commands   
     )
