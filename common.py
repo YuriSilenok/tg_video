@@ -446,7 +446,7 @@ def get_vacant_reviewer_ids() -> List[User]:
             (ReviewRequest.status==0)
         )
         .group_by(ReviewRequest.reviewer)
-        .order_by(User.reviewer_rating)
+        .order_by(User.reviewer_rating.desc())
     ]
     return [i for i in reviewer_ids if i not in jobs_ids]
 
