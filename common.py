@@ -270,40 +270,40 @@ def get_admins() -> List[User]:
 async def send_new_review_request(bot: Bot):
     """Выдать новый запрос на проверку"""
     # проверяющие у котых есть задачи
-    reviewer_ids = [u.id for u in
-        User
-        .select(User)
-        .join(ReviewRequest, on=(ReviewRequest.reviewer_id==User.id))
-        .where(ReviewRequest.status==0)
+    # reviewer_ids = [u.id for u in
+    #     User
+    #     .select(User)
+    #     .join(ReviewRequest, on=(ReviewRequest.reviewer_id==User.id))
+    #     .where(ReviewRequest.status==0)
         
+    # ]
+    # reviewer_ids_len = len(reviewer_ids)
+    # task_count_status_1 = (
+    #     Task
+    #     .select(fn.COUNT(Task.id))
+    #     .where(Task.status == 1)
+    #     .scalar()
+    # )
+    # if reviewer_ids_len < 5 or reviewer_ids_len < task_count_status_1:
+    # видео у которых не хватает проверяющих
+    video_ids = [v.id for v in 
+        Video
+        .select(Video)
+        .join(ReviewRequest, JOIN.LEFT_OUTER, on=(ReviewRequest.video==Video.id))
+        .join(Task, on=(Task.id==Video.task))
+        .join(User, on=(User.id==Task.implementer))
+        .where(
+            (Task.status == 1) &
+            ((ReviewRequest.status >= 0) |
+            (ReviewRequest.status.is_null()))
+        )
+        .group_by(Video.id)
+        .order_by(User.bloger_rating.desc())
+        .having(fn.COUNT(Video.id) < 5)
     ]
-    reviewer_ids_len = len(reviewer_ids)
-    task_count_status_1 = (
-        Task
-        .select(fn.COUNT(Task.id))
-        .where(Task.status == 1)
-        .scalar()
-    )
-    if reviewer_ids_len < 5 or reviewer_ids_len < task_count_status_1:
-        # видео у которых не хватает проверяющих
-        video_ids = [v.id for v in 
-            Video
-            .select(Video)
-            .join(ReviewRequest, JOIN.LEFT_OUTER, on=(ReviewRequest.video==Video.id))
-            .join(Task, on=(Task.id==Video.task))
-            .join(User, on=(User.id==Task.implementer))
-            .where(
-                (Task.status == 1) &
-                ((ReviewRequest.status >= 0) |
-                (ReviewRequest.status.is_null()))
-            )
-            .group_by(Video.id)
-            .order_by(User.bloger_rating.desc())
-            .having(fn.COUNT(Video.id) < 5)
-        ]
-        if video_ids:
-            video_id = video_ids[0]
-            await add_reviewer(bot, Video.get_by_id(video_id))
+    if video_ids:
+        video_id = video_ids[0]
+        if await add_reviewer(bot, Video.get_by_id(video_id)):
             await send_new_review_request(bot)
 
 
@@ -328,39 +328,39 @@ async def add_reviewer(bot: Bot, video_id: int):
                 f'{theme.course.title}|{theme.link}'
             )
         )
-        return
-    else:
-        # те кто уже работали над видео
-        reviewer_ids = [ rr.reviewer_id for rr in
-            ReviewRequest
-            .select(ReviewRequest.reviewer)
-            .join(Video, on=(Video.id == ReviewRequest.video))
-            .join(Task, on=(Task.id == Video.task))
-            .where(Task.theme == video.task.theme_id)
-            .group_by(ReviewRequest.reviewer)
-        ]
+        return False
 
-        candidat_reviewer_ids = [i for i in vacant_reviewer_ids if i not in reviewer_ids]
-        if len(candidat_reviewer_ids) == 0:
+    # те кто уже работали над видео
+    reviewer_ids = [ rr.reviewer_id for rr in
+        ReviewRequest
+        .select(ReviewRequest.reviewer)
+        .join(Video, on=(Video.id == ReviewRequest.video))
+        .join(Task, on=(Task.id == Video.task))
+        .where(Task.theme == video.task.theme_id)
+        .group_by(ReviewRequest.reviewer)
+    ]
 
-            theme = Video.get_by_id(video_id).task.theme
-            await send_message_admins(
-                bot=bot,
-                text=(
-                    f'<b>Нет кандидатов среди свободных проверяющих</b>'
-                    f'{theme.course.title}|{theme.link}'
-                )
+    candidat_reviewer_ids = [i for i in vacant_reviewer_ids if i not in reviewer_ids]
+    if len(candidat_reviewer_ids) == 0:
+
+        theme = Video.get_by_id(video_id).task.theme
+        await send_message_admins(
+            bot=bot,
+            text=(
+                f'<b>Нет кандидатов среди свободных проверяющих</b>'
+                f'{theme.course.title}|{theme.link}'
             )
-            return
-
-        due_date = get_date_time(hours=25)
-        review_request = ReviewRequest.create(
-            reviewer_id=candidat_reviewer_ids[0],
-            video_id=video_id,
-            due_date=due_date
         )
-        await send_video(bot, review_request)
+        return False
 
+    due_date = get_date_time(hours=25)
+    review_request = ReviewRequest.create(
+        reviewer_id=candidat_reviewer_ids[0],
+        video_id=video_id,
+        due_date=due_date
+    )
+    await send_video(bot, review_request)
+    return True
 
 @error_handler()
 async def send_video(bot: Bot, review_request: ReviewRequest):
