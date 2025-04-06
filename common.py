@@ -459,7 +459,7 @@ def get_reviewer_ids() -> List[User]:
         .join(UserRole)
         .join(Role)
         .where(Role.name=='Проверяющий')
-        .order_by(User.reviewer_rating)
+        .order_by(User.reviewer_rating.desc())
     ]
 
 
