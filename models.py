@@ -345,7 +345,7 @@ class Role(Table):
 
 
 class UserRole(Table):
-    user = ForeignKeyField(User, **CASCADE)
+    user = ForeignKeyField(User, backref='user_roles', **CASCADE)
     role = ForeignKeyField(Role, **CASCADE)
 
 
@@ -628,4 +628,9 @@ if __name__ == '__main__':
         user.update_bloger_score()
         user.update_reviewer_score()
         user.update_reviewer_rating()
+        while UserRole.select().where((UserRole.role==2)&(UserRole.user==user)).count() > 1:
+            UserRole.get(
+                role=Role.get(id=2),
+                user=user,
+            ).delete_instance()
 

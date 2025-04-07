@@ -351,7 +351,7 @@ from (
     select ur.user_id
     from userrole as ur
     inner join usercourse as uc on ur.user_id=uc.user_id
-    where uc.course_id = {task.theme.course_id} and ur.role_id={IsReviewer.role.id}
+    where uc.course_id = {task.theme.course_id} and ur.role_id={IsBloger.role.id}
 ) as u
 left join task on task.implementer_id=u.user_id and task.status in (0, 1)
 where task.id is NULL;
