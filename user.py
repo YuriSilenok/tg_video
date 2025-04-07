@@ -91,27 +91,7 @@ async def start(message: Message):
         ),
     ]
     
-    is_admin = UserRole.get_or_none(
-        user = user,
-        role = IsAdmin.role,
-    )
-
-    if is_admin:
-        admin_command = [
-            BotCommand(
-                command='/report_reviewers',
-                description='Отчет о проверяющих'
-            ),
-            BotCommand(
-                command='/report_blogers',
-                description='Отчет о блогерах'
-            ),
-            BotCommand(
-                command='/report_tasks',
-                description='Отчет о задачах'
-            ),
-        ]
-        commands.extend(admin_command)
+  
     await message.bot.set_my_commands(
         commands=commands   
     )

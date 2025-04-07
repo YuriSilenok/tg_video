@@ -330,7 +330,7 @@ async def add_reviewer(bot: Bot, video_id: int):
         )
         return False
 
-    # те кто уже работали над видео
+    # те, кто уже проверяли эту тему
     reviewer_ids = [ rr.reviewer_id for rr in
         ReviewRequest
         .select(ReviewRequest.reviewer)
