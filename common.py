@@ -222,7 +222,8 @@ async def send_task(bot: Bot):
             await bot.send_message(
                 chat_id=bloger.tg_id,
                 text=f'Вам выдана тема {theme_by_bloger.link}.\n'
-                f'Срок: {task_by_bloger.due_date}',
+                f'Срок: {task_by_bloger.due_date}\n'
+                '<a href="https://docs.google.com/document/d/1KVv9BAqtZ1FZzqUTWO9REbTWJoT3LQrZfVHHtoAQWQ0/edit?usp=sharing">Требования к видео</a>',
                 parse_mode='HTML'
             )
         except TelegramBadRequest as ex:
@@ -269,22 +270,7 @@ def get_admins() -> List[User]:
 @error_handler()
 async def send_new_review_request(bot: Bot):
     """Выдать новый запрос на проверку"""
-    # проверяющие у котых есть задачи
-    # reviewer_ids = [u.id for u in
-    #     User
-    #     .select(User)
-    #     .join(ReviewRequest, on=(ReviewRequest.reviewer_id==User.id))
-    #     .where(ReviewRequest.status==0)
-        
-    # ]
-    # reviewer_ids_len = len(reviewer_ids)
-    # task_count_status_1 = (
-    #     Task
-    #     .select(fn.COUNT(Task.id))
-    #     .where(Task.status == 1)
-    #     .scalar()
-    # )
-    # if reviewer_ids_len < 5 or reviewer_ids_len < task_count_status_1:
+
     # видео у которых не хватает проверяющих
     video_ids = [v.id for v in 
         Video
@@ -310,6 +296,8 @@ async def send_new_review_request(bot: Bot):
 
 @error_handler()
 async def add_reviewer(bot: Bot, video_id: int):
+    """Назначить проверяющего на видео"""
+
     # Свободные проверяющие
     vacant_reviewer_ids: List[int] = get_vacant_reviewer_ids()
     
@@ -380,7 +368,14 @@ async def send_video(bot: Bot, review_request: ReviewRequest):
         f'Это видео нужно проверить до {review_request.due_date}.\n'
         f'Тема: "{review_request.video.task.theme.course.title}|{review_request.video.task.theme.link}"\n'
         'Для оценки видео напишите одно сообщение '
-        'в начале которого будет оценка в интервале [0.0; 5.0], а через пробел отзыв о видео'
+        'в начале которого будет оценка в интервале [0.0; 5.0], а через пробел отзыв о видео\n'
+        '''
+0 - Мелкий текст (качество видео) и плохой звук. Такое лучше никому не показывать
+1 - Мелкий текст (качество видео) или неразборчивый звук. Рассказчика тяжело слушать, а материал не воспринимается.
+2 - Масштаб или громкость (качество звука) можно было сделать чуть по лучше. Было очень интересно, но ничего непонятно.
+3 - Звук и видео в порядке. Материал понят на половину, есть нераскрытые места относящиеся к теме материала.
+4 - Звук и видео в порядке. Материал подавался неуверенно, но всё было понято. 
+5 - Это точно делал не студент, а какой-то профессионал. Образцовое видео.'''
     )
     try:
         await bot.send_video(
