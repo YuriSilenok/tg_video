@@ -67,7 +67,7 @@ async def del_rr(callback: CallbackQuery):
         text=f'Отзыв по вашему видео удален.\n\n{r.comment}'
     )
 
-    rr.delete_instance()
+    rr.delete_instance(recursive=True)
     await add_reviewer(callback.bot, video.id)
 
 

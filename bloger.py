@@ -85,7 +85,7 @@ async def drop_bloger(bot:Bot, user: User):
 
 
     if user_role:
-        user_role.delete_instance()
+        user_role.delete_instance(recursive=True)
 
     await bot.send_message(
         chat_id=user.tg_id,
@@ -250,7 +250,7 @@ async def check_expired_task(bot:Bot):
                 role=IsBloger.role
             )
             if user_role:
-                user_role.delete_instance()        
+                user_role.delete_instance(recursive=True)        
             
             try:
                 await bot.send_message(

@@ -290,7 +290,7 @@ async def del_user_course(callback: CallbackQuery):
     )
 
     if user_course:
-        user_course.delete_instance()
+        user_course.delete_instance(recursive=True)
 
     await callback.message.edit_text(
         **get_data_by_courses(user)
