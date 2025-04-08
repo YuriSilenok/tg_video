@@ -631,6 +631,7 @@ if __name__ == '__main__':
         .limit(100)
     ]
     limit_score = sum(data)/len(data)
+    print(limit_score)
 
     users: List[User] = User.select()
     for user in users:
@@ -645,7 +646,7 @@ if __name__ == '__main__':
         #     ).delete_instance()
 
         if (
-            user.bloger_rating >= limit_score and
+            user.get_bloger_rating_from_scores() >= limit_score and
             Theme.select(fn.SUM(Theme.complexity).alias('th_comp')).join(Task).where(Task.implementer==user.id).first().th_comp >= 10 and
             UserRole.select().where((UserRole.user==user.id)&(UserRole.role==1)).count() == 0
         ):
