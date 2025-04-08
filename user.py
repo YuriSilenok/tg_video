@@ -90,23 +90,29 @@ async def start(message: Message):
             description='Мои баллы'
         ),
     ]
-    
-  
+
     await message.bot.set_my_commands(
         commands=commands   
     )
+
     reply_markup = None
     if UserRole.get_or_none(user=user, role=IsAdmin.role):
       
-        keyboard =[
-            [KeyboardButton(text="/report_reviewers")],
-            [KeyboardButton(text="/report_blogers")],
-            [KeyboardButton(text="/report_tasks")],
-            [KeyboardButton(text="/send_task")],
+        keyboard = [
+                [
+                    KeyboardButton(text="/report_reviewers"),
+                    KeyboardButton(text="/report_blogers"),
+                ],
+                [
+                    KeyboardButton(text="/report_tasks"),
+                    KeyboardButton(text="/send_task"),
+                ]
         ]
-        reply_markup = ReplyKeyboardMarkup(keyboard=keyboard)
 
-    
+        reply_markup = ReplyKeyboardMarkup(
+            keyboard=keyboard,
+            resize_keyboard=True
+        )
 
     await message.answer(
         text = (
