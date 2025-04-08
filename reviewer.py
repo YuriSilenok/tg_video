@@ -134,6 +134,29 @@ async def get_review(message:Message):
 
     await send_task(message.bot)
 
+    if (
+        implementer.bloger_rating >= get_limit_score() and
+        Task.select().where(Task.implementer==implementer.id).count() >= 10 and
+        UserRole.select().where((UserRole.user==implementer.id)&(UserRole.role==IsReviewer.role.id)).count() == 0
+    ):
+        UserRole.get_or_create(
+            user=implementer,
+            role=IsReviewer.role,
+        )
+        await message.bot.send_message(
+            chat_id=implementer.tg_id,
+            text='Вам выдана роль проверяющего. '
+            'Ожидайте видео на проверку. '
+            'Если Вы не хотите проверять видео, '
+            'игнорируйте выданные задачи на проверку видео.'
+        )
+
+        await send_message_admins(
+            bot=message.bot,
+            text=f'Роль проверяющего выдана {implementer.link}'
+        )
+
+
 
 @error_handler()
 async def get_reviewer_user_role(bot: Bot, user: User):

@@ -402,6 +402,17 @@ async def send_video(bot: Bot, review_request: ReviewRequest):
     )
 
 
+def get_limit_score():
+    data = [
+        t.score for t in 
+        Task
+        .select(Task.score)
+        .where(Task.status.not_in([0, 1, -1]))
+        .order_by(Task.id.desc())
+        .limit(100)
+    ]
+    return sum(data)/len(data)
+
 
 def update_task_score(task: Task) -> Task:
 
@@ -418,18 +429,9 @@ def update_task_score(task: Task) -> Task:
         return task
 
     task_score = sum(task_scores) / len(task_scores) / 5
-    data = [
-        t.score for t in 
-        Task
-        .select(Task.score)
-        .where(Task.status.not_in([0, 1, -1]))
-        .order_by(Task.id.desc())
-        .limit(100)
-    ]
-    limit_score = sum(data)/len(data)
 
     task.score = task_score
-    task.status = 2 if task_score >= limit_score else -2
+    task.status = 2 if task_score >= get_limit_score() else -2
     task.save()
 
     return task
