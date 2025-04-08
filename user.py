@@ -70,8 +70,7 @@ async def start(message: Message):
     elif user.username != message.from_user.username:
         user.username = message.from_user.username
         user.save()
-    
-    
+
 
     commands = [
         BotCommand(
@@ -102,7 +101,8 @@ async def start(message: Message):
         keyboard =[
             [KeyboardButton(text="/report_reviewers")],
             [KeyboardButton(text="/report_blogers")],
-            [KeyboardButton(text="/report_tasks")]
+            [KeyboardButton(text="/report_tasks")],
+            [KeyboardButton(text="/send_task")],
         ]
         reply_markup = ReplyKeyboardMarkup(keyboard=keyboard)
 
