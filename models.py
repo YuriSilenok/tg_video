@@ -636,17 +636,17 @@ if __name__ == '__main__':
     # limit_score = sum(data)/len(data)
     # print(limit_score)
 
-    # users: List[User] = User.select()
-    # for user in users:
-    #     # user.update_bloger_rating()
-    #     # user.update_bloger_score()
-    #     # user.update_reviewer_score()
-    #     # user.update_reviewer_rating()
-    #     # while UserRole.select().where((UserRole.role==2)&(UserRole.user==user)).count() > 1:
-    #     #     UserRole.get(
-    #     #         role=Role.get(id=2),
-    #     #         user=user,
-    #     #     ).delete_instance()
+    users: List[User] = User.select()
+    for user in users:
+        user.update_bloger_rating()
+        user.update_bloger_score()
+        user.update_reviewer_score()
+        user.update_reviewer_rating()
+        # while UserRole.select().where((UserRole.role==2)&(UserRole.user==user)).count() > 1:
+        #     UserRole.get(
+        #         role=Role.get(id=2),
+        #         user=user,
+        #     ).delete_instance()
 
     #     if (
     #         user.get_bloger_rating_from_scores() >= limit_score and
