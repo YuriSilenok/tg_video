@@ -136,7 +136,7 @@ async def get_review(message:Message):
 
     if (
         implementer.bloger_rating >= get_limit_score() and
-        Task.select().where(Task.implementer==implementer.id).count() >= 10 and
+        Theme.select(fn.SUM(Theme.complexity).alias('th_comp')).join(Task).where(Task.implementer==user.id).first().th_comp >= 10 and
         UserRole.select().where((UserRole.user==implementer.id)&(UserRole.role==IsReviewer.role.id)).count() == 0
     ):
         UserRole.get_or_create(

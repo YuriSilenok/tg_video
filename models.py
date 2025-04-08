@@ -622,15 +622,32 @@ if __name__ == '__main__':
     ])        
 
 
+    data = [
+        t.score for t in 
+        Task
+        .select(Task.score)
+        .where(Task.status.not_in([0, 1, -1]))
+        .order_by(Task.id.desc())
+        .limit(100)
+    ]
+    limit_score = sum(data)/len(data)
+
     users: List[User] = User.select()
     for user in users:
-        user.update_bloger_rating()
-        user.update_bloger_score()
-        user.update_reviewer_score()
-        user.update_reviewer_rating()
-        while UserRole.select().where((UserRole.role==2)&(UserRole.user==user)).count() > 1:
-            UserRole.get(
-                role=Role.get(id=2),
-                user=user,
-            ).delete_instance()
+        # user.update_bloger_rating()
+        # user.update_bloger_score()
+        # user.update_reviewer_score()
+        # user.update_reviewer_rating()
+        # while UserRole.select().where((UserRole.role==2)&(UserRole.user==user)).count() > 1:
+        #     UserRole.get(
+        #         role=Role.get(id=2),
+        #         user=user,
+        #     ).delete_instance()
+
+        if (
+            user.bloger_rating >= limit_score and
+            Theme.select(fn.SUM(Theme.complexity).alias('th_comp')).join(Task).where(Task.implementer==user.id).first().th_comp >= 10 and
+            UserRole.select().where((UserRole.user==user.id)&(UserRole.role==1)).count() == 0
+        ):
+            print(user.comment)
 
