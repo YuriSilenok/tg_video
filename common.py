@@ -179,7 +179,7 @@ async def send_task(bot: Bot):
                     (Theme.course == course.id) &
                     (Task.implementer == bloger.id)
                 )
-                .scalar()
+                .scalar() or 0.8
             ),
             reverse=True
         )
