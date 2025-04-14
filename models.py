@@ -604,8 +604,9 @@ class Poll(Table):
     message_id = IntegerField()
     poll_id = CharField()
     result = CharField()
-    stop = BooleanField(default=False)
+    is_stop = BooleanField(default=False)
     at_created = DateTimeField(default=datetime.now)
+    is_delete = BooleanField(default=False)
 
 
 class Var(Table):
