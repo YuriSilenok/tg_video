@@ -1,61 +1,81 @@
 PRAGMA foreign_keys = 0;
 
 CREATE TABLE sqlitestudio_temp_table AS SELECT *
-                                          FROM task;
+                                          FROM poll;
 
-DROP TABLE task;
+DROP TABLE poll;
 
-CREATE TABLE task (
-    id             INTEGER  NOT NULL
-                            PRIMARY KEY,
-    implementer_id INTEGER  NOT NULL,
-    theme_id       INTEGER  NOT NULL,
-    due_date       DATETIME NOT NULL,
-    score          REAL     NOT NULL
-                            DEFAULT (0),
-    at_created     DATETIME NOT NULL,
-    status         INTEGER  NOT NULL
-                            DEFAULT (0),
-    extension      INTEGER  NOT NULL
-                            DEFAULT (0),
-    FOREIGN KEY (
-        implementer_id
-    )
-    REFERENCES user (id) ON DELETE CASCADE
-                         ON UPDATE CASCADE,
-    FOREIGN KEY (
-        theme_id
-    )
-    REFERENCES theme (id) ON DELETE CASCADE
-                          ON UPDATE CASCADE
+CREATE TABLE poll (
+    id         INTEGER       NOT NULL
+                             PRIMARY KEY,
+    message_id INTEGER       NOT NULL,
+    poll_id    VARCHAR (255) NOT NULL,
+    result     VARCHAR (255) NOT NULL,
+    at_created DATETIME      NOT NULL,
+    stop       INTEGER       DEFAULT (0) 
+                             NOT NULL,
+    is_delete  INTEGER       DEFAULT (0) 
+                             NOT NULL
 );
 
-INSERT INTO task (
+INSERT INTO poll (
                      id,
-                     implementer_id,
-                     theme_id,
-                     due_date,
-                     score,
+                     message_id,
+                     poll_id,
+                     result,
                      at_created,
-                     status
+                     stop
                  )
                  SELECT id,
-                        implementer_id,
-                        theme_id,
-                        due_date,
-                        score,
+                        message_id,
+                        poll_id,
+                        result,
                         at_created,
-                        status
+                        stop
                    FROM sqlitestudio_temp_table;
 
 DROP TABLE sqlitestudio_temp_table;
 
-CREATE INDEX task_implementer_id ON task (
-    "implementer_id"
+PRAGMA foreign_keys = 1;
+
+PRAGMA foreign_keys = 0;
+
+CREATE TABLE sqlitestudio_temp_table AS SELECT *
+                                          FROM poll;
+
+DROP TABLE poll;
+
+CREATE TABLE poll (
+    id         INTEGER       NOT NULL
+                             PRIMARY KEY,
+    message_id INTEGER       NOT NULL,
+    poll_id    VARCHAR (255) NOT NULL,
+    result     VARCHAR (255) NOT NULL,
+    at_created DATETIME      NOT NULL,
+    is_stop    INTEGER       DEFAULT (0) 
+                             NOT NULL,
+    is_delete  INTEGER       DEFAULT (0) 
+                             NOT NULL
 );
 
-CREATE INDEX task_theme_id ON task (
-    "theme_id"
-);
+INSERT INTO poll (
+                     id,
+                     message_id,
+                     poll_id,
+                     result,
+                     at_created,
+                     is_stop,
+                     is_delete
+                 )
+                 SELECT id,
+                        message_id,
+                        poll_id,
+                        result,
+                        at_created,
+                        stop,
+                        is_delete
+                   FROM sqlitestudio_temp_table;
+
+DROP TABLE sqlitestudio_temp_table;
 
 PRAGMA foreign_keys = 1;

@@ -89,7 +89,7 @@ def get_poll_theme() -> Tuple[MPoll, Video]:
     polls = (MPoll
         .select()
         .where(
-            (MPoll.stop == False)
+            (MPoll.is_stop == False)
         )
     )
 
@@ -101,6 +101,14 @@ def get_poll_theme() -> Tuple[MPoll, Video]:
             if video.task.status == 2:
                 return (poll, video)
 
+
+def get_active_polls():
+    query = MPoll.select().where(
+        (MPoll.is_stop == True) &
+        (MPoll.is_delete == False)
+    )
+    return list(query)
+
 @error_handler()
 async def loop(bot: Bot):
     """Одна итерация вызываемая из бесконечного цикла"""
@@ -110,7 +118,7 @@ async def loop(bot: Bot):
         poll_video = get_poll_theme()
         if poll_video:
             poll, video = poll_video
-            poll.stop = True
+            poll.is_stop = True
             poll.save()
             
             try:
@@ -126,6 +134,19 @@ async def loop(bot: Bot):
             await send_video(bot)
     if now.hour == 8 and now.minute == 0:
         await send_poll(bot)
+        for poll in get_active_polls():
+            if poll.message_id:
+                try:
+                    await bot.delete_message(
+                        chat_id=TG_CHANEL_ID,
+                        message_id=poll.message_id
+                    )
+                    poll.is_delete = True
+                    poll.save()
+                except TelegramBadRequest as e:
+                    print(e)
+                    
+
 
 @router.poll()
 @error_handler()
