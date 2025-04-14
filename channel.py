@@ -135,16 +135,15 @@ async def loop(bot: Bot):
     if now.hour == 8 and now.minute == 0:
         await send_poll(bot)
         for poll in get_active_polls():
-            if poll.message_id:
-                try:
-                    await bot.delete_message(
-                        chat_id=TG_CHANEL_ID,
-                        message_id=poll.message_id
-                    )
-                    poll.is_delete = True
-                    poll.save()
-                except TelegramBadRequest as e:
-                    print(e)
+            try:
+                await bot.delete_message(
+                    chat_id=TG_CHANEL_ID,
+                    message_id=poll.message_id
+                )
+            except TelegramBadRequest as e:
+                print(e)
+            poll.is_delete = True
+            poll.save()
                     
 
 
