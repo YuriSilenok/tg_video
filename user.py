@@ -51,7 +51,7 @@ async def set_fio(message: Message):
 @router.message(Command('start'))
 async def start(message: Message):
 
-    user = User.get_or_none(
+    user: User = User.get_or_none(
         tg_id=message.from_user.id
     )
 
@@ -96,6 +96,7 @@ async def start(message: Message):
     )
 
     reply_markup = None
+
     if UserRole.get_or_none(user=user, role=IsAdmin.role):
       
         keyboard = [
@@ -114,13 +115,17 @@ async def start(message: Message):
             resize_keyboard=True
         )
 
-    await message.answer(
-        text = (
-            "Здравствуйте, Вы запустили бота который выдает темы для записи видео. "
+    text = "Здравствуйте, Вы запустили бота который выдает темы для записи видео. "
+
+    if user.comment is None:
+        text += (
             "Представьтесь, укажите свои ФИО отправив команду в следующем формате "
             "<b>/set_fio Иванов Иван Иванович</b>"
-        ),
-        parse_mode='HTML', 
+        )
+
+    await message.answer(
+        text=text,
+        parse_mode='HTML',
         reply_markup=reply_markup
     )
 
