@@ -1,3 +1,5 @@
+"""Обработка событий для администратора"""
+
 import csv
 from typing import List
 from aiogram import Router, F
@@ -5,43 +7,64 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery
-from peewee import fn, JOIN, Case
+from peewee import JOIN, Case
 
 from filters import IsAdmin
-from common import add_reviewer, get_date_time, error_handler, get_id, send_task
-from models import *
+from common import (
+    add_reviewer, get_date_time, error_handler, get_id, send_task
+)
+from models import (
+    ReviewRequest, Review, Video, Task, User, Role, UserRole, Course, Theme
+)
+
+
+RR_STATUS = {
+    -1: '❌',
+    0: '⚡',
+    1: '✅',
+}
+
+
+TASK_STATUS = {
+    0: '📹',
+    1: '👀',
+    2: '⏱️'
+}
 
 
 router = Router()
 
 
-
 class UploadVideo(StatesGroup):
+    """Состояние для загрузки готовых видео при загрузке курса"""
+
+    # Ожидает загрузки видео
     wait_upload = State()
 
 
 @router.callback_query(F.data.startswith('del_rr_'))
 @error_handler()
-async def del_rr(callback: CallbackQuery):
+async def delete_review_request_handler(callback: CallbackQuery):
+    """Удаление запроса на проверку и отчета о проверке"""
 
-    rr_id = get_id(callback.data)
-    rr: ReviewRequest = ReviewRequest.get_or_none(
-        id=rr_id
+    review_request_id = get_id(callback.data)
+    review_request: ReviewRequest = ReviewRequest.get_or_none(
+        id=review_request_id
     )
-    
-    if not rr:
+
+    if not review_request:
         await callback.answer(
             text='Запрос на проверку не найден'
         )
         return
 
-    r: Review = rr.reviews.first()
-    if not r:
+    review: Review = review_request.reviews.first()
+    if not review:
         await callback.answer(
             text='Не найден отзыв'
         )
         return
-    video: Video = rr.video
+    video: Video = review_request.video
     task: Task = video.task
     if task.status != 1:
         task.status = 1
@@ -49,37 +72,39 @@ async def del_rr(callback: CallbackQuery):
         await callback.message.reply(
             text='Проверка по задаче возобновлена',
         )
-     
+
     await callback.message.reply(
-        text=f'Запрос на проверку и отзыв удалён'
+        text='Запрос на проверку и отзыв удалён'
     )
 
     await callback.bot.send_message(
-        chat_id=rr.reviewer.tg_id,
+        chat_id=review_request.reviewer.tg_id,
         text='Ваш отзыв и запрос на проверку видео удален. '
         'Ожидайте следующее видео на проверку. '
         'Возможно бот выдаст видео на проверку повторно.\n\n'
-        f'{r.comment}'
+        f'{review.comment}'
     )
 
     await callback.bot.send_message(
         chat_id=task.implementer.tg_id,
-        text=f'Отзыв по вашему видео удален.\n\n{r.comment}'
+        text=f'Отзыв по вашему видео удален.\n\n{review.comment}'
     )
 
-    rr.delete_instance(recursive=True)
+    review_request.delete_instance(recursive=True)
     await add_reviewer(callback.bot, video.id)
 
 
 @router.message(Command('send_task'), IsAdmin())
 @error_handler()
-async def st(message: Message):
+async def send_task_handler(message: Message):
+    """Отправить задачу блогеру"""
     await send_task(message.bot)
 
 
 @router.message(Command('report_reviewers'), IsAdmin())
 @error_handler()
-async def report_reviewers(message: Message):
+async def report_reviewers_handler(message: Message):
+    """Получить отчет по проверяющим"""
     old_date = get_date_time(hours=-24*14)
     reviewers: List[User] = (
         User
@@ -96,13 +121,14 @@ async def report_reviewers(message: Message):
         .group_by(User)
         .order_by(User.reviewer_rating.desc())
     )
-    result = '👀📄<b>Отчет о проверяющих</b>\n'
-    result += '\n'.join([
-        f"{u.reviewer_score:05.2f}|{(u.reviewer_rating*100):05.2f}|{u.link}" for u in reviewers
+    text = '👀📄<b>Отчет о проверяющих</b>\n'
+    text += '\n'.join([
+        f"{u.reviewer_score:05.2f}|{(u.reviewer_rating*100):05.2f}|{u.link}"
+        for u in reviewers
     ])
 
     await message.answer(
-        text=result,
+        text=text,
         parse_mode='HTML',
         disable_web_page_preview=True,
     )
@@ -110,7 +136,8 @@ async def report_reviewers(message: Message):
 
 @router.message(Command('report_blogers'), IsAdmin())
 @error_handler()
-async def report_blogers(message: Message):
+async def report_blogers_hadler(message: Message):
+    """Отчет по блогерам"""
     points = ['📹📄<b>Отчет о блогерах</b>']
     old_date = get_date_time(hours=-24*14)
     blogers = (
@@ -128,13 +155,11 @@ async def report_blogers(message: Message):
         .order_by(User.bloger_rating.desc())
     )
     for bloger in blogers:
-        
         points.append(
             f'{bloger.bloger_score:05.2f}'
             f'|{(bloger.bloger_rating*100):05.2f}'
             f'|{bloger.link}'
         )
-
 
     text = '\n'.join(points)
     await message.answer(
@@ -146,12 +171,12 @@ async def report_blogers(message: Message):
 
 @router.message(Command('add_role'), IsAdmin())
 @error_handler()
-async def add_role(message: Message):
-    
+async def add_role_handler(message: Message):
+    """Добавление указанной роли указанному пользователю"""
     data = message.text.strip().replace('  ', '').split()
     if len(data) != 3:
         await message.answer(
-            text=' ❌🔢🔢Неверное количество параметров. Команда, роль, юзернейм'
+            text=' ❌Неверное количество параметров. Команда, роль, юзернейм'
         )
         return
     role_name = data[2]
@@ -161,7 +186,7 @@ async def add_role(message: Message):
             text=f'📤🙅‍♂🔑Нет роли {role_name}'
         )
         return
-    
+
     username = data[1].replace('@', '').strip()
     user = User.get_or_none(username=username)
     if user is None:
@@ -180,11 +205,11 @@ async def add_role(message: Message):
 
 @router.message(Command('set_comment'), IsAdmin())
 @error_handler()
-async def set_comment(message: Message):
-    
+async def set_comment_handler(message: Message):
+    """Указать ФИО указанному пользователю"""
     data = message.text.strip().replace('  ', '').split(maxsplit=1)[1]
     data = data.split(maxsplit=1)
-    username = data[0].replace('@','').strip()
+    username = data[0].replace('@', '').strip()
     user = User.get_or_none(username=username)
     if user is None:
         await message.answer(
@@ -200,28 +225,18 @@ async def set_comment(message: Message):
     )
 
 
-RR_STATUS = {
-    -1: '❌',
-    0: '⚡' ,
-    1: '✅',
-}
-
-TASK_STATUS = {
-    0: '📹',
-    1: '👀',
-    2: '⏱️'
-}
-
-
 @router.message(Command('report_tasks'), IsAdmin())
 @error_handler()
-async def report_tasks(message: Message):
-    
+async def report_tasks_handler(message: Message):
+    """Отчет по задачам"""
     tasks: List[Task] = (
         Task
         .select(Task)
-        .where(Task.status.between(0,2))
-        .join(User, on=(User.id==Task.implementer))
+        .where(Task.status.between(0, 2))
+        .join(
+            User,
+            on=User.id == Task.implementer
+        )
         .order_by(
             Task.status.desc(),
             User.bloger_rating.desc(),
@@ -237,13 +252,10 @@ async def report_tasks(message: Message):
             f'{task.theme.complexity:5.3f}',
             task.theme.course.title,
             task.theme.title,
-            # (
-            #     task.due_date if task.status == 0 
-            #     else task.videos.first().at_created
-            # ).strftime("%Y-%m-%d %H:%M"),
             (
-                f'{task.due_date.strftime("%d %H:%M")}' if task.status == 0 else
-                '' if task.status == 1 
+                f'{task.due_date.strftime("%d %H:%M")}'
+                if task.status == 0
+                else '' if task.status == 1
                 else f'{(task.score*100):05.2f}'
             ),
             implementer.link,
@@ -260,7 +272,7 @@ async def report_tasks(message: Message):
                     ReviewRequest.status.desc(),
                     Case(
                         None,
-                        [(ReviewRequest.status==0, ReviewRequest.due_date)],
+                        [(ReviewRequest.status == 0, ReviewRequest.due_date)],
                         Review.at_created
                     )
                 )
@@ -268,30 +280,38 @@ async def report_tasks(message: Message):
 
             line = ''.join([
                 (
-                    f'<a href="https://t.me/{rr.reviewer.username}">{RR_STATUS[rr.status]}</a>{rr.reviews.first().score:3.1f}'
+                    (
+                        f'<a href="https://t.me/{rr.reviewer.username}">'
+                        f'{RR_STATUS[rr.status]}</a>'
+                        f'{rr.reviews.first().score:3.1f}'
+                    )
                     if rr.status == 1 else
-                    f'<a href="https://t.me/{rr.reviewer.username}">{RR_STATUS[rr.status]}</a>{rr.due_date.strftime("%d %H:%M")}'
+                    (
+                        f'<a href="https://t.me/{rr.reviewer.username}">'
+                        f'{RR_STATUS[rr.status]}</a>'
+                        f'{rr.due_date.strftime("%d %H:%M")}'
+                    )
                     if rr.status == 0 else
-                    f'<a href="https://t.me/{rr.reviewer.username}">{RR_STATUS[rr.status]}</a>'
+                    (
+                        f'<a href="https://t.me/{rr.reviewer.username}">'
+                        f'{RR_STATUS[rr.status]}</a>'
+                    )
                 ) for rr in rrs
             ])
-    
             if line:
                 point.append(line)
-    
+
         points[task.status].append(
             '\n'.join(point)
         )
 
-
     end_points = []
     char_count = 0
-    for status in (1,0,2):
+    for status in (1, 0, 2):
         for point in points[status]:
             if len(point) + char_count < 4096:
                 end_points.append(point)
                 char_count += len(point)
-
 
     await message.answer(
         text='\n\n'.join(end_points),
@@ -302,13 +322,13 @@ async def report_tasks(message: Message):
 
 @router.message(F.document.file_name.endswith(".csv"), IsAdmin())
 @error_handler()
-async def add_course(message: Message, state: FSMContext):
-
+async def add_course_handler(message: Message, state: FSMContext):
+    """Добавляет курсы из csv"""
     file = await message.bot.download(message.document.file_id)
     try:
         file.seek(0)  # Устанавливаем указатель в начало
-        table = csv.reader(file.read().decode("utf-8").splitlines())  # Читаем строки
-        
+        table = csv.reader(file.read().decode("utf-8").splitlines())
+
         load_videos = []
         for row in table:
             course_title = row[0]
@@ -335,15 +355,15 @@ async def add_course(message: Message, state: FSMContext):
                 )
             else:
                 is_save = False
-                
+
                 if theme.complexity != theme_complexity:
                     theme.complexity = theme_complexity
                     is_save = True
-                
+
                 if theme.url != theme_url:
                     theme.url = theme_url
                     is_save = True
-                
+
                 if is_save:
                     theme.save()
 
@@ -353,7 +373,7 @@ async def add_course(message: Message, state: FSMContext):
 
                 if len(row) > 5 and row[5] != '':
                     score = float(row[5].replace(',', '.'))
-                    if score  >= 0.8:
+                    if score >= 0.8:
                         status = 2
                     else:
                         status = -2
@@ -374,7 +394,7 @@ async def add_course(message: Message, state: FSMContext):
             for user in users:
                 user.update_bloger_score()
 
-        else:            
+        else:
             await state.set_data({
                 'load_videos': load_videos
             })
@@ -382,15 +402,27 @@ async def add_course(message: Message, state: FSMContext):
             await message.answer(
                 text=f'📨📹Отправьте видео на тему "{load_videos[0]["title"]}"'
             )
-        
-    except Exception as e:
-        await message.answer(f"Ошибка при чтении CSV: {e}")
+    except FileNotFoundError:
+        await message.answer("Файл не найден. Проверьте путь.")
+    except PermissionError:
+        await message.answer("Нет прав для чтения файла.")
+    except UnicodeDecodeError:
+        await message.answer(
+            "Ошибка кодировки файла. Проверьте кодировку (например, utf-8).")
+    except csv.Error as e:
+        await message.answer(f"Ошибка в формате CSV: {e}")
+    except IsADirectoryError:
+        await message.answer("Указан путь к папке, а не к файлу.")
+    except OSError as e:
+        await message.answer(f"Ошибка работы с файлом: {e}")
+    except ValueError as e:
+        await message.answer(f"Ошибка обработки данных в CSV: {e}")
 
 
 @router.message(F.video, IsAdmin(), UploadVideo.wait_upload)
 @error_handler()
-async def upload_video(message: Message, state: FSMContext):
-
+async def upload_video_handler(message: Message, state: FSMContext):
+    """Обработать загрузку видео к добавляемому курсу"""
     data = await state.get_data()
     load_videos = data['load_videos']
     if len(load_videos) == 0:
@@ -398,12 +430,12 @@ async def upload_video(message: Message, state: FSMContext):
             text='🌐📹✔️📂Все видео загружены',
         )
         return
-    
+
     load_video = load_videos.pop(0)
-    implementer:User = User.get(username=load_video['implementer'])
+    implementer: User = User.get(username=load_video['implementer'])
     theme = Theme.get(id=load_video['theme'])
-    status=load_video['status']
-    score=load_video['score']
+    status = load_video['status']
+    score = load_video['score']
     task, _ = Task.get_or_create(
         implementer=implementer,
         theme=theme,
@@ -421,7 +453,8 @@ async def upload_video(message: Message, state: FSMContext):
     implementer.update_bloger_score()
     await message.bot.send_message(
         chat_id=implementer.tg_id,
-        text=f'📹📂👨‍💼Видео на тему {theme.title} загружено администратором.\n\n{implementer.get_bloger_report()}',
+        text=f'📹📂👨‍💼Видео на тему {theme.title} загружено администратором.'
+        f'\n\n{implementer.get_bloger_report()}',
         parse_mode='HTML',
         disable_web_page_preview=True,
     )

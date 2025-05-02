@@ -56,7 +56,7 @@ async def start(message: Message):
     )
 
     if user is None:
-        
+
         user = User.create(
             tg_id=message.from_user.id,
             username=message.from_user.username,
@@ -70,7 +70,6 @@ async def start(message: Message):
     elif user.username != message.from_user.username:
         user.username = message.from_user.username
         user.save()
-
 
     commands = [
         BotCommand(
@@ -92,21 +91,21 @@ async def start(message: Message):
     ]
 
     await message.bot.set_my_commands(
-        commands=commands   
+        commands=commands
     )
 
     reply_markup = None
     if UserRole.get_or_none(user=user, role=IsAdmin.role):
-      
+
         keyboard = [
-                [
-                    KeyboardButton(text="/report_reviewers"),
-                    KeyboardButton(text="/report_blogers"),
-                ],
-                [
-                    KeyboardButton(text="/report_tasks"),
-                    KeyboardButton(text="/send_task"),
-                ]
+            [
+                KeyboardButton(text="/report_reviewers"),
+                KeyboardButton(text="/report_blogers"),
+            ],
+            [
+                KeyboardButton(text="/report_tasks"),
+                KeyboardButton(text="/send_task"),
+            ]
         ]
 
         reply_markup = ReplyKeyboardMarkup(
@@ -115,12 +114,12 @@ async def start(message: Message):
         )
 
     await message.answer(
-        text = (
+        text=(
             "Здравствуйте, Вы запустили бота который выдает темы для записи видео. "
             "Представьтесь, укажите свои ФИО отправив команду в следующем формате "
             "<b>/set_fio Иванов Иван Иванович</b>"
         ),
-        parse_mode='HTML', 
+        parse_mode='HTML',
         reply_markup=reply_markup
     )
 
@@ -133,7 +132,6 @@ async def report(message: Message):
         parse_mode='HTML',
         disable_web_page_preview=True,
     )
-
 
 
 @router.message(Command('bloger_on'), IsUser())
@@ -162,91 +160,6 @@ async def bloger_on(message: Message):
     await send_task(message.bot)
 
 
-def get_data_by_courses(user: User):
-    themes_done = (
-        Theme
-        .select(Theme.id)
-        .join(Task)
-        .where(Task.status >= 2)
-    )
-    
-    themes: List[Theme] = (Theme
-        .select(Theme)
-        .join(Course, on=(Course.id==Theme.course))
-        .join(Task, JOIN.LEFT_OUTER, on=(Task.theme==Theme.id))
-        .where(
-            (~Theme.id << themes_done)
-        )
-        .group_by(
-            Theme.course,
-            Theme.id
-        )
-        .order_by(
-            fn.LENGTH(Course.title),
-            Theme.id,
-        )
-    )
-    
-    data = {}
-    text = '<b>Список курсов</b>\n\n'
-    inline_keyboard=[]
-
-    for theme in themes:
-        course = theme.course
-        
-        if course.id not in data:
-            data[course.id] = []
-        
-        if len(data[course.id]) >= 3:
-            continue
-        
-        data[course.id].append(theme)
-
-        user_course = UserCourse.get_or_none(
-            user=user,
-            course=course,
-        )
-
-        if len(data[course.id]) == 3:
-
-            bloger_count = (
-                UserCourse
-                .select(fn.COUNT(UserCourse.id))
-                .join(UserRole, on=(UserRole.user == UserCourse.user))
-                .where(
-                    (UserCourse.course_id == course.id) &
-                    (UserRole.role_id == IsBloger.role.id)
-                )
-                .scalar()
-            )
-            themes_str = '\n'.join([ f'<a href="{t.url}">{t.title}</a>|{t.complexity}' for t in data[course.id][:3]])
-            text+=f'<b>{course.title}</b>|{bloger_count}\n{themes_str}\n\n'
-            row = None
-
-            if len(inline_keyboard) == 0:
-                row = []
-            elif sum([len(i.text) for i in inline_keyboard[-1]]) + len(course.title) + 1 < 25:
-                row = inline_keyboard.pop()
-            else:
-                row = []
-            row.append(
-                InlineKeyboardButton(
-                    text=f'{"✅" if user_course else "❌"}{course.title}',
-                    callback_data=f'del_user_course_{course.id}' if user_course else f'add_user_course_{course.id}'
-                )
-            )
-            inline_keyboard.append(row)
-    return {
-        'text': text,
-        'reply_markup': InlineKeyboardMarkup(
-            inline_keyboard=inline_keyboard
-        ),
-        'parse_mode': "HTML",
-        'disable_web_page_preview': True,
-    }
-
-
-
 @router.message(Command('courses'), IsUser())
 @error_handler()
 async def show_courses(message: Message):
@@ -254,49 +167,4 @@ async def show_courses(message: Message):
         **get_data_by_courses(
             User.get(tg_id=message.from_user.id)
         )
-    )
-
-
-
-@router.callback_query(F.data.startswith('add_user_course_'), IsUser())
-@error_handler()
-async def add_user_course(callback: CallbackQuery):
-    user = User.get(tg_id=callback.from_user.id)
-    course = Course.get_by_id(int(callback.data[(callback.data.rfind('_')+1):]))
-    UserCourse.get_or_create(
-        user=user,
-        course=course,
-    )
-    await callback.message.edit_text(
-        **get_data_by_courses(user)
-    )
-    await send_message_admins(
-        bot=callback.bot,
-        text=f'Пользователь {user.comment} подписался на курс {course.title}'
-    )
-    await send_task(callback.bot)
-
-
-@router.callback_query(F.data.startswith('del_user_course_'), IsUser())
-@error_handler()
-async def del_user_course(callback: CallbackQuery):
-
-    user = User.get(tg_id=callback.from_user.id)
-    course=Course.get_by_id(int(callback.data[(callback.data.rfind('_')+1):]))
-
-    user_course = UserCourse.get_or_none(
-        user=user,
-        course=course,
-    )
-
-    if user_course:
-        user_course.delete_instance(recursive=True)
-
-    await callback.message.edit_text(
-        **get_data_by_courses(user)
-    )
-
-    await send_message_admins(
-        bot=callback.bot,
-        text=f'Пользователь {user.comment} отписался от курса {course.title}'
     )

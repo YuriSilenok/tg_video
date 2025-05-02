@@ -6,7 +6,7 @@ from aiogram.types import Message, Poll
 from aiogram.filters import Command
 from aiogram.exceptions import TelegramBadRequest
 
-from admin import error_handler
+from handlers.admin import error_handler
 from config import TG_CHANEL_ID
 from models import Course, Task, Theme, Poll as MPoll, Video
 from peewee import fn
