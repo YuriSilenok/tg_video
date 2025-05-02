@@ -275,26 +275,41 @@ def get_admins() -> List[User]:
 async def send_new_review_request(bot: Bot):
     """Выдать новый запрос на проверку"""
 
+    reviewer_ids = [
+        u.id for u in User
+        .select(User)
+        .join(ReviewRequest, on=(ReviewRequest.reviewer_id == User.id))
+        .where(ReviewRequest.status == 0)
+    ]
+
+    if len(reviewer_ids) >= 5:
+        return
+
     # видео у которых не хватает проверяющих
-    video_ids = [v.id for v in
-                 Video
-                 .select(Video)
-                 .join(ReviewRequest, JOIN.LEFT_OUTER, on=(ReviewRequest.video == Video.id))
-                 .join(Task, on=(Task.id == Video.task))
-                 .join(User, on=(User.id == Task.implementer))
-                 .where(
-                     (Task.status == 1) &
-                     ((ReviewRequest.status >= 0) |
-                      (ReviewRequest.status.is_null()))
-                 )
-                 .group_by(Video.id)
-                 .order_by(User.bloger_rating.desc())
-                 .having(fn.COUNT(Video.id) < 5)
-                 ]
-    if video_ids:
-        video_id = video_ids[0]
-        if await add_reviewer(bot, Video.get_by_id(video_id)):
-            await send_new_review_request(bot)
+    video_ids = [
+        v.id for v in Video
+        .select(Video)
+        .join(ReviewRequest, JOIN.LEFT_OUTER, on=(ReviewRequest.video == Video.id))
+        .join(Task, on=(Task.id == Video.task))
+        .join(User, on=(User.id == Task.implementer))
+        .where(
+            (Task.status == 1) &
+            (
+                (ReviewRequest.status >= 0) |
+                (ReviewRequest.status.is_null())
+            )
+        )
+        .group_by(Video.id)
+        .order_by(User.bloger_rating.desc())
+        .having(fn.COUNT(Video.id) < 5)
+    ]
+
+    if len(video_ids) == 0:
+        return
+
+    video_id = video_ids[0]
+    if await add_reviewer(bot, Video.get_by_id(video_id)):
+        await send_new_review_request(bot)
 
 
 @error_handler()
