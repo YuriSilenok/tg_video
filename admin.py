@@ -15,7 +15,6 @@ from models import *
 router = Router()
 
 
-
 class UploadVideo(StatesGroup):
     wait_upload = State()
 
@@ -28,7 +27,7 @@ async def del_rr(callback: CallbackQuery):
     rr: ReviewRequest = ReviewRequest.get_or_none(
         id=rr_id
     )
-    
+
     if not rr:
         await callback.answer(
             text='Запрос на проверку не найден'
@@ -49,7 +48,7 @@ async def del_rr(callback: CallbackQuery):
         await callback.message.reply(
             text='Проверка по задаче возобновлена',
         )
-     
+
     await callback.message.reply(
         text=f'Запрос на проверку и отзыв удалён'
     )
@@ -128,13 +127,12 @@ async def report_blogers(message: Message):
         .order_by(User.bloger_rating.desc())
     )
     for bloger in blogers:
-        
+
         points.append(
             f'{bloger.bloger_score:05.2f}'
             f'|{(bloger.bloger_rating*100):05.2f}'
             f'|{bloger.link}'
         )
-
 
     text = '\n'.join(points)
     await message.answer(
@@ -147,7 +145,7 @@ async def report_blogers(message: Message):
 @router.message(Command('add_role'), IsAdmin())
 @error_handler()
 async def add_role(message: Message):
-    
+
     data = message.text.strip().replace('  ', '').split()
     if len(data) != 3:
         await message.answer(
@@ -161,7 +159,7 @@ async def add_role(message: Message):
             text=f'📤🙅‍♂🔑Нет роли {role_name}'
         )
         return
-    
+
     username = data[1].replace('@', '').strip()
     user = User.get_or_none(username=username)
     if user is None:
@@ -181,10 +179,10 @@ async def add_role(message: Message):
 @router.message(Command('set_comment'), IsAdmin())
 @error_handler()
 async def set_comment(message: Message):
-    
+
     data = message.text.strip().replace('  ', '').split(maxsplit=1)[1]
     data = data.split(maxsplit=1)
-    username = data[0].replace('@','').strip()
+    username = data[0].replace('@', '').strip()
     user = User.get_or_none(username=username)
     if user is None:
         await message.answer(
@@ -202,7 +200,7 @@ async def set_comment(message: Message):
 
 RR_STATUS = {
     -1: '❌',
-    0: '⚡' ,
+    0: '⚡',
     1: '✅',
 }
 
@@ -216,15 +214,15 @@ TASK_STATUS = {
 @router.message(Command('report_tasks'), IsAdmin())
 @error_handler()
 async def report_tasks(message: Message):
-    
+
     tasks: List[Task] = (
         Task
         .select(Task)
-        .where(Task.status.between(0,2))
-        .join(User, on=(User.id==Task.implementer))
+        .where(Task.status.between(0, 2))
+        .join(User, on=(User.id == Task.implementer))
         .order_by(
             Task.status.desc(),
-            User.bloger_rating.desc(),
+            Task.due_date.desc(),
         )
     )
 
@@ -236,14 +234,14 @@ async def report_tasks(message: Message):
             TASK_STATUS[task.status],
             f'{task.theme.complexity:5.3f}',
             task.theme.course.title,
-            task.theme.title,
+            task.theme.link,
             # (
-            #     task.due_date if task.status == 0 
+            #     task.due_date if task.status == 0
             #     else task.videos.first().at_created
             # ).strftime("%Y-%m-%d %H:%M"),
             (
                 f'{task.due_date.strftime("%d %H:%M")}' if task.status == 0 else
-                '' if task.status == 1 
+                '' if task.status == 1
                 else f'{(task.score*100):05.2f}'
             ),
             implementer.link,
@@ -260,7 +258,7 @@ async def report_tasks(message: Message):
                     ReviewRequest.status.desc(),
                     Case(
                         None,
-                        [(ReviewRequest.status==0, ReviewRequest.due_date)],
+                        [(ReviewRequest.status == 0, ReviewRequest.due_date)],
                         Review.at_created
                     )
                 )
@@ -275,23 +273,21 @@ async def report_tasks(message: Message):
                     f'<a href="https://t.me/{rr.reviewer.username}">{RR_STATUS[rr.status]}</a>'
                 ) for rr in rrs
             ])
-    
+
             if line:
                 point.append(line)
-    
+
         points[task.status].append(
             '\n'.join(point)
         )
 
-
     end_points = []
     char_count = 0
-    for status in (1,0,2):
+    for status in (1, 0, 2):
         for point in points[status]:
             if len(point) + char_count < 4096:
                 end_points.append(point)
                 char_count += len(point)
-
 
     await message.answer(
         text='\n\n'.join(end_points),
@@ -307,8 +303,9 @@ async def add_course(message: Message, state: FSMContext):
     file = await message.bot.download(message.document.file_id)
     try:
         file.seek(0)  # Устанавливаем указатель в начало
-        table = csv.reader(file.read().decode("utf-8").splitlines())  # Читаем строки
-        
+        table = csv.reader(file.read().decode(
+            "utf-8").splitlines())  # Читаем строки
+
         load_videos = []
         for row in table:
             course_title = row[0]
@@ -335,15 +332,15 @@ async def add_course(message: Message, state: FSMContext):
                 )
             else:
                 is_save = False
-                
+
                 if theme.complexity != theme_complexity:
                     theme.complexity = theme_complexity
                     is_save = True
-                
+
                 if theme.url != theme_url:
                     theme.url = theme_url
                     is_save = True
-                
+
                 if is_save:
                     theme.save()
 
@@ -353,7 +350,7 @@ async def add_course(message: Message, state: FSMContext):
 
                 if len(row) > 5 and row[5] != '':
                     score = float(row[5].replace(',', '.'))
-                    if score  >= 0.8:
+                    if score >= 0.8:
                         status = 2
                     else:
                         status = -2
@@ -374,7 +371,7 @@ async def add_course(message: Message, state: FSMContext):
             for user in users:
                 user.update_bloger_score()
 
-        else:            
+        else:
             await state.set_data({
                 'load_videos': load_videos
             })
@@ -382,7 +379,7 @@ async def add_course(message: Message, state: FSMContext):
             await message.answer(
                 text=f'📨📹Отправьте видео на тему "{load_videos[0]["title"]}"'
             )
-        
+
     except Exception as e:
         await message.answer(f"Ошибка при чтении CSV: {e}")
 
@@ -398,12 +395,12 @@ async def upload_video(message: Message, state: FSMContext):
             text='🌐📹✔️📂Все видео загружены',
         )
         return
-    
+
     load_video = load_videos.pop(0)
-    implementer:User = User.get(username=load_video['implementer'])
+    implementer: User = User.get(username=load_video['implementer'])
     theme = Theme.get(id=load_video['theme'])
-    status=load_video['status']
-    score=load_video['score']
+    status = load_video['status']
+    score = load_video['score']
     task, _ = Task.get_or_create(
         implementer=implementer,
         theme=theme,
