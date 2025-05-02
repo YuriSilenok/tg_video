@@ -222,7 +222,7 @@ async def report_tasks(message: Message):
         .join(User, on=(User.id == Task.implementer))
         .order_by(
             Task.status.desc(),
-            Task.due_date.desc(),
+            Task.due_date.asc(),
         )
     )
 
