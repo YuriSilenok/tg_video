@@ -14,18 +14,19 @@ from peewee import fn
 
 router = Router()
 
+
 @error_handler()
-async def send_video(bot:Bot, video:Video=None):
+async def send_video(bot: Bot, video: Video = None):
     if video is None:
         return
-    
+
     task = video.task
     theme = task.theme
     course_title = theme.course.title
     ch = [
         (" ", "_"),
         (".", ""),
-        (".", ""),
+        (",", ""),
         ("«", ""),
         ("»", ""),
     ]
@@ -33,8 +34,8 @@ async def send_video(bot:Bot, video:Video=None):
         course_title = course_title.replace(ch1, ch2)
 
     caption = (
-            f'Курс: #{course_title}\n'
-            f'Тема: <a href="{theme.url}">{theme.title}</a>'
+        f'Курс: #{course_title}\n'
+        f'Тема: <a href="{theme.url}">{theme.title}</a>'
     )
     message = await bot.send_video(
         chat_id=TG_CHANEL_ID,
@@ -43,30 +44,32 @@ async def send_video(bot:Bot, video:Video=None):
         parse_mode='HTML',
     )
     if video.duration == 0:
-        video.duration= message.video.duration
+        video.duration = message.video.duration
         video.save()
     task.status = 3
     task.save()
+
 
 @error_handler()
 async def send_poll(bot: Bot):
     """Отправить опрос"""
     themes = (Video
-        .select(
-            Video.id.alias('video'),
-            Theme.title.alias('theme'),
-            Course.title.alias('course')
-        )
-        .join(Task)
-        .join(Theme)
-        .join(Course)
-        .where(Task.status==2)
-        .group_by(Course.id)
-        .limit(10)
-    )
-    
+              .select(
+                  Video.id.alias('video'),
+                  Theme.title.alias('theme'),
+                  Course.title.alias('course')
+              )
+              .join(Task)
+              .join(Theme)
+              .join(Course)
+              .where(Task.status == 2)
+              .group_by(Course.id)
+              .limit(10)
+              )
+
     if themes.count() >= 2:
-        options = [f'{row["video"]}|{row["course"]}|{row["theme"]}'[:100] for row in themes.dicts()]
+        options = [f'{row["video"]}|{row["course"]}|{row["theme"]}'[:100]
+                   for row in themes.dicts()]
         message: Message = await bot.send_poll(
             chat_id=TG_CHANEL_ID,
             question='Видео по каким темам Вы хотите увидеть следующим?',
@@ -76,7 +79,7 @@ async def send_poll(bot: Bot):
         MPoll.create(
             message_id=message.message_id,
             poll_id=message.poll.id,
-            result=str({o:0 for o in options}),
+            result=str({o: 0 for o in options}),
         )
         return True
     return False
@@ -87,14 +90,15 @@ def get_poll_theme() -> Tuple[MPoll, Video]:
 
     # выбираем опросы которые были созданы вчера
     polls = (MPoll
-        .select()
-        .where(
-            (MPoll.is_stop == False)
-        )
-    )
+             .select()
+             .where(
+                 (MPoll.is_stop == False)
+             )
+             )
 
     for poll in polls:
-        data = sorted(eval(poll.result).items(), key=lambda kv: kv[1], reverse=True)
+        data = sorted(eval(poll.result).items(),
+                      key=lambda kv: kv[1], reverse=True)
         for course_theme_max, _ in data:
             video_id = int(course_theme_max.split(sep='|', maxsplit=1)[0])
             video: Video = Video.get_by_id(video_id)
@@ -109,6 +113,7 @@ def get_active_polls():
     )
     return list(query)
 
+
 @error_handler()
 async def loop(bot: Bot):
     """Одна итерация вызываемая из бесконечного цикла"""
@@ -120,7 +125,7 @@ async def loop(bot: Bot):
             poll, video = poll_video
             poll.is_stop = True
             poll.save()
-            
+
             try:
                 await bot.stop_poll(
                     chat_id=TG_CHANEL_ID,
@@ -128,7 +133,7 @@ async def loop(bot: Bot):
                 )
             except TelegramBadRequest as e:
                 print(e)
-            
+
             await send_video(bot, video)
         else:
             await send_video(bot)
@@ -144,7 +149,6 @@ async def loop(bot: Bot):
                 print(e)
             poll.is_delete = True
             poll.save()
-                    
 
 
 @router.poll()
@@ -155,8 +159,8 @@ async def poll_answer(poll: Poll):
     )
     if mpoll is None:
         return
-    
-    mpoll.result = str({o.text:o.voter_count for o in poll.options})
+
+    mpoll.result = str({o.text: o.voter_count for o in poll.options})
     mpoll.save()
 
 if __name__ == '__main__':
