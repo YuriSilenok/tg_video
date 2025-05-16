@@ -111,7 +111,9 @@ class IsReview(IsReviewer):
         user = User.get(tg_id=message.from_user.id)
         rr = (
             ReviewRequest.select(ReviewRequest)
-            .where((ReviewRequest.reviewer == user) & (ReviewRequest.status == 0))
+            .where(
+                (ReviewRequest.reviewer == user) & (ReviewRequest.status == 0)
+            )
             .first()
         )
         return rr is not None

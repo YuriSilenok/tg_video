@@ -100,7 +100,10 @@ async def report_reviewers(message: Message):
     result = "👀📄<b>Отчет о проверяющих</b>\n"
     result += "\n".join(
         [
-            (f"{u.reviewer_score:05.2f}" f"|{(u.reviewer_rating*100):05.2f}|{u.link}")
+            (
+                f"{u.reviewer_score:05.2f}"
+                f"|{(u.reviewer_rating*100):05.2f}|{u.link}"
+            )
             for u in reviewers
         ]
     )
@@ -167,7 +170,9 @@ async def add_role(message: Message):
     username = data[1].replace("@", "").strip()
     user = User.get_or_none(username=username)
     if user is None:
-        await message.answer(text=f"📤🙅‍♂👩‍💻⏮🆔Нет пользователя с юзернейм {username}")
+        await message.answer(
+            text=f"📤🙅‍♂👩‍💻⏮🆔Нет пользователя с юзернейм {username}"
+        )
         return
     UserRole.get_or_create(user=user, role=role)
     await message.answer(text="🔑🚮Роль добавлена")
@@ -234,7 +239,11 @@ async def report_tasks(message: Message):
                     (
                         f'{task.due_date.strftime("%d %H:%M")}'
                         if task.status == 0
-                        else "" if task.status == 1 else f"{(task.score*100):05.2f}"
+                        else (
+                            ""
+                            if task.status == 1
+                            else f"{(task.score*100):05.2f}"
+                        )
                     ),
                     implementer.link,
                     f"{(implementer.bloger_rating*100):05.2f}",
@@ -311,7 +320,9 @@ async def add_course(message: Message, state: FSMContext):
     file = await message.bot.download(message.document.file_id)
     try:
         file.seek(0)  # Устанавливаем указатель в начало
-        table = csv.reader(file.read().decode("utf-8").splitlines())  # Читаем строки
+        table = csv.reader(
+            file.read().decode("utf-8").splitlines()
+        )  # Читаем строки
 
         load_videos = []
         for row in table:

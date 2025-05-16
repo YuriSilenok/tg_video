@@ -96,9 +96,13 @@ async def start(message: Message):
             ],
         ]
 
-        reply_markup = ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+        reply_markup = ReplyKeyboardMarkup(
+            keyboard=keyboard, resize_keyboard=True
+        )
 
-    text = "Здравствуйте, Вы запустили бота который выдает темы для записи видео. "
+    text = (
+        "Здравствуйте, Вы запустили бота который выдает темы для записи видео. "
+    )
 
     if user.comment is None:
         text += (
@@ -106,7 +110,9 @@ async def start(message: Message):
             "<b>/set_fio Иванов Иван Иванович</b>"
         )
 
-    await message.answer(text=text, parse_mode="HTML", reply_markup=reply_markup)
+    await message.answer(
+        text=text, parse_mode="HTML", reply_markup=reply_markup
+    )
 
 
 @router.message(Command("report"), IsUser())
@@ -203,7 +209,9 @@ def get_data_by_courses(user: User):
             if len(inline_keyboard) == 0:
                 row = []
             elif (
-                sum([len(i.text) for i in inline_keyboard[-1]]) + len(course.title) + 1
+                sum([len(i.text) for i in inline_keyboard[-1]])
+                + len(course.title)
+                + 1
                 < 25
             ):
                 row = inline_keyboard.pop()
@@ -231,14 +239,18 @@ def get_data_by_courses(user: User):
 @router.message(Command("courses"), IsUser())
 @error_handler()
 async def show_courses(message: Message):
-    await message.answer(**get_data_by_courses(User.get(tg_id=message.from_user.id)))
+    await message.answer(
+        **get_data_by_courses(User.get(tg_id=message.from_user.id))
+    )
 
 
 @router.callback_query(F.data.startswith("add_user_course_"), IsUser())
 @error_handler()
 async def add_user_course(callback: CallbackQuery):
     user = User.get(tg_id=callback.from_user.id)
-    course = Course.get_by_id(int(callback.data[(callback.data.rfind("_") + 1) :]))
+    course = Course.get_by_id(
+        int(callback.data[(callback.data.rfind("_") + 1) :])
+    )
     UserCourse.get_or_create(
         user=user,
         course=course,
@@ -256,7 +268,9 @@ async def add_user_course(callback: CallbackQuery):
 async def del_user_course(callback: CallbackQuery):
 
     user = User.get(tg_id=callback.from_user.id)
-    course = Course.get_by_id(int(callback.data[(callback.data.rfind("_") + 1) :]))
+    course = Course.get_by_id(
+        int(callback.data[(callback.data.rfind("_") + 1) :])
+    )
 
     user_course = UserCourse.get_or_none(
         user=user,

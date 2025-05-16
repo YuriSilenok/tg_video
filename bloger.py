@@ -111,7 +111,9 @@ async def drop_bloger(bot: Bot, user: User):
 
     await bot.send_message(chat_id=user.tg_id, text="Роль блогера с Вас снята")
 
-    await send_message_admins(bot=bot, text=f"Блогер {user.link} отказался от роли.")
+    await send_message_admins(
+        bot=bot, text=f"Блогер {user.link} отказался от роли."
+    )
 
     await send_task(bot)
 
@@ -302,7 +304,9 @@ async def check_expired_task(bot: Bot):
                         ", подпишитесь на него и получите задачу на разработку видео",
                     )
                 except TelegramBadRequest:
-                    await send_message_admins(bot=bot, text=traceback.format_exc())
+                    await send_message_admins(
+                        bot=bot, text=traceback.format_exc()
+                    )
 
         except TelegramBadRequest as ex:
             print(ex, task.implementer.comment)
@@ -340,7 +344,9 @@ from (
 left join task on task.implementer_id=u.user_id and task.status in (0, 1)
 where task.id is NULL;
 """
-            users: list[int] = [r["user_id"] for r in Table.raw(sql_query).dicts()]
+            users: list[int] = [
+                r["user_id"] for r in Table.raw(sql_query).dicts()
+            ]
             cont = False
 
             for user_id in users:

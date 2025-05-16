@@ -88,7 +88,9 @@ def error_handler():
                     return None
                 bot: Bot = None
                 message: Message = None
-                if isinstance(args[0], Message) or isinstance(args[0], CallbackQuery):
+                if isinstance(args[0], Message) or isinstance(
+                    args[0], CallbackQuery
+                ):
                     bot = args[0].bot
                     message = args[0]
                 elif isinstance(args[0], Bot):
@@ -154,7 +156,8 @@ async def send_task(bot: Bot):
         courses_by_bloger: set[UserCourse] = {
             user_course.course
             for user_course in UserCourse.select().where(
-                (UserCourse.user == bloger.id) & (UserCourse.course.in_(course_ids))
+                (UserCourse.user == bloger.id)
+                & (UserCourse.course.in_(course_ids))
             )
         }
 
@@ -175,7 +178,10 @@ async def send_task(bot: Bot):
             key=lambda course: (
                 Task.select(fn.AVG(Task.score))
                 .join(Theme)
-                .where((Theme.course == course.id) & (Task.implementer == bloger.id))
+                .where(
+                    (Theme.course == course.id)
+                    & (Task.implementer == bloger.id)
+                )
                 .scalar()
                 or 0.8
             ),
@@ -277,7 +283,9 @@ async def send_new_review_request(bot: Bot):
     video_ids = [
         v.id
         for v in Video.select(Video)
-        .join(ReviewRequest, JOIN.LEFT_OUTER, on=(ReviewRequest.video == Video.id))
+        .join(
+            ReviewRequest, JOIN.LEFT_OUTER, on=(ReviewRequest.video == Video.id)
+        )
         .join(Task, on=(Task.id == Video.task))
         .join(User, on=(User.id == Task.implementer))
         .where(
@@ -331,7 +339,9 @@ async def add_reviewer(bot: Bot, video_id: int):
         .group_by(ReviewRequest.reviewer)
     ]
 
-    candidat_reviewer_ids = [i for i in vacant_reviewer_ids if i not in reviewer_ids]
+    candidat_reviewer_ids = [
+        i for i in vacant_reviewer_ids if i not in reviewer_ids
+    ]
     if len(candidat_reviewer_ids) == 0:
 
         theme = Video.get_by_id(video_id).task.theme
@@ -346,7 +356,9 @@ async def add_reviewer(bot: Bot, video_id: int):
 
     due_date = get_date_time(hours=25)
     review_request = ReviewRequest.create(
-        reviewer_id=candidat_reviewer_ids[0], video_id=video_id, due_date=due_date
+        reviewer_id=candidat_reviewer_ids[0],
+        video_id=video_id,
+        due_date=due_date,
     )
     await send_video(bot, review_request)
     return True

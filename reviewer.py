@@ -22,7 +22,16 @@ from common import (
     update_task_score,
 )
 from filters import IsReview, IsReviewer
-from models import TASK_STATUS, Review, ReviewRequest, Role, Task, Theme, User, UserRole
+from models import (
+    TASK_STATUS,
+    Review,
+    ReviewRequest,
+    Role,
+    Task,
+    Theme,
+    User,
+    UserRole,
+)
 
 router = Router()
 
@@ -104,7 +113,8 @@ async def get_review(message: Message):
         Review.select(Review)
         .join(ReviewRequest)
         .where(
-            (ReviewRequest.video == review_request.video) & (ReviewRequest.status == 1)
+            (ReviewRequest.video == review_request.video)
+            & (ReviewRequest.status == 1)
         )
     )
 
@@ -152,7 +162,8 @@ async def get_review(message: Message):
         >= 10
         and UserRole.select()
         .where(
-            (UserRole.user == implementer.id) & (UserRole.role == IsReviewer.role.id)
+            (UserRole.user == implementer.id)
+            & (UserRole.role == IsReviewer.role.id)
         )
         .count()
         == 0
@@ -197,7 +208,9 @@ async def get_reviewer_user_role(bot: Bot, user: User):
         role=role,
     )
     if user_role is None:
-        await bot.send_message(chat_id=user.tg_id, text="Вы не являетесь проверяющим!")
+        await bot.send_message(
+            chat_id=user.tg_id, text="Вы не являетесь проверяющим!"
+        )
         return None
 
     return user_role
