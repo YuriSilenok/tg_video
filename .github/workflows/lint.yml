@@ -41,14 +41,6 @@ jobs:
         black .
         ruff check . --fix
 
-    - name: Run flake8
-      if: env.IS_FORK == 'false'
-      run: flake8 .
-
-    - name: Run pylint
-      if: env.IS_FORK == 'false'
-      run: pylint $(find . -name "*.py" ! -path "./venv/*")
-
     - name: Commit and push changes (only if not a fork)
       if: env.IS_FORK == 'false'
       run: |
@@ -62,3 +54,9 @@ jobs:
         else
           echo "No changes to commit."
         fi
+
+    - name: Run flake8
+      run: flake8 .
+
+    - name: Run pylint
+      run: pylint $(find . -name "*.py" ! -path "./venv/*")
