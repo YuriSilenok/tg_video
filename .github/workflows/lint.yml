@@ -58,7 +58,7 @@ jobs:
       run: |
         if [[ $(git status --porcelain) ]]; then
           git add .
-          git commit -m "chore: auto-fix formatting via GitHub Actions"
+          git commit -m "chore: auto-fix formatting via GitHub Actions by black"
           git push origin HEAD
         else
           echo "No changes to commit."
@@ -73,7 +73,7 @@ jobs:
       run: |
         if [[ $(git status --porcelain) ]]; then
           git add .
-          git commit -m "chore: auto-fix formatting via GitHub Actions"
+          git commit -m "chore: auto-fix formatting via GitHub Actions by ruff"
           git push origin HEAD
         else
           echo "No changes to commit."
