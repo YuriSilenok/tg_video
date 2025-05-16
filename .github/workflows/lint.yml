@@ -31,7 +31,7 @@ jobs:
       id: fork-check
       run: |
         echo "IS_FORK=false" >> "$GITHUB_ENV"
-        if [ "${{ github.repository }}" != "${{ github.event.pull_request.head.repo.full_name }}" ]; then
+        if [ "${{ github.repository }}" != "YuriSilenok/tg_video" ]; then
           echo "IS_FORK=true" >> "$GITHUB_ENV"
         fi
 
