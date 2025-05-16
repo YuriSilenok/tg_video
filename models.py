@@ -91,7 +91,9 @@ class User(Table):
     def update_bloger_score(self):
         """Обновление количеста баллов (очков)"""
 
-        tasks: list[Task] = Task.select(Task).where(Task.implementer == self.id)
+        tasks: list[Task] = Task.select(Task).where(
+            Task.implementer == self.id
+        )
 
         bloger_score = 0
         i = 0
@@ -191,7 +193,9 @@ class User(Table):
         delta = max_score - min_score
         score = (
             Task.select(fn.AVG(Task.score))
-            .where((Task.implementer == self.id) & (Task.status.not_in([0, 1])))
+            .where(
+                (Task.implementer == self.id) & (Task.status.not_in([0, 1]))
+            )
             .scalar()
         )
         return (
@@ -273,7 +277,9 @@ class User(Table):
 
         tasks: list[Task] = (
             Task.select()
-            .where((Task.implementer == self.id) & (Task.status.not_in([0, 1])))
+            .where(
+                (Task.implementer == self.id) & (Task.status.not_in([0, 1]))
+            )
             .order_by(Task.at_created)
         )
 
@@ -563,8 +569,12 @@ class Review(Table):
 
         data = [
             (
-                min(abs(row["avg"] - row["min"]), abs(row["avg"] - row["max"])),
-                max(abs(row["avg"] - row["min"]), abs(row["avg"] - row["max"])),
+                min(
+                    abs(row["avg"] - row["min"]), abs(row["avg"] - row["max"])
+                ),
+                max(
+                    abs(row["avg"] - row["min"]), abs(row["avg"] - row["max"])
+                ),
             )
             for row in Review.select(
                 fn.MIN(Review.score).alias("min"),

@@ -7,7 +7,13 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 from peewee import JOIN, Case
 
-from common import add_reviewer, error_handler, get_date_time, get_id, send_task
+from common import (
+    add_reviewer,
+    error_handler,
+    get_date_time,
+    get_id,
+    send_task,
+)
 from filters import IsAdmin
 from models import (
     Course,

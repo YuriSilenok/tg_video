@@ -181,7 +181,8 @@ async def get_review(message: Message):
         )
 
         await send_message_admins(
-            bot=message.bot, text=f"Роль проверяющего выдана {implementer.link}"
+            bot=message.bot,
+            text=f"Роль проверяющего выдана {implementer.link}",
         )
 
 

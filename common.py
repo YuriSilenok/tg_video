@@ -134,7 +134,9 @@ async def send_task(bot: Bot):
     # убрать блогеров у которых идет работа над задачей
     blogers -= {
         task.implementer
-        for task in Task.select(Task.implementer).where(Task.status.in_([0, 1]))
+        for task in Task.select(Task.implementer).where(
+            Task.status.in_([0, 1])
+        )
     }
 
     # Список курсов
@@ -284,7 +286,9 @@ async def send_new_review_request(bot: Bot):
         v.id
         for v in Video.select(Video)
         .join(
-            ReviewRequest, JOIN.LEFT_OUTER, on=(ReviewRequest.video == Video.id)
+            ReviewRequest,
+            JOIN.LEFT_OUTER,
+            on=(ReviewRequest.video == Video.id),
         )
         .join(Task, on=(Task.id == Video.task))
         .join(User, on=(User.id == Task.implementer))

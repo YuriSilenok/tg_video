@@ -165,7 +165,9 @@ async def del_task_yes(query: CallbackQuery):
 @error_handler()
 async def upload_video(message: Message):
     user = User.get(tg_id=message.from_user.id)
-    tasks = Task.select().where((Task.status == 0) & (Task.implementer == user))
+    tasks = Task.select().where(
+        (Task.status == 0) & (Task.implementer == user)
+    )
 
     if tasks.count() == 0:
         await message.answer(

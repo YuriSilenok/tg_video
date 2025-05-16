@@ -100,9 +100,7 @@ async def start(message: Message):
             keyboard=keyboard, resize_keyboard=True
         )
 
-    text = (
-        "Здравствуйте, Вы запустили бота который выдает темы для записи видео. "
-    )
+    text = "Здравствуйте, Вы запустили бота который выдает темы для записи видео. "
 
     if user.comment is None:
         text += (
