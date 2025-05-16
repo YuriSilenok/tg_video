@@ -267,7 +267,8 @@ async def check_expired_task(bot: Bot):
 
             await send_message_admins(
                 bot=bot,
-                text=f"Тему {task.theme.link} просрочил {task.implementer.link}",
+                text=f"Тему {task.theme.link} "
+                f"просрочил {task.implementer.link}",
             )
 
             await send_task(bot)
@@ -302,8 +303,9 @@ async def check_expired_task(bot: Bot):
                 try:
                     await bot.send_message(
                         chat_id=user_role.user.tg_id,
-                        text=f"Для курса {task.theme.course.title} нет исполнителя"
-                        ", подпишитесь на него и получите задачу на разработку видео",
+                        text=f"Для курса {task.theme.course.title} нет "
+                        "исполнителя, подпишитесь на него и получите "
+                        "задачу на разработку видео",
                     )
                 except TelegramBadRequest:
                     await send_message_admins(
@@ -341,7 +343,8 @@ from (
     select ur.user_id
     from userrole as ur
     inner join usercourse as uc on ur.user_id=uc.user_id
-    where uc.course_id = {task.theme.course_id} and ur.role_id={IsBloger.role.id}
+    where uc.course_id = {task.theme.course_id}
+    and ur.role_id={IsBloger.role.id}
 ) as u
 left join task on task.implementer_id=u.user_id and task.status in (0, 1)
 where task.id is NULL;
@@ -362,12 +365,14 @@ where task.id is NULL;
 
             await bot.send_message(
                 chat_id=task.implementer.tg_id,
-                text=f"Воспользуйтесь этой кнопкой, чтобы продлить срок Вашей задачи до {task.due_date + reserve_time} ",
+                text="Воспользуйтесь этой кнопкой, чтобы продлить срок Вашей "
+                f"задачи до {task.due_date + reserve_time} ",
                 reply_markup=InlineKeyboardMarkup(
                     inline_keyboard=[
                         [
                             InlineKeyboardButton(
-                                text=f"Продлить до {task.due_date + reserve_time}",
+                                text="Продлить до "
+                                f"{task.due_date + reserve_time}",
                                 callback_data=f"task_to_extend_{task.id}",
                             )
                         ]
