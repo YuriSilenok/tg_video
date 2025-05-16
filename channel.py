@@ -94,8 +94,7 @@ def get_poll_theme() -> tuple[MPoll, Video]:
     polls = MPoll.select().where(~MPoll.is_stop)
 
     for poll in polls:
-        data = sorted(eval(poll.result).items(),
-                      key=lambda kv: kv[1], reverse=True)
+        data = sorted(eval(poll.result).items(), key=lambda kv: kv[1], reverse=True)
         for course_theme_max, _ in data:
             video_id = int(course_theme_max.split(sep="|", maxsplit=1)[0])
             video: Video = Video.get_by_id(video_id)
