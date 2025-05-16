@@ -42,7 +42,7 @@ jobs:
       if: env.IS_FORK == 'false'
       run: |
         black .
-        ruff check . --unsafe-fixes
+        ruff check . --fix --unsafe-fixes
 
     - name: Commit and push changes (only if not a fork)
       if: env.IS_FORK == 'false'
