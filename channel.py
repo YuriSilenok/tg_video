@@ -91,10 +91,11 @@ def get_poll_theme() -> tuple[MPoll, Video]:
     """Получить опрос и тему из опроса"""
 
     # выбираем опросы которые были созданы вчера
-    polls = MPoll.select().where(MPoll.is_stop == False)
+    polls = MPoll.select().where(~MPoll.is_stop)
 
     for poll in polls:
-        data = sorted(eval(poll.result).items(), key=lambda kv: kv[1], reverse=True)
+        data = sorted(eval(poll.result).items(),
+                      key=lambda kv: kv[1], reverse=True)
         for course_theme_max, _ in data:
             video_id = int(course_theme_max.split(sep="|", maxsplit=1)[0])
             video: Video = Video.get_by_id(video_id)
@@ -103,7 +104,7 @@ def get_poll_theme() -> tuple[MPoll, Video]:
 
 
 def get_active_polls():
-    query = MPoll.select().where((MPoll.is_stop == True) & (MPoll.is_delete == False))
+    query = MPoll.select().where((MPoll.is_stop) & (~MPoll.is_delete))
     return list(query)
 
 
