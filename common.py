@@ -50,7 +50,7 @@ async def other_message(message: Message):
 
 
 def get_id(text):
-    return int(text[(text.rfind("_") + 1):])
+    return int(text[(text.rfind("_") + 1) :])
 
 
 async def get_user(bot: Bot, tg_id: int) -> User:
@@ -154,8 +154,7 @@ async def send_task(bot: Bot):
         courses_by_bloger: set[UserCourse] = {
             user_course.course
             for user_course in UserCourse.select().where(
-                (UserCourse.user == bloger.id) & (
-                    UserCourse.course.in_(course_ids))
+                (UserCourse.user == bloger.id) & (UserCourse.course.in_(course_ids))
             )
         }
 
@@ -332,8 +331,7 @@ async def add_reviewer(bot: Bot, video_id: int):
         .group_by(ReviewRequest.reviewer)
     ]
 
-    candidat_reviewer_ids = [
-        i for i in vacant_reviewer_ids if i not in reviewer_ids]
+    candidat_reviewer_ids = [i for i in vacant_reviewer_ids if i not in reviewer_ids]
     if len(candidat_reviewer_ids) == 0:
 
         theme = Video.get_by_id(video_id).task.theme

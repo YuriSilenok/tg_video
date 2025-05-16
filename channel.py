@@ -35,8 +35,7 @@ async def send_video(bot: Bot, video: Video = None):
     course_title = " #".join(course_title.split())
 
     caption = (
-        f"Курс: #{course_title}\n"
-        f'Тема: <a href="{theme.url}">{theme.title}</a>'
+        f"Курс: #{course_title}\n" f'Тема: <a href="{theme.url}">{theme.title}</a>'
     )
     message = await bot.send_video(
         chat_id=TG_CHANEL_ID,
@@ -95,8 +94,7 @@ def get_poll_theme() -> tuple[MPoll, Video]:
     polls = MPoll.select().where(~MPoll.is_stop)
 
     for poll in polls:
-        data = sorted(eval(poll.result).items(),
-                      key=lambda kv: kv[1], reverse=True)
+        data = sorted(eval(poll.result).items(), key=lambda kv: kv[1], reverse=True)
         for course_theme_max, _ in data:
             video_id = int(course_theme_max.split(sep="|", maxsplit=1)[0])
             video: Video = Video.get_by_id(video_id)
@@ -122,10 +120,7 @@ async def loop(bot: Bot):
             poll.save()
 
             try:
-                await bot.stop_poll(
-                    chat_id=TG_CHANEL_ID,
-                    message_id=poll.message_id
-                )
+                await bot.stop_poll(chat_id=TG_CHANEL_ID, message_id=poll.message_id)
             except TelegramBadRequest as e:
                 print(e)
 
