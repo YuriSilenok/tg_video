@@ -1,7 +1,8 @@
 from typing import Union
 from aiogram.filters import BaseFilter
 from aiogram.types import Message, CallbackQuery
-from models import *
+from models import User, Role, UserRole, ReviewRequest, Task
+
 
 class IsUser(BaseFilter):
     async def __call__(self, subject: Union[Message, CallbackQuery]):
@@ -22,14 +23,14 @@ class IsUser(BaseFilter):
                 'для продолжения работы с ботом, укажите его в своём профиле'
             )
             return False
-        
+
         if subject.from_user.username != user.username:
             user.username = subject.from_user.username
             user.save()
 
         if user.comment is None:
             await subject.answer(
-                text = (
+                text=(
                     "Представьтесь, указав свои ФИО. "
                     "Отправьте команду в следующем формате "
                     "<b>/set_fio Иванов Иван Иванович</b>"
@@ -43,7 +44,7 @@ class IsUser(BaseFilter):
 
 class IsAdmin(IsUser):
 
-    role = Role.get(name='Админ')    
+    role = Role.get(name='Админ')
 
     async def __call__(self, message: Message) -> bool:
         is_user = await super().__call__(message)
@@ -59,7 +60,7 @@ class IsAdmin(IsUser):
 
 class IsBloger(IsUser):
 
-    role = Role.get(name='Блогер')    
+    role = Role.get(name='Блогер')
 
     async def __call__(self, message: Message) -> bool:
         is_user = await super().__call__(message)
@@ -88,7 +89,7 @@ class WaitVideo(BaseFilter):
 class IsReviewer(IsUser):
     """Проверяет что польователь проверяющий"""
 
-    role = Role.get(name='Проверяющий')    
+    role = Role.get(name='Проверяющий')
 
     async def __call__(self, message: Message) -> bool:
         is_user = await super().__call__(message)
@@ -104,23 +105,23 @@ class IsReviewer(IsUser):
 
 class IsReview(IsReviewer):
     """Проверяет что у проверяющего есть задача"""
+
     async def __call__(self, message: Message) -> bool:
         check = await super().__call__(message)
         if not check:
             return False
-        
+
         if not isinstance(message, (Message, CallbackQuery)):
             return False
-        
+
         user = User.get(tg_id=message.from_user.id)
         rr = (
             ReviewRequest
             .select(ReviewRequest)
             .where(
-                (ReviewRequest.reviewer==user) &
-                (ReviewRequest.status==0)
+                (ReviewRequest.reviewer == user) &
+                (ReviewRequest.status == 0)
             )
             .first()
         )
         return rr is not None
-
