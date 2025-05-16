@@ -1,18 +1,21 @@
-'''Бот для записи видео'''
-import logging
-import asyncio
+"""Бот для записи видео"""
 
+import asyncio
+import logging
 from datetime import datetime, timedelta
 
 from aiogram import Bot, Dispatcher
-
 from config import TG_TOKEN
-from user import router as user_router
+
 from admin import router as admin_router
-from reviewer import router as reviewer_router, loop as reviewer_loop
-from channel import router as channel_router, loop as channel_loop
-from bloger import router as bloger_router, loop as bloger_loop
+from bloger import loop as bloger_loop
+from bloger import router as bloger_router
+from channel import loop as channel_loop
+from channel import router as channel_router
 from common import router as common_router
+from reviewer import loop as reviewer_loop
+from reviewer import router as reviewer_router
+from user import router as user_router
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TG_TOKEN)
@@ -45,7 +48,7 @@ async def on_startup():
 
 
 async def main():
-    '''Старт бота'''
+    """Старт бота"""
 
     dp.startup.register(on_startup)
 
@@ -65,6 +68,6 @@ class Singletone:
     LOOP = True
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())
     Singletone.LOOP = False

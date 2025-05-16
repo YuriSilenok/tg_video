@@ -1,15 +1,15 @@
 from typing import Union
+
 from aiogram.filters import BaseFilter
-from aiogram.types import Message, CallbackQuery
-from models import User, Role, UserRole, ReviewRequest, Task
+from aiogram.types import CallbackQuery, Message
+
+from models import ReviewRequest, Role, Task, User, UserRole
 
 
 class IsUser(BaseFilter):
     async def __call__(self, subject: Union[Message, CallbackQuery]):
 
-        user: User = User.get_or_none(
-            tg_id=subject.from_user.id
-        )
+        user: User = User.get_or_none(tg_id=subject.from_user.id)
 
         if user is None:
             user = User.create(
@@ -19,8 +19,8 @@ class IsUser(BaseFilter):
 
         if subject.from_user.username is None:
             await subject.answer(
-                text='У Вас не задан username, '
-                'для продолжения работы с ботом, укажите его в своём профиле'
+                text="У Вас не задан username, "
+                "для продолжения работы с ботом, укажите его в своём профиле"
             )
             return False
 
@@ -35,7 +35,7 @@ class IsUser(BaseFilter):
                     "Отправьте команду в следующем формате "
                     "<b>/set_fio Иванов Иван Иванович</b>"
                 ),
-                parse_mode='HTML',
+                parse_mode="HTML",
             )
             return False
 
@@ -44,7 +44,7 @@ class IsUser(BaseFilter):
 
 class IsAdmin(IsUser):
 
-    role = Role.get(name='Админ')
+    role = Role.get(name="Админ")
 
     async def __call__(self, message: Message) -> bool:
         is_user = await super().__call__(message)
@@ -52,15 +52,14 @@ class IsAdmin(IsUser):
             return False
 
         user_role = UserRole.get_or_none(
-            user=User.get(tg_id=message.from_user.id),
-            role=self.role
+            user=User.get(tg_id=message.from_user.id), role=self.role
         )
         return user_role is not None
 
 
 class IsBloger(IsUser):
 
-    role = Role.get(name='Блогер')
+    role = Role.get(name="Блогер")
 
     async def __call__(self, message: Message) -> bool:
         is_user = await super().__call__(message)
@@ -68,8 +67,7 @@ class IsBloger(IsUser):
             return False
 
         user_role = UserRole.get_or_none(
-            user=User.get(tg_id=message.from_user.id),
-            role=self.role
+            user=User.get(tg_id=message.from_user.id), role=self.role
         )
         return user_role is not None
 
@@ -79,17 +77,14 @@ class WaitVideo(BaseFilter):
 
     async def __call__(self, message: Message) -> bool:
         user = User.get(tg_id=message.from_user.id)
-        task = Task.get_or_none(
-            implementer=user,
-            status=0
-        )
+        task = Task.get_or_none(implementer=user, status=0)
         return task is not None
 
 
 class IsReviewer(IsUser):
     """Проверяет что польователь проверяющий"""
 
-    role = Role.get(name='Проверяющий')
+    role = Role.get(name="Проверяющий")
 
     async def __call__(self, message: Message) -> bool:
         is_user = await super().__call__(message)
@@ -97,8 +92,7 @@ class IsReviewer(IsUser):
             return False
 
         user_role = UserRole.get_or_none(
-            user=User.get(tg_id=message.from_user.id),
-            role=self.role
+            user=User.get(tg_id=message.from_user.id), role=self.role
         )
         return user_role is not None
 
@@ -116,12 +110,8 @@ class IsReview(IsReviewer):
 
         user = User.get(tg_id=message.from_user.id)
         rr = (
-            ReviewRequest
-            .select(ReviewRequest)
-            .where(
-                (ReviewRequest.reviewer == user) &
-                (ReviewRequest.status == 0)
-            )
+            ReviewRequest.select(ReviewRequest)
+            .where((ReviewRequest.reviewer == user) & (ReviewRequest.status == 0))
             .first()
         )
         return rr is not None

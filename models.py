@@ -1,15 +1,26 @@
 from datetime import datetime
-import math
-from typing import Dict, list, Tuple
-from peewee import Model, SqliteDatabase, JOIN, fn, Case, BooleanField, FloatField, CharField, IntegerField, ForeignKeyField, DateTimeField, Value
+from typing import list
 
+from peewee import (
+    JOIN,
+    BooleanField,
+    Case,
+    CharField,
+    DateTimeField,
+    FloatField,
+    ForeignKeyField,
+    IntegerField,
+    Model,
+    SqliteDatabase,
+    fn,
+)
 
-db = SqliteDatabase('sqlite.db')
+db = SqliteDatabase("sqlite.db")
 
 
 CASCADE = {
-    'on_delete': 'CASCADE',
-    'on_update': 'CASCADE',
+    "on_delete": "CASCADE",
+    "on_update": "CASCADE",
 }
 
 
@@ -35,7 +46,7 @@ class Table(Model):
         database = db
 
     @staticmethod
-    def get_minmax(data: Dict[int, int]):
+    def get_minmax(data: dict[int, int]):
         return (
             data.get(-1 if len(data) == 0 else min(data, key=data.get), 0),
             data.get(-1 if len(data) == 0 else max(data, key=data.get), 0),
@@ -54,20 +65,15 @@ class User(Table):
 
     @property
     def link(self):
-        surname = self.comment.split(
-            maxsplit=1)[0] if self.comment else 'Аноним'
+        surname = self.comment.split(maxsplit=1)[0] if self.comment else "Аноним"
         return f'<a href="https://t.me/{self.username}">{surname}</a>'
 
     def get_sum_video_duration(self):
         """Получить сумму продолжительности всех проверенных видео в секундах"""
         return (
-            ReviewRequest
-            .select(fn.SUM(Video.duration))
+            ReviewRequest.select(fn.SUM(Video.duration))
             .join(Video)
-            .where(
-                (ReviewRequest.reviewer_id == self.id) &
-                (ReviewRequest.status == 1)
-            )
+            .where((ReviewRequest.reviewer_id == self.id) & (ReviewRequest.status == 1))
             .scalar()
         ) or 0
 
@@ -80,13 +86,7 @@ class User(Table):
     def update_bloger_score(self):
         """Обновление количеста баллов (очков)"""
 
-        tasks: list[Task] = (
-            Task
-            .select(Task)
-            .where(
-                (Task.implementer == self.id)
-            )
-        )
+        tasks: list[Task] = Task.select(Task).where(Task.implementer == self.id)
 
         bloger_score = 0
         i = 0
@@ -100,16 +100,15 @@ class User(Table):
         self.save()
 
     def get_reviewer_rating_from_score(self):
-        '''Получить процент объективности оценок'''
+        """Получить процент объективности оценок"""
 
         min_score, max_score = Review.get_minmax_score()
         delta = max_score - min_score
         video_avg_scores = Review.get_best_scores()
 
         data = [  # проценты отклонений оценок. Чем меньше отклонение, тем рейтинг выше
-            (max_score - abs(video_avg_scores[row['video']] - row['score'])) / delta for row in
-            Review  # Запрос на получение оценок текущего пользователя
-            .select(
+            (max_score - abs(video_avg_scores[row["video"]] - row["score"])) / delta
+            for row in Review.select(  # Запрос на получение оценок текущего пользователя
                 ReviewRequest.video,
                 Review.score,
             )
@@ -126,16 +125,14 @@ class User(Table):
         min_over, max_over = ReviewRequest.get_minmax_over()
         delta = max_over - min_over
         over_count = (
-            ReviewRequest
-            .select(fn.COUNT(ReviewRequest.id))
-            .where(
-                (ReviewRequest.status == -1) &
-                (ReviewRequest.reviewer == self.id)
-            )
+            ReviewRequest.select(fn.COUNT(ReviewRequest.id))
+            .where((ReviewRequest.status == -1) & (ReviewRequest.reviewer == self.id))
             .scalar()
         )
         # Чем меньше просрочек, тем выше рейтинг
-        return 1 if over_count is None or delta == 0 else (max_over - over_count) / delta
+        return (
+            1 if over_count is None or delta == 0 else (max_over - over_count) / delta
+        )
 
     def get_reviewer_rating_from_duration(self):
         """Получить рейтинг проверяющего по продолжительности проверки видео"""
@@ -143,29 +140,28 @@ class User(Table):
         min_dur, max_dur = ReviewRequest.get_minmax_review_duration()
         delta = max_dur - min_dur
         dur = (
-            ReviewRequest
-            .select(
+            ReviewRequest.select(
                 fn.AVG(
-                    (fn.julianday(Review.at_created) -
-                     fn.julianday(ReviewRequest.at_created)) * 24,
-                ).alias('avg_hours'),
+                    (
+                        fn.julianday(Review.at_created)
+                        - fn.julianday(ReviewRequest.at_created)
+                    )
+                    * 24,
+                ).alias("avg_hours"),
             )
             .join(Review)
-            .where(
-                (ReviewRequest.status == 1) &
-                (ReviewRequest.reviewer == self.id)
-            )
+            .where((ReviewRequest.status == 1) & (ReviewRequest.reviewer == self.id))
             .scalar()
         )
         return 1 if dur is None or delta == 0 else (max_dur - dur) / delta
 
     def update_reviewer_rating(self):
-        '''Обновление рейтинга проверяющего'''
+        """Обновление рейтинга проверяющего"""
 
         ratings = (
             self.get_reviewer_rating_from_score(),
             self.get_reviewer_rating_from_over(),
-            self.get_reviewer_rating_from_duration()
+            self.get_reviewer_rating_from_duration(),
         )
 
         self.reviewer_rating = sum(ratings) / len(ratings)
@@ -179,49 +175,50 @@ class User(Table):
         # Получить минмакс по средним оценкам блогеров
         min_score, max_score = Task.get_minmax_score()
         delta = max_score - min_score
-        score = (Task
-                 .select(
-                     fn.AVG(Task.score)
-                 )
-                 .where(
-                     (Task.implementer == self.id) &
-                     (Task.status.not_in([0, 1]))
-                 )
-                 .scalar()
-                 )
+        score = (
+            Task.select(fn.AVG(Task.score))
+            .where((Task.implementer == self.id) & (Task.status.not_in([0, 1])))
+            .scalar()
+        )
         return 0.7 if score is None or delta == 0 else ((score - min_score) / delta)
 
     def get_bloger_rating_from_duration(self):
-        '''Получить рейтинг блогера по продолжительности выполнения задачи'''
+        """Получить рейтинг блогера по продолжительности выполнения задачи"""
 
         min_duration, max_duration = Task.get_minmax_duration()
         delta = max_duration - min_duration
         duration = (
-            Task
-            .select(
+            Task.select(
                 fn.AVG(
                     Case(
                         None,
-                        [(
-                            Task.status == 0,
-                            (fn.julianday(datetime.now()) -
-                             fn.julianday(Task.at_created)) * 24
-                        )],
-                        (fn.julianday(Video.at_created) -
-                         fn.julianday(Task.at_created)) * 24
-                    ) / Theme.complexity
-                ).alias('avg_hours'),
+                        [
+                            (
+                                Task.status == 0,
+                                (
+                                    fn.julianday(datetime.now())
+                                    - fn.julianday(Task.at_created)
+                                )
+                                * 24,
+                            )
+                        ],
+                        (fn.julianday(Video.at_created) - fn.julianday(Task.at_created))
+                        * 24,
+                    )
+                    / Theme.complexity
+                ).alias("avg_hours"),
             )
             .join(Theme)
             .join(Video, JOIN.LEFT_OUTER, on=(Video.task == Task.id))
-            .where(
-                (Task.status != -1) &
-                (Task.implementer == self.id)
-            )
+            .where((Task.status != -1) & (Task.implementer == self.id))
             .scalar()
         )
 
-        return 0.7 if duration is None or delta == 0 else ((max_duration - duration) / delta)
+        return (
+            0.7
+            if duration is None or delta == 0
+            else ((max_duration - duration) / delta)
+        )
 
     def get_bloger_rating_from_over(self):
         """Рейтинг блогера по количеству просрочек"""
@@ -229,26 +226,20 @@ class User(Table):
         min_over, max_over = Task.get_minmax_over()
         delta = max_over - min_over
         over = (
-            Task
-            .select(
-                fn.COUNT(Task.id)
-            )
-            .where(
-                (Task.status == -1) &
-                (Task.implementer == self.id)
-            )
+            Task.select(fn.COUNT(Task.id))
+            .where((Task.status == -1) & (Task.implementer == self.id))
             .scalar()
         )
 
         return 1 if over == 0 or delta == 0 else ((max_over - over) / delta)
 
     def update_bloger_rating(self):
-        '''Обновление рейтинга блогера'''
+        """Обновление рейтинга блогера"""
 
         ratings = (
             self.get_bloger_rating_from_scores(),
             self.get_bloger_rating_from_over(),
-            self.get_bloger_rating_from_duration()
+            self.get_bloger_rating_from_duration(),
         )
 
         self.bloger_rating = sum(ratings) / len(ratings)
@@ -260,16 +251,12 @@ class User(Table):
         """Получить отчет по блогеру"""
 
         tasks: list[Task] = (
-            Task
-            .select()
-            .where(
-                (Task.implementer == self.id) &
-                (Task.status.not_in([0, 1]))
-            )
+            Task.select()
+            .where((Task.implementer == self.id) & (Task.status.not_in([0, 1])))
             .order_by(Task.at_created)
         )
 
-        report = 'Тема|Оценка|Cтаж|Объем|Итог\n'
+        report = "Тема|Оценка|Cтаж|Объем|Итог\n"
         i = 0
         for task in tasks:
             k = 1.05**i
@@ -279,27 +266,22 @@ class User(Table):
             report += f'<a href="{task.theme.url}">{i:05.0f}</a>|{(task.score*100):05.2f}%|{k:05.2f}|{complexity:06.3f}|{score:.2f}\n'
 
         return (
-            f'<b>Рейтинг блогера</b>: {(self.bloger_rating*100):.2f}%\n'
-            f'- скорость исполнения: {(self.get_bloger_rating_from_duration()*100):.2f}%\n'
-            f'- соблюдение срока: {(self.get_bloger_rating_from_over()*100):.2f}%\n'
-            f'- качество видео: {(self.get_bloger_rating_from_scores()*100):.2f}%\n'
-            f'\n<b>Баллы блогера</b>: {self.bloger_score:.2f}\n'
-            f'{report}\n'
+            f"<b>Рейтинг блогера</b>: {(self.bloger_rating*100):.2f}%\n"
+            f"- скорость исполнения: {(self.get_bloger_rating_from_duration()*100):.2f}%\n"
+            f"- соблюдение срока: {(self.get_bloger_rating_from_over()*100):.2f}%\n"
+            f"- качество видео: {(self.get_bloger_rating_from_scores()*100):.2f}%\n"
+            f"\n<b>Баллы блогера</b>: {self.bloger_score:.2f}\n"
+            f"{report}\n"
         )
 
     def get_reviewer_report(self):
-        '''Получить отчет проверяющего'''
+        """Получить отчет проверяющего"""
 
-        rrs: list[ReviewRequest] = (
-            ReviewRequest
-            .select()
-            .where(
-                (ReviewRequest.reviewer == self.id) &
-                (ReviewRequest.status == 1)
-            )
+        rrs: list[ReviewRequest] = ReviewRequest.select().where(
+            (ReviewRequest.reviewer == self.id) & (ReviewRequest.status == 1)
         )
 
-        report = 'Тема|Сек|Итог\n'
+        report = "Тема|Сек|Итог\n"
         i = 0
         for rr in rrs:
             i += 1
@@ -308,18 +290,18 @@ class User(Table):
             report += f'<a href="{video.task.theme.url}">{i:05.0f}</a>|{video.duration:03.0f}|{score:.2f}\n'
 
         return (
-            f'<b>Рейтинг проверяющего</b>: {(self.reviewer_rating*100):5.2f}%\n'
-            f'- качество проверки: {(self.get_reviewer_rating_from_score()*100):5.2f}%\n'
-            f'- скорость проверки: {(self.get_reviewer_rating_from_duration()*100):5.2f}%\n'
-            f'- соблюдение срока: {(self.get_reviewer_rating_from_over()*100):5.2f}%\n'
-            f'\n<b>Баллы проверяющего</b>: {self.reviewer_score:.2f}\n'
-            f'{report}\n'
+            f"<b>Рейтинг проверяющего</b>: {(self.reviewer_rating*100):5.2f}%\n"
+            f"- качество проверки: {(self.get_reviewer_rating_from_score()*100):5.2f}%\n"
+            f"- скорость проверки: {(self.get_reviewer_rating_from_duration()*100):5.2f}%\n"
+            f"- соблюдение срока: {(self.get_reviewer_rating_from_over()*100):5.2f}%\n"
+            f"\n<b>Баллы проверяющего</b>: {self.reviewer_score:.2f}\n"
+            f"{report}\n"
         )
 
     def get_report(self):
-        '''Получить отчет по пользователю'''
+        """Получить отчет по пользователю"""
 
-        return f'{self.get_bloger_report()}\n{self.get_reviewer_report()}'
+        return f"{self.get_bloger_report()}\n{self.get_reviewer_report()}"
 
 
 class Role(Table):
@@ -328,7 +310,7 @@ class Role(Table):
 
 
 class UserRole(Table):
-    user = ForeignKeyField(User, backref='user_roles', **CASCADE)
+    user = ForeignKeyField(User, backref="user_roles", **CASCADE)
     role = ForeignKeyField(Role, **CASCADE)
 
 
@@ -338,12 +320,13 @@ class Course(Table):
 
 class UserCourse(Table):
     """Желание пользователя записывать видео по этому курсу"""
+
     user = ForeignKeyField(User, **CASCADE)
-    course = ForeignKeyField(Course, backref='usercourse', **CASCADE)
+    course = ForeignKeyField(Course, backref="usercourse", **CASCADE)
 
 
 class Theme(Table):
-    course = ForeignKeyField(Course, backref='themes', **CASCADE)
+    course = ForeignKeyField(Course, backref="themes", **CASCADE)
     title = CharField()
     url = CharField()
     complexity = FloatField(default=1.0)
@@ -355,6 +338,7 @@ class Theme(Table):
 
 class Task(Table):
     """Тема выданная для записи видео"""
+
     implementer = ForeignKeyField(User, **CASCADE)
     theme = ForeignKeyField(Theme, **CASCADE)
     at_created = DateTimeField(default=datetime.now)
@@ -380,88 +364,78 @@ class Task(Table):
         group by t1.implementer_id
         """
 
-        return {i['implementer_id']: i['count'] for i in
-                Table.raw(sql_query).dicts()
-                }
+        return {i["implementer_id"]: i["count"] for i in Table.raw(sql_query).dicts()}
 
     @staticmethod
     def get_minmax_over():
         """Получить минимакс для количества просрочек"""
 
-        return Table.get_minmax(
-            Task.get_count_overs()
-        )
+        return Table.get_minmax(Task.get_count_overs())
 
     @staticmethod
     def get_avg_duration():
         """Получить среднюю относительную (сложности темы) продолжительность выполнения задачи для каждого блогера"""
-        return {row['bloger']: (row['avg_hours'] if row['avg_hours'] else 0) for row in
-                Task
-                .select(
+        return {
+            row["bloger"]: (row["avg_hours"] if row["avg_hours"] else 0)
+            for row in Task.select(
                 fn.AVG(
                     Case(
                         None,
-                        [(
-                            Task.status == 0,
-                            (fn.julianday(datetime.now()) -
-                             fn.julianday(Task.at_created)) * 24
-                        )],
-                        (fn.julianday(Video.at_created) -
-                         fn.julianday(Task.at_created)) * 24
-                    ) / Theme.complexity
-                ).alias('avg_hours'),
-                Task.implementer.alias('bloger')
-                )
-                .join(Theme)
-                .join(Video, JOIN.LEFT_OUTER, on=(Video.task == Task.id))
-                .where(
-                (Task.status != -1)
-                )
-                .group_by(
-                Task.implementer
-                )
-                .dicts()
-                }
+                        [
+                            (
+                                Task.status == 0,
+                                (
+                                    fn.julianday(datetime.now())
+                                    - fn.julianday(Task.at_created)
+                                )
+                                * 24,
+                            )
+                        ],
+                        (fn.julianday(Video.at_created) - fn.julianday(Task.at_created))
+                        * 24,
+                    )
+                    / Theme.complexity
+                ).alias("avg_hours"),
+                Task.implementer.alias("bloger"),
+            )
+            .join(Theme)
+            .join(Video, JOIN.LEFT_OUTER, on=(Video.task == Task.id))
+            .where(Task.status != -1)
+            .group_by(Task.implementer)
+            .dicts()
+        }
 
     @staticmethod
     def get_minmax_duration():
         """Получить минимакс для продожительности выполнения задач"""
 
-        return Table.get_minmax(
-            data=Task.get_avg_duration()
-        )
+        return Table.get_minmax(data=Task.get_avg_duration())
 
     @staticmethod
     def get_avg_scores():
         """Получить средние оценки по задачам для каждого блогера"""
 
-        return {row['bloger']: row['score'] for row in
-                Task
-                .select(
-                fn.AVG(Task.score).alias('score'),
-                Task.implementer.alias('bloger')
-                )
-                .where(
-                (Task.status.not_in([0, 1]))
-                )
-                .group_by(
-                (Task.implementer)
-                )
-                .dicts()
-                }
+        return {
+            row["bloger"]: row["score"]
+            for row in Task.select(
+                fn.AVG(Task.score).alias("score"), Task.implementer.alias("bloger")
+            )
+            .where(Task.status.not_in([0, 1]))
+            .group_by(Task.implementer)
+            .dicts()
+        }
 
     @staticmethod
     def get_minmax_score():
         """Получить мин и макс средние оценки по задачам"""
 
-        return Table.get_minmax(
-            data=Task.get_avg_scores()
-        )
+        return Table.get_minmax(data=Task.get_avg_scores())
 
 
 class Video(Table):
     """Видео которое было прислано на оценку по задаче"""
-    task = ForeignKeyField(Task, backref='videos', **CASCADE)
+
+    task = ForeignKeyField(Task, backref="videos", **CASCADE)
     file_id = IntegerField()
     at_created = DateTimeField(default=datetime.now)
     duration = IntegerField(default=0)
@@ -469,8 +443,9 @@ class Video(Table):
 
 class ReviewRequest(Table):
     """Видео выданное на проверку проверяющему"""
+
     reviewer = ForeignKeyField(User, **CASCADE)
-    video = ForeignKeyField(Video, backref='reviewrequests', **CASCADE)
+    video = ForeignKeyField(Video, backref="reviewrequests", **CASCADE)
     status = IntegerField(default=0)
     at_created = DateTimeField(default=datetime.now)
     due_date = DateTimeField()
@@ -490,35 +465,34 @@ class ReviewRequest(Table):
         group by rr1.reviewer_id
         """
 
-        return {i['reviewer_id']: i['video_id'] for i in
-                Table.raw(sql_query).dicts()
-                }
+        return {i["reviewer_id"]: i["video_id"] for i in Table.raw(sql_query).dicts()}
 
     @staticmethod
     def get_minmax_over():
-        return Table.get_minmax(
-            data=ReviewRequest.get_count_overs()
-        )
+        return Table.get_minmax(data=ReviewRequest.get_count_overs())
 
     @staticmethod
     def get_minmax_review_duration():
         """Получить минимальное и максимальное время проверки видео в часах"""
         query = (
-            ReviewRequest
-            .select(
+            ReviewRequest.select(
                 fn.MIN(
-                    (fn.julianday(Review.at_created) -
-                     fn.julianday(ReviewRequest.at_created)) * 24,
-                ).alias('min_hours'),
+                    (
+                        fn.julianday(Review.at_created)
+                        - fn.julianday(ReviewRequest.at_created)
+                    )
+                    * 24,
+                ).alias("min_hours"),
                 fn.MAX(
-                    (fn.julianday(Review.at_created) -
-                     fn.julianday(ReviewRequest.at_created)) * 24,
-                ).alias('max_hours')
+                    (
+                        fn.julianday(Review.at_created)
+                        - fn.julianday(ReviewRequest.at_created)
+                    )
+                    * 24,
+                ).alias("max_hours"),
             )
             .join(Review)
-            .where(
-                (ReviewRequest.status == 1)
-            )
+            .where(ReviewRequest.status == 1)
             .first()
         )
         return (
@@ -529,41 +503,40 @@ class ReviewRequest(Table):
 
 class Review(Table):
     """Результат проверки видео"""
-    review_request = ForeignKeyField(
-        ReviewRequest, backref='reviews', **CASCADE)
+
+    review_request = ForeignKeyField(ReviewRequest, backref="reviews", **CASCADE)
     score = FloatField()
     comment = CharField()
     at_created = DateTimeField(default=datetime.now)
 
     @staticmethod
-    def get_best_scores() -> Dict[int, int]:
-        '''Плучить лучшие оценки для каждого видео'''
+    def get_best_scores() -> dict[int, int]:
+        """Плучить лучшие оценки для каждого видео"""
 
-        return {row['video']: row['avg'] for row in
-                Review
-                .select(
-                fn.MIN(Review.score).alias('avg'),
-                ReviewRequest.video.alias('video'),
-                )
-                .join(ReviewRequest)
-                .group_by(ReviewRequest.video)
-                .dicts()
-                }
+        return {
+            row["video"]: row["avg"]
+            for row in Review.select(
+                fn.MIN(Review.score).alias("avg"),
+                ReviewRequest.video.alias("video"),
+            )
+            .join(ReviewRequest)
+            .group_by(ReviewRequest.video)
+            .dicts()
+        }
 
     @staticmethod
-    def get_minmax_score() -> Tuple[int, int]:
+    def get_minmax_score() -> tuple[int, int]:
         """Получить минимальное и максимальное отклонения оценки"""
 
         data = [
             (
-                min(abs(row['avg']-row['min']), abs(row['avg']-row['max'])),
-                max(abs(row['avg']-row['min']), abs(row['avg']-row['max']))
-            ) for row in
-            Review
-            .select(
-                fn.MIN(Review.score).alias('min'),
-                fn.MAX(Review.score).alias('max'),
-                fn.AVG(Review.score).alias('avg'),
+                min(abs(row["avg"] - row["min"]), abs(row["avg"] - row["max"])),
+                max(abs(row["avg"] - row["min"]), abs(row["avg"] - row["max"])),
+            )
+            for row in Review.select(
+                fn.MIN(Review.score).alias("min"),
+                fn.MAX(Review.score).alias("max"),
+                fn.AVG(Review.score).alias("avg"),
             )
             .join(ReviewRequest)
             .group_by(ReviewRequest.video)
@@ -589,13 +562,23 @@ class Var(Table):
     value = CharField(null=True)
 
 
-if __name__ == '__main__':
-    db.create_tables([
-        User, Role, UserRole,
-        Course, Theme, Task,
-        Video, ReviewRequest, Review,
-        UserCourse, Poll, Var
-    ])
+if __name__ == "__main__":
+    db.create_tables(
+        [
+            User,
+            Role,
+            UserRole,
+            Course,
+            Theme,
+            Task,
+            Video,
+            ReviewRequest,
+            Review,
+            UserCourse,
+            Poll,
+            Var,
+        ]
+    )
 
     # rr: ReviewRequest = ReviewRequest.get_by_id(275)
     # rr.delete_instance(recursive=True)

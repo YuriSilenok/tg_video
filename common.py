@@ -1,17 +1,26 @@
-import asyncio
-from datetime import datetime, timedelta
 import functools
 import traceback
-from typing import list, Set
+from datetime import datetime, timedelta
+from typing import list
+
 from aiogram import Bot, Router
-from aiogram.types import Message, CallbackQuery
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
+from aiogram.types import CallbackQuery, Message
+from peewee import JOIN, fn
 
-from peewee import fn, Case, JOIN
-
-from filters import IsBloger, IsReviewer
-from models import User, Task, UserRole, Course, UserCourse, Theme, Role, Video, ReviewRequest, Review
-
+from filters import IsBloger
+from models import (
+    Course,
+    Review,
+    ReviewRequest,
+    Role,
+    Task,
+    Theme,
+    User,
+    UserCourse,
+    UserRole,
+    Video,
+)
 
 router = Router()
 
@@ -19,37 +28,35 @@ router = Router()
 @router.callback_query()
 async def other_callback(callback: CallbackQuery):
     await callback.message.answer(
-        text='Вы совершили незарегистрированное действие, обратитесь к администратору'
+        text="Вы совершили незарегистрированное действие, обратитесь к администратору"
     )
     user = User.get_or_none(tg_id=callback.from_user.id)
     await send_message_admins(
         bot=callback.bot,
-        text=f"other_callback {user.comment}\n{callback.message.text}\n{callback.data}"
+        text=f"other_callback {user.comment}\n{callback.message.text}\n{callback.data}",
     )
 
 
 @router.message()
 async def other_message(message: Message):
     await message.answer(
-        text='Вы совершили незарегистрированное действие, обратитесь к администратору'
+        text="Вы совершили незарегистрированное действие, обратитесь к администратору"
     )
     user = User.get_or_none(tg_id=message.from_user.id)
     await send_message_admins(
-        bot=message.bot,
-        text=f"other_message {user.comment}\n{message.text}"
+        bot=message.bot, text=f"other_message {user.comment}\n{message.text}"
     )
 
 
 def get_id(text):
-    return int(text[(text.rfind('_')+1):])
+    return int(text[(text.rfind("_") + 1) :])
 
 
 async def get_user(bot: Bot, tg_id: int) -> User:
     user = User.get_or_none(tg_id=tg_id)
     if user is None:
         await bot.send_message(
-            chat_id=tg_id,
-            text='Пользователь не найден, ведите команду /start'
+            chat_id=tg_id, text="Пользователь не найден, ведите команду /start"
         )
     return user
 
@@ -62,20 +69,19 @@ def get_date_time(hours: int = 0):
         day=due_date.day,
         hour=due_date.hour,
     )
-    due_date += timedelta(
-        hours=hours
-    )
+    due_date += timedelta(hours=hours)
     return due_date
 
 
 def error_handler():
     """Декоратор для обработки ошибок в хэндлерах и отправки сообщения админу"""
+
     def decorator(func):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             try:
                 return await func(*args, **kwargs)
-            except Exception as e:
+            except Exception:
                 traceback.print_exc()
                 if len(args) == 0:
                     return None
@@ -90,13 +96,10 @@ def error_handler():
                 if bot is None:
                     return None
 
-                error_text = (f'🚨{traceback.format_exc()}')
+                error_text = f"🚨{traceback.format_exc()}"
                 # Отправляем сообщение админу
                 try:
-                    await send_message_admins(
-                        bot=bot,
-                        text=error_text
-                    )
+                    await send_message_admins(bot=bot, text=error_text)
                 except TelegramAPIError:
                     print("Не удалось отправить сообщение админу.")
 
@@ -104,39 +107,35 @@ def error_handler():
                     await message.answer(
                         text="❌ Произошла ошибка. Администратор уже уведомлён."
                     )
+
         return wrapper
+
     return decorator
 
 
 @error_handler()
 async def send_task(bot: Bot):
-    '''Выдать задачу блогеру'''
+    """Выдать задачу блогеру"""
 
     # Список пользователей у которых есть роль блогера
-    blogers: Set[User] = {
-        user_role.user for user_role in
-        UserRole
-        .select(UserRole.user)
-        .where(UserRole.role == IsBloger.role.id)
+    blogers: set[User] = {
+        user_role.user
+        for user_role in UserRole.select(UserRole.user).where(
+            UserRole.role == IsBloger.role.id
+        )
     }
 
     # Список задач, по которым ведутся работы
-    tasks: Set[Task] = set(
-        Task
-        .select(Task)
-        .where(Task.status.in_([0, 1]))
-    )
+    tasks: set[Task] = set(Task.select(Task).where(Task.status.in_([0, 1])))
 
     # убрать блогеров у которых идет работа над задачей
     blogers -= {
-        task.implementer for task in
-        Task
-        .select(Task.implementer)
-        .where(Task.status.in_([0, 1]))
+        task.implementer
+        for task in Task.select(Task.implementer).where(Task.status.in_([0, 1]))
     }
 
     # Список курсов
-    courses: Set[Course] = set(Course.select())
+    courses: set[Course] = set(Course.select())
 
     # Свободные курсы: убираем курсы по которым ведутся работы
     courses -= {task.theme.course for task in tasks}
@@ -144,19 +143,17 @@ async def send_task(bot: Bot):
 
     # получаем список блогеров в порядке их рейтинга
     blogers: list[User] = sorted(
-        blogers, key=lambda user: user.bloger_rating, reverse=True)
+        blogers, key=lambda user: user.bloger_rating, reverse=True
+    )
 
     # Отбираем для каждого блогера подходящий курс
     for bloger in blogers:
 
         # Список курсов на которые подписан блогер
-        courses_by_bloger: Set[UserCourse] = {
-            user_course.course for user_course in
-            UserCourse
-            .select()
-            .where(
-                (UserCourse.user == bloger.id) &
-                (UserCourse.course.in_(course_ids))
+        courses_by_bloger: set[UserCourse] = {
+            user_course.course
+            for user_course in UserCourse.select().where(
+                (UserCourse.user == bloger.id) & (UserCourse.course.in_(course_ids))
             )
         }
 
@@ -175,35 +172,29 @@ async def send_task(bot: Bot):
         courses_by_bloger = sorted(
             courses_by_bloger,
             key=lambda course: (
-                Task
-                .select(fn.AVG(Task.score))
+                Task.select(fn.AVG(Task.score))
                 .join(Theme)
-                .where(
-                    (Theme.course == course.id) &
-                    (Task.implementer == bloger.id)
-                )
-                .scalar() or 0.8
+                .where((Theme.course == course.id) & (Task.implementer == bloger.id))
+                .scalar()
+                or 0.8
             ),
-            reverse=True
+            reverse=True,
         )
 
         # выбранный курс для блогера
         course_by_bloger: Course = courses_by_bloger[0]
 
         # Список тем этого курса
-        themes: Set[Theme] = set(Theme.select().where(
-            Theme.course == course_by_bloger.id))
+        themes: set[Theme] = set(
+            Theme.select().where(Theme.course == course_by_bloger.id)
+        )
 
         # Убираем из списка темы, по которым ведутся или удачно закончены работы
         themes -= {
-            theme for theme in
-            Theme
-            .select()
+            theme
+            for theme in Theme.select()
             .join(Task)
-            .where(
-                (Task.status >= 0) &
-                (Theme.course == course_by_bloger.id)
-            )
+            .where((Task.status >= 0) & (Theme.course == course_by_bloger.id))
         }
 
         # Сортируем тыме по ID
@@ -219,26 +210,23 @@ async def send_task(bot: Bot):
         task_by_bloger: Task = Task.create(
             implementer=bloger,
             theme=theme_by_bloger,
-            due_date=get_date_time(hours=hours)
+            due_date=get_date_time(hours=hours),
         )
 
         try:
             await bot.send_message(
                 chat_id=bloger.tg_id,
-                text=f'Вам выдана тема {theme_by_bloger.link}.\n'
-                f'Срок: {task_by_bloger.due_date}\n'
+                text=f"Вам выдана тема {theme_by_bloger.link}.\n"
+                f"Срок: {task_by_bloger.due_date}\n"
                 '<a href="https://docs.google.com/document/d/1KVv9BAqtZ1FZzqUTWO9REbTWJoT3LQrZfVHHtoAQWQ0/edit?usp=sharing">Требования к видео</a>',
-                parse_mode='HTML'
+                parse_mode="HTML",
             )
         except TelegramBadRequest as ex:
-            await send_message_admins(
-                bot=bot,
-                text=str(ex)
-            )
+            await send_message_admins(bot=bot, text=str(ex))
 
         await send_message_admins(
             bot=bot,
-            text=f'Блогеру {bloger.link} выдана тема {theme_by_bloger.link}',
+            text=f"Блогеру {bloger.link} выдана тема {theme_by_bloger.link}",
         )
 
 
@@ -249,7 +237,7 @@ async def send_message_admins(bot: Bot, text: str, reply_markup=None):
             await bot.send_message(
                 chat_id=admin.tg_id,
                 text=text,
-                parse_mode='HTML',
+                parse_mode="HTML",
                 disable_web_page_preview=True,
                 reply_markup=reply_markup,
             )
@@ -264,10 +252,9 @@ async def send_message_admins(bot: Bot, text: str, reply_markup=None):
 
 def get_admins() -> list[User]:
     return (
-        User
-        .select(User)
+        User.select(User)
         .join(UserRole)
-        .where(UserRole.role == Role.get(name='Админ').id)
+        .where(UserRole.role == Role.get(name="Админ").id)
     )
 
 
@@ -276,8 +263,8 @@ async def send_new_review_request(bot: Bot):
     """Выдать новый запрос на проверку"""
 
     reviewer_ids = [
-        u.id for u in User
-        .select(User)
+        u.id
+        for u in User.select(User)
         .join(ReviewRequest, on=(ReviewRequest.reviewer_id == User.id))
         .where(ReviewRequest.status == 0)
     ]
@@ -287,17 +274,14 @@ async def send_new_review_request(bot: Bot):
 
     # видео у которых не хватает проверяющих
     video_ids = [
-        v.id for v in Video
-        .select(Video)
+        v.id
+        for v in Video.select(Video)
         .join(ReviewRequest, JOIN.LEFT_OUTER, on=(ReviewRequest.video == Video.id))
         .join(Task, on=(Task.id == Video.task))
         .join(User, on=(User.id == Task.implementer))
         .where(
-            (Task.status == 1) &
-            (
-                (ReviewRequest.status >= 0) |
-                (ReviewRequest.status.is_null())
-            )
+            (Task.status == 1)
+            & ((ReviewRequest.status >= 0) | (ReviewRequest.status.is_null()))
         )
         .group_by(Video.id)
         .order_by(User.bloger_rating.desc())
@@ -330,41 +314,38 @@ async def add_reviewer(bot: Bot, video_id: int):
         await send_message_admins(
             bot=bot,
             text=(
-                f'<b>Закончились cвободные проверяющие</b>'
-                f'{theme.course.title}|{theme.link}'
-            )
+                f"<b>Закончились cвободные проверяющие</b>"
+                f"{theme.course.title}|{theme.link}"
+            ),
         )
         return False
 
     # те, кто уже проверяли эту тему
-    reviewer_ids = [rr.reviewer_id for rr in
-                    ReviewRequest
-                    .select(ReviewRequest.reviewer)
-                    .join(Video, on=(Video.id == ReviewRequest.video))
-                    .join(Task, on=(Task.id == Video.task))
-                    .where(Task.theme == video.task.theme_id)
-                    .group_by(ReviewRequest.reviewer)
-                    ]
+    reviewer_ids = [
+        rr.reviewer_id
+        for rr in ReviewRequest.select(ReviewRequest.reviewer)
+        .join(Video, on=(Video.id == ReviewRequest.video))
+        .join(Task, on=(Task.id == Video.task))
+        .where(Task.theme == video.task.theme_id)
+        .group_by(ReviewRequest.reviewer)
+    ]
 
-    candidat_reviewer_ids = [
-        i for i in vacant_reviewer_ids if i not in reviewer_ids]
+    candidat_reviewer_ids = [i for i in vacant_reviewer_ids if i not in reviewer_ids]
     if len(candidat_reviewer_ids) == 0:
 
         theme = Video.get_by_id(video_id).task.theme
         await send_message_admins(
             bot=bot,
             text=(
-                f'<b>Нет кандидатов среди свободных проверяющих</b>'
-                f'{theme.course.title}|{theme.link}'
-            )
+                f"<b>Нет кандидатов среди свободных проверяющих</b>"
+                f"{theme.course.title}|{theme.link}"
+            ),
         )
         return False
 
     due_date = get_date_time(hours=25)
     review_request = ReviewRequest.create(
-        reviewer_id=candidat_reviewer_ids[0],
-        video_id=video_id,
-        due_date=due_date
+        reviewer_id=candidat_reviewer_ids[0], video_id=video_id, due_date=due_date
     )
     await send_video(bot, review_request)
     return True
@@ -374,60 +355,59 @@ async def add_reviewer(bot: Bot, video_id: int):
 async def send_video(bot: Bot, review_request: ReviewRequest):
 
     caption = (
-        f'Это видео нужно проверить до {review_request.due_date}.\n'
+        f"Это видео нужно проверить до {review_request.due_date}.\n"
         f'Тема: "{review_request.video.task.theme.course.title}|{review_request.video.task.theme.link}"\n'
-        'Для оценки видео напишите одно сообщение '
-        'в начале которого будет оценка в интервале [0.0; 5.0], а через пробел отзыв о видео\n'
-        '''
+        "Для оценки видео напишите одно сообщение "
+        "в начале которого будет оценка в интервале [0.0; 5.0], а через пробел отзыв о видео\n"
+        """
 0 - Мелкий текст (качество видео) и плохой звук. Такое лучше никому не показывать
 1 - Мелкий текст (качество видео) или неразборчивый звук. Рассказчика тяжело слушать, а материал не воспринимается.
 2 - Масштаб или громкость (качество звука) можно было сделать чуть по лучше. Было очень интересно, но ничего непонятно.
 3 - Звук и видео в порядке. Материал понят на половину, есть нераскрытые места относящиеся к теме материала.
 4 - Звук и видео в порядке. Материал подавался неуверенно, но всё было понято. 
-5 - Это точно делал не студент, а какой-то профессионал. Образцовое видео.'''
+5 - Это точно делал не студент, а какой-то профессионал. Образцовое видео."""
     )
     try:
         await bot.send_video(
             chat_id=review_request.reviewer.tg_id,
             video=review_request.video.file_id,
             caption=caption,
-            parse_mode='HTML',
+            parse_mode="HTML",
         )
     except TelegramBadRequest as ex:
-        print(ex, caption, sep='\n')
+        print(ex, caption, sep="\n")
 
     await send_message_admins(
         bot=bot,
-        text=f'''<b>Проверяющий получил видео</b>
+        text=f"""<b>Проверяющий получил видео</b>
 Проверяющий: {review_request.reviewer.comment}
 Блогер: {review_request.video.task.implementer.comment}
 Курс: {review_request.video.task.theme.course.title}
-Тема: {review_request.video.task.theme.title}'''
+Тема: {review_request.video.task.theme.title}""",
     )
 
 
 def get_limit_score():
     data = [
-        t.score for t in
-        Task
-        .select(Task.score)
+        t.score
+        for t in Task.select(Task.score)
         .where(Task.status.not_in([0, 1, -1]))
         .order_by(Task.id.desc())
         .limit(100)
     ]
-    return sum(data)/len(data)
+    return sum(data) / len(data)
 
 
 def update_task_score(task: Task) -> Task:
 
-    task_scores = [review.score for review in
-                   Review
-                   .select(Review)
-                   .join(ReviewRequest)
-                   .join(Video)
-                   .join(Task)
-                   .where(Task.id == task.id)
-                   ]
+    task_scores = [
+        review.score
+        for review in Review.select(Review)
+        .join(ReviewRequest)
+        .join(Video)
+        .join(Task)
+        .where(Task.id == task.id)
+    ]
 
     if len(task_scores) == 0:
         return task
@@ -444,38 +424,35 @@ def update_task_score(task: Task) -> Task:
 def get_vacant_reviewer_ids() -> list[User]:
     reviewer_ids = get_reviewer_ids()
     # проверяющие у которых есть что проверить
-    jobs_ids = [u.id for u in
-                User
-                 .select(User)
-                .join(ReviewRequest)
-                .where(
-                     (ReviewRequest.status == 0)
-                 )
-                .group_by(ReviewRequest.reviewer)
-                .order_by(User.reviewer_rating.desc())
-                ]
+    jobs_ids = [
+        u.id
+        for u in User.select(User)
+        .join(ReviewRequest)
+        .where(ReviewRequest.status == 0)
+        .group_by(ReviewRequest.reviewer)
+        .order_by(User.reviewer_rating.desc())
+    ]
     return [i for i in reviewer_ids if i not in jobs_ids]
 
 
 def get_reviewer_ids() -> list[User]:
     """Пользователи с ролью проверяющий"""
-    return [u.id for u in
-            User
-             .select(User)
-             .join(UserRole)
-             .join(Role)
-            .where(Role.name == 'Проверяющий')
-             .order_by(User.reviewer_rating.desc())
-            ]
+    return [
+        u.id
+        for u in User.select(User)
+        .join(UserRole)
+        .join(Role)
+        .where(Role.name == "Проверяющий")
+        .order_by(User.reviewer_rating.desc())
+    ]
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     data = [
-        t.score for t in
-        Task
-        .select(Task.score)
+        t.score
+        for t in Task.select(Task.score)
         .where(Task.status.not_in([0, 1, -1]))
         .order_by(Task.id.desc())
         .limit(100)
     ]
-    print(sum(data)/len(data))
+    print(sum(data) / len(data))
