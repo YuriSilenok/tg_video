@@ -24,7 +24,7 @@ async def send_video(bot: Bot, video: Video = None):
     theme = task.theme
     course_title = theme.course.title
     ch = [
-        (" ", "_"),
+        ("-", ""),
         (".", ""),
         (",", ""),
         ("«", ""),
@@ -33,6 +33,8 @@ async def send_video(bot: Bot, video: Video = None):
     for ch1, ch2 in ch:
         course_title = course_title.replace(ch1, ch2)
 
+    course_title = ' #'.join(course_title.split())
+    
     caption = (
         f'Курс: #{course_title}\n'
         f'Тема: <a href="{theme.url}">{theme.title}</a>'
