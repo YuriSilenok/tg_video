@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from aiogram import Bot, Dispatcher
 
-from config import *
+from config import TG_TOKEN
 from user import router as user_router
 from admin import router as admin_router
 from reviewer import router as reviewer_router, loop as reviewer_loop
@@ -18,6 +18,7 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TG_TOKEN)
 dp = Dispatcher()
 
+
 async def sleep():
     now = datetime.now()
     sleep_seconds = datetime(
@@ -28,6 +29,7 @@ async def sleep():
     ) + timedelta(hours=1)
     sleep_seconds = (sleep_seconds - now).seconds + 1
     await asyncio.sleep(sleep_seconds)
+
 
 async def loop():
     while Singletone.LOOP:
@@ -41,11 +43,12 @@ async def on_startup():
     """Обертка что бы запустить параллельный процесс"""
     asyncio.create_task(loop())
 
+
 async def main():
     '''Старт бота'''
 
     dp.startup.register(on_startup)
-    
+
     dp.include_routers(
         channel_router,
         user_router,
@@ -57,8 +60,10 @@ async def main():
 
     await dp.start_polling(bot)
 
+
 class Singletone:
     LOOP = True
+
 
 if __name__ == '__main__':
     asyncio.run(main())
