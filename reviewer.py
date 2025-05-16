@@ -6,23 +6,23 @@ from aiogram.exceptions import TelegramBadRequest
 from peewee import fn, JOIN
 
 
-from filters import IsReview
-from models import *
-from common import *
+from filters import IsReview, IsReviewer
+from models import TASK_STATUS, Role, Theme, User, ReviewRequest, Review, Task, UserRole
+from common import error_handler, get_date_time, get_id, get_limit_score, send_message_admins, send_new_review_request, send_task, update_task_score
 
 router = Router()
 
 
 @router.message(F.text, IsReview())
 @error_handler()
-async def get_review(message:Message):
+async def get_review(message: Message):
     """Получение оценки и отзыва"""
 
     """Поиск запроса на проверку"""
     reviewer: User = User.get(tg_id=message.from_user.id)
     review_request: ReviewRequest = ReviewRequest.get_or_none(
         reviewer=reviewer,
-        status=0 # На проверке
+        status=0  # На проверке
     )
 
     if review_request is None:
@@ -36,7 +36,7 @@ async def get_review(message:Message):
     digit = text.find(' ')
     digit = text[:digit] if digit >= 0 else text
     digit = digit.replace(',', '.')
-    
+
     try:
         digit = float(digit)
     except ValueError:
@@ -44,22 +44,22 @@ async def get_review(message:Message):
             text=f'Не удалось преобразовать {digit} в число'
         )
         return
-    
+
     if digit < 0 or digit > 5:
         await message.answer(
             text=f'{digit} должно быть в пределах [0.0; 5.0]'
         )
         return
-    
+
     """Фиксация отзыва"""
     Review.create(
         review_request=review_request,
         score=digit,
         comment=text,
     )
-    review_request.status = 1 # Проверено
+    review_request.status = 1  # Проверено
     review_request.save()
-    
+
     reviewer.update_reviewer_score()
     reviewer.update_reviewer_rating()
     await message.answer(
@@ -67,7 +67,7 @@ async def get_review(message:Message):
         parse_mode='HTML',
         disable_web_page_preview=True,
     )
-    
+
     implementer: User = review_request.video.task.implementer
     await message.bot.send_message(
         chat_id=implementer.tg_id,
@@ -90,16 +90,15 @@ async def get_review(message:Message):
         ]])
     )
 
-
-    """Выставление итоговой оценки"""    
+    """Выставление итоговой оценки"""
     reviews = (
         Review
         .select(Review)
         .join(ReviewRequest)
         .where(
-            (ReviewRequest.video==review_request.video) &
-            (ReviewRequest.status==1)))
-    
+            (ReviewRequest.video == review_request.video) &
+            (ReviewRequest.status == 1)))
+
     if reviews.count() < 5:
         await send_new_review_request(message.bot)
         return
@@ -111,7 +110,7 @@ async def get_review(message:Message):
 
     await send_new_review_request(message.bot)
 
-    text=f'Закончена проверка Вашего видео по теме {task.theme.link}.\n'
+    text = f'Закончена проверка Вашего видео по теме {task.theme.link}.\n'
 
     if task.status == 2:
         text += 'Оно ❤️достойного❤️ качества и будет опубликовано.'
@@ -136,8 +135,9 @@ async def get_review(message:Message):
 
     if (
         implementer.get_bloger_rating_from_scores() >= get_limit_score() and
-        Theme.select(fn.SUM(Theme.complexity).alias('th_comp')).join(Task).where(Task.implementer==implementer.id).first().th_comp >= 10 and
-        UserRole.select().where((UserRole.user==implementer.id)&(UserRole.role==IsReviewer.role.id)).count() == 0
+        Theme.select(fn.SUM(Theme.complexity).alias('th_comp')).join(Task).where(Task.implementer == implementer.id).first().th_comp >= 10 and
+        UserRole.select().where((UserRole.user == implementer.id) & (
+            UserRole.role == IsReviewer.role.id)).count() == 0
     ):
         UserRole.get_or_create(
             user=implementer,
@@ -157,11 +157,10 @@ async def get_review(message:Message):
         )
 
 
-
 @error_handler()
 async def get_reviewer_user_role(bot: Bot, user: User):
     """Проверяем наличие привилегии блогера"""
-    
+
     # Наличие роли
     role = Role.get_or_none(name='Проверяющий')
     if role is None:
@@ -174,7 +173,7 @@ async def get_reviewer_user_role(bot: Bot, user: User):
             )
         )
         return None
-    
+
     # Наличие роли у пользователя
     user_role = UserRole.get_or_none(
         user=user,
@@ -221,8 +220,7 @@ def get_old_reviewe_requests() -> List[ReviewRequest]:
 @error_handler()
 async def check_old_reviewer_requests(bot: Bot):
     """Проверка устаревших запросов на проверку"""
-    
-    
+
     rrs: List[ReviewRequest] = get_old_reviewe_requests()
 
     for rr in rrs:
@@ -231,8 +229,7 @@ async def check_old_reviewer_requests(bot: Bot):
         reviewer: User = rr.reviewer
         task: Task = rr.video.task
         reviewer.update_reviewer_rating()
-        
-        
+
         text = (
             'Задача на проверку с Вас снята, '
             f'ожидайте новую.\n\n{reviewer.get_reviewer_report()}'
@@ -246,7 +243,7 @@ async def check_old_reviewer_requests(bot: Bot):
             )
         except TelegramBadRequest as ex:
             print(ex, text)
-        
+
         await send_message_admins(
             bot=bot,
             text=(
@@ -318,4 +315,3 @@ async def loop(bot: Bot):
     if now.minute == 0:
         await send_notify_reviewers(bot)
         await check_old_reviewer_requests(bot)
-
