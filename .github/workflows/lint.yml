@@ -21,12 +21,6 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install black ruff flake8 pylint pylint-peewee
-
     - name: Check if this is a fork
       id: fork-check
       run: |
@@ -34,6 +28,13 @@ jobs:
         if [ "${{ github.repository }}" != "YuriSilenok/tg_video" ]; then
           echo "IS_FORK=true" >> "$GITHUB_ENV"
         fi
+
+    - name: Install dependencies
+      if: env.IS_FORK == 'false'
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install black ruff flake8 pylint pylint-peewee
 
     - name: Format code with black and ruff
       if: env.IS_FORK == 'false'
