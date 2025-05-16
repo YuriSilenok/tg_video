@@ -39,7 +39,7 @@ jobs:
     - name: Format code with black and ruff
       if: env.IS_FORK == 'false'
       run: |
-        black .
+        black . --unsafe-fixes
         ruff check . --fix
 
     - name: Commit and push changes (only if not a fork)
