@@ -1,2 +1,4 @@
 peewee
 aiogram
+pylint
+flake8
