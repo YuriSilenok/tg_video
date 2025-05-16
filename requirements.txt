@@ -1,4 +1,4 @@
 peewee
 aiogram
-pylint
+pylint-pypeewee
 flake8
