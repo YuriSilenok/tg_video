@@ -1,2 +1,2 @@
 [MASTER]
-load-plugins = pylint_pypeewee
+load-plugins = pylint_peewee
