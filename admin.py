@@ -1,5 +1,4 @@
 import csv
-from typing import List
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -80,7 +79,7 @@ async def st(message: Message):
 @error_handler()
 async def report_reviewers(message: Message):
     old_date = get_date_time(hours=-24*14)
-    reviewers: List[User] = (
+    reviewers: list[User] = (
         User
         .select(User)
         .where(
@@ -215,7 +214,7 @@ TASK_STATUS = {
 @error_handler()
 async def report_tasks(message: Message):
 
-    tasks: List[Task] = (
+    tasks: list[Task] = (
         Task
         .select(Task)
         .where(Task.status.between(0, 2))
@@ -367,7 +366,7 @@ async def add_course(message: Message, state: FSMContext):
             await message.answer(
                 text='↗️❔📐Темы курса загружены. Загрузка видео не требуется',
             )
-            users: List[User] = User.select()
+            users: list[User] = User.select()
             for user in users:
                 user.update_bloger_score()
 

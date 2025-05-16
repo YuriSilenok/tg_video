@@ -2,7 +2,7 @@
 
 import traceback
 from datetime import datetime, timedelta
-from typing import List
+from typing import list
 from aiogram import Bot, Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
@@ -28,7 +28,7 @@ async def upload_file(message: Message):
 @error_handler()
 async def get_bloger_user_role(bot: Bot, user: User):
     """Проверяем наличие привилегии блогера"""
-    
+
     # Наличие роли
     role = Role.get_or_none(name='Блогер')
     if role is None:
@@ -41,7 +41,7 @@ async def get_bloger_user_role(bot: Bot, user: User):
             )
         )
         return None
-    
+
     # Наличие роли у пользователя
     user_role = UserRole.get_or_none(
         user=user,
@@ -52,16 +52,15 @@ async def get_bloger_user_role(bot: Bot, user: User):
 
 
 @error_handler()
-async def drop_bloger(bot:Bot, user: User):
+async def drop_bloger(bot: Bot, user: User):
 
-    user_role = await get_bloger_user_role(bot, user)   
+    user_role = await get_bloger_user_role(bot, user)
     if user_role is None:
         await bot.send_message(
             chat_id=user.tg_id,
             text='✔️👆🛠🔑🕴Вам не выдавалась роль блогера.'
         )
         return
-
 
     # Наличие выданной темы
     task = Task.get_or_none(
@@ -83,7 +82,6 @@ async def drop_bloger(bot:Bot, user: User):
         )
         return
 
-
     if user_role:
         user_role.delete_instance(recursive=True)
 
@@ -94,7 +92,7 @@ async def drop_bloger(bot:Bot, user: User):
 
     await send_message_admins(
         bot=bot,
-        text= f'Блогер {user.link} отказался от роли.'
+        text=f'Блогер {user.link} отказался от роли.'
     )
 
     await send_task(bot)
@@ -124,7 +122,7 @@ async def del_task_yes(query: CallbackQuery):
             text='Задача не найдена'
         )
         return
-    
+
     if task.status != 0:
         await query.message.answer(
             text='От задачи со статусом '
@@ -152,19 +150,19 @@ async def del_task_yes(query: CallbackQuery):
 async def upload_video(message: Message):
     user = User.get(tg_id=message.from_user.id)
     tasks = (Task
-        .select()
-        .where(
-            (Task.status==0) &
-            (Task.implementer==user)
-        )
-    )
-    
+             .select()
+             .where(
+                 (Task.status == 0) &
+                 (Task.implementer == user)
+             )
+             )
+
     if tasks.count() == 0:
         await message.answer(
             text='У вас нет выданной темы, я не могу принять это видео'
         )
         return
-    
+
     task = tasks.first()
     Video.create(
         task=task,
@@ -209,7 +207,7 @@ async def to_extend(callback_query: CallbackQuery):
     hours = int(theme.complexity * 72 / 2)
     if hours < 24:
         hours = 24
-    
+
     task.due_date += timedelta(hours=hours)
     task.extension = 0
     task.save()
@@ -219,24 +217,22 @@ async def to_extend(callback_query: CallbackQuery):
         reply_markup=None,
     )
 
-
     await send_message_admins(
         bot=callback_query.bot,
         text=f'''<b>Блогер {task.implementer.link} продлил срок</b>
 Тема: {task.theme.course.title}|{task.theme.link}
 Срок: {task.due_date}'''
     )
-    
 
 
 @error_handler()
-async def check_expired_task(bot:Bot):
+async def check_expired_task(bot: Bot):
     dd = get_date_time()
-    old_tasks: List[Task] = (
+    old_tasks: list[Task] = (
         Task
         .select(Task)
         .where(
-            (Task.status==0) &
+            (Task.status == 0) &
             (Task.due_date == dd)
         )
     )
@@ -244,14 +240,14 @@ async def check_expired_task(bot:Bot):
         try:
             task.status = -2
             task.save()
-            
+
             user_role: UserRole = UserRole.get_or_none(
                 user=task.implementer,
                 role=IsBloger.role
             )
             if user_role:
-                user_role.delete_instance(recursive=True)        
-            
+                user_role.delete_instance(recursive=True)
+
             try:
                 await bot.send_message(
                     chat_id=task.implementer.tg_id,
@@ -280,7 +276,7 @@ async def check_expired_task(bot:Bot):
             if new_task:
                 continue
 
-            query: List[UserRole] = (
+            query: list[UserRole] = (
                 UserRole
                 .select()
                 .where(
@@ -289,9 +285,9 @@ async def check_expired_task(bot:Bot):
                         User
                         .select(User.id)
                         .join(UserCourse)
-                        .where(UserCourse.course_id==task.theme.course_id)
+                        .where(UserCourse.course_id == task.theme.course_id)
                     )) &
-                    (~UserRole.user_id<<(
+                    (~UserRole.user_id << (
                         Task
                         .select(Task.implementer_id)
                         .where(
@@ -312,18 +308,17 @@ async def check_expired_task(bot:Bot):
                         bot=bot,
                         text=traceback.format_exc()
                     )
- 
+
         except TelegramBadRequest as ex:
             print(ex, task.implementer.comment)
 
 
-
 @error_handler()
-async def check_old_task(bot:Bot):
-    
+async def check_old_task(bot: Bot):
+
     now = get_date_time()
 
-    old_tasks: List[Task] = (
+    old_tasks: list[Task] = (
         Task
         .select(Task)
         .where(
@@ -331,8 +326,7 @@ async def check_old_task(bot:Bot):
             (Task.extension == 0)
         )
     )
-    
-    
+
     for task in old_tasks:
 
         theme: Theme = task.theme
@@ -356,15 +350,16 @@ from (
 left join task on task.implementer_id=u.user_id and task.status in (0, 1)
 where task.id is NULL;
 '''
-            users: List[int] = [r['user_id'] for r in Table.raw(sql_query).dicts()]
+            users: list[int] = [r['user_id']
+                                for r in Table.raw(sql_query).dicts()]
             cont = False
-            
+
             for user_id in users:
                 u: User = User.get_by_id(user_id)
                 if u.bloger_rating > task.implementer.bloger_rating:
                     cont = True
                     break
-            
+
             if cont:
                 continue
 
@@ -384,10 +379,10 @@ where task.id is NULL;
             task.save()
         except TelegramBadRequest as ex:
             print(ex, task.implementer.comment)
-    
+
 
 def update_rating_all_blogers():
-    blogers: List[User] = (
+    blogers: list[User] = (
         User
         .select(User)
         .join(Task)

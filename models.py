@@ -1,6 +1,6 @@
 from datetime import datetime
 import math
-from typing import Dict, List, Tuple
+from typing import Dict, list, Tuple
 from peewee import Model, SqliteDatabase, JOIN, fn, Case, BooleanField, FloatField, CharField, IntegerField, ForeignKeyField, DateTimeField, Value
 
 
@@ -80,7 +80,7 @@ class User(Table):
     def update_bloger_score(self):
         """Обновление количеста баллов (очков)"""
 
-        tasks: List[Task] = (
+        tasks: list[Task] = (
             Task
             .select(Task)
             .where(
@@ -259,7 +259,7 @@ class User(Table):
     def get_bloger_report(self):
         """Получить отчет по блогеру"""
 
-        tasks: List[Task] = (
+        tasks: list[Task] = (
             Task
             .select()
             .where(
@@ -290,7 +290,7 @@ class User(Table):
     def get_reviewer_report(self):
         '''Получить отчет проверяющего'''
 
-        rrs: List[ReviewRequest] = (
+        rrs: list[ReviewRequest] = (
             ReviewRequest
             .select()
             .where(
@@ -611,7 +611,7 @@ if __name__ == '__main__':
     # limit_score = sum(data)/len(data)
     # print(limit_score)
 
-    users: List[User] = User.select()
+    users: list[User] = User.select()
     for user in users:
         user.update_bloger_rating()
         user.update_bloger_score()

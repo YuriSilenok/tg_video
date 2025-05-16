@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import List
+from typing import list
 from aiogram import Bot, Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
@@ -189,7 +189,7 @@ async def get_reviewer_user_role(bot: Bot, user: User):
     return user_role
 
 
-def get_reviewe_requests_by_notify() -> List[ReviewRequest]:
+def get_reviewe_requests_by_notify() -> list[ReviewRequest]:
     '''ПОлучить запросы на проверку у которы подходит срок'''
     due_date = get_date_time(hours=1)
     # Запрос на выборку записей на проверке старше суток
@@ -203,7 +203,7 @@ def get_reviewe_requests_by_notify() -> List[ReviewRequest]:
     )
 
 
-def get_old_reviewe_requests() -> List[ReviewRequest]:
+def get_old_reviewe_requests() -> list[ReviewRequest]:
     '''ПОлучить запросы на проверку у которы прошел срок'''
     now = datetime.now()
     # Запрос на выборку записей на проверке старше суток
@@ -221,7 +221,7 @@ def get_old_reviewe_requests() -> List[ReviewRequest]:
 async def check_old_reviewer_requests(bot: Bot):
     """Проверка устаревших запросов на проверку"""
 
-    rrs: List[ReviewRequest] = get_old_reviewe_requests()
+    rrs: list[ReviewRequest] = get_old_reviewe_requests()
 
     for rr in rrs:
         rr.status = -1

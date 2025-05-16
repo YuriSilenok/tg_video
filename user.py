@@ -1,4 +1,4 @@
-from typing import List
+from typing import list
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, BotCommand, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
@@ -56,7 +56,7 @@ async def start(message: Message):
     )
 
     if user is None:
-        
+
         user = User.create(
             tg_id=message.from_user.id,
             username=message.from_user.username,
@@ -70,7 +70,6 @@ async def start(message: Message):
     elif user.username != message.from_user.username:
         user.username = message.from_user.username
         user.save()
-
 
     commands = [
         BotCommand(
@@ -92,22 +91,22 @@ async def start(message: Message):
     ]
 
     await message.bot.set_my_commands(
-        commands=commands   
+        commands=commands
     )
 
     reply_markup = None
 
     if UserRole.get_or_none(user=user, role=IsAdmin.role):
-      
+
         keyboard = [
-                [
-                    KeyboardButton(text="/report_reviewers"),
-                    KeyboardButton(text="/report_blogers"),
-                ],
-                [
-                    KeyboardButton(text="/report_tasks"),
-                    KeyboardButton(text="/send_task"),
-                ]
+            [
+                KeyboardButton(text="/report_reviewers"),
+                KeyboardButton(text="/report_blogers"),
+            ],
+            [
+                KeyboardButton(text="/report_tasks"),
+                KeyboardButton(text="/send_task"),
+            ]
         ]
 
         reply_markup = ReplyKeyboardMarkup(
@@ -138,7 +137,6 @@ async def report(message: Message):
         parse_mode='HTML',
         disable_web_page_preview=True,
     )
-
 
 
 @router.message(Command('bloger_on'), IsUser())
@@ -174,37 +172,37 @@ def get_data_by_courses(user: User):
         .join(Task)
         .where(Task.status >= 2)
     )
-    
-    themes: List[Theme] = (Theme
-        .select(Theme)
-        .join(Course, on=(Course.id==Theme.course))
-        .join(Task, JOIN.LEFT_OUTER, on=(Task.theme==Theme.id))
-        .where(
-            (~Theme.id << themes_done)
-        )
-        .group_by(
-            Theme.course,
-            Theme.id
-        )
-        .order_by(
-            fn.LENGTH(Course.title),
-            Theme.id,
-        )
-    )
-    
+
+    themes: list[Theme] = (Theme
+                           .select(Theme)
+                           .join(Course, on=(Course.id == Theme.course))
+                           .join(Task, JOIN.LEFT_OUTER, on=(Task.theme == Theme.id))
+                           .where(
+                               (~Theme.id << themes_done)
+                           )
+                           .group_by(
+                               Theme.course,
+                               Theme.id
+                           )
+                           .order_by(
+                               fn.LENGTH(Course.title),
+                               Theme.id,
+                           )
+                           )
+
     data = {}
     text = '<b>Список курсов</b>\n\n'
-    inline_keyboard=[]
+    inline_keyboard = []
 
     for theme in themes:
         course = theme.course
-        
+
         if course.id not in data:
             data[course.id] = []
-        
+
         if len(data[course.id]) >= 3:
             continue
-        
+
         data[course.id].append(theme)
 
         user_course = UserCourse.get_or_none(
@@ -224,8 +222,9 @@ def get_data_by_courses(user: User):
                 )
                 .scalar()
             )
-            themes_str = '\n'.join([ f'<a href="{t.url}">{t.title}</a>|{t.complexity}' for t in data[course.id][:3]])
-            text+=f'<b>{course.title}</b>|{bloger_count}\n{themes_str}\n\n'
+            themes_str = '\n'.join(
+                [f'<a href="{t.url}">{t.title}</a>|{t.complexity}' for t in data[course.id][:3]])
+            text += f'<b>{course.title}</b>|{bloger_count}\n{themes_str}\n\n'
             row = None
 
             if len(inline_keyboard) == 0:
@@ -251,7 +250,6 @@ def get_data_by_courses(user: User):
     }
 
 
-
 @router.message(Command('courses'), IsUser())
 @error_handler()
 async def show_courses(message: Message):
@@ -262,12 +260,12 @@ async def show_courses(message: Message):
     )
 
 
-
 @router.callback_query(F.data.startswith('add_user_course_'), IsUser())
 @error_handler()
 async def add_user_course(callback: CallbackQuery):
     user = User.get(tg_id=callback.from_user.id)
-    course = Course.get_by_id(int(callback.data[(callback.data.rfind('_')+1):]))
+    course = Course.get_by_id(
+        int(callback.data[(callback.data.rfind('_')+1):]))
     UserCourse.get_or_create(
         user=user,
         course=course,
@@ -287,7 +285,8 @@ async def add_user_course(callback: CallbackQuery):
 async def del_user_course(callback: CallbackQuery):
 
     user = User.get(tg_id=callback.from_user.id)
-    course=Course.get_by_id(int(callback.data[(callback.data.rfind('_')+1):]))
+    course = Course.get_by_id(
+        int(callback.data[(callback.data.rfind('_')+1):]))
 
     user_course = UserCourse.get_or_none(
         user=user,

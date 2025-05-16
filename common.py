@@ -2,7 +2,7 @@ import asyncio
 from datetime import datetime, timedelta
 import functools
 import traceback
-from typing import List, Set
+from typing import list, Set
 from aiogram import Bot, Router
 from aiogram.types import Message, CallbackQuery
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
@@ -143,7 +143,7 @@ async def send_task(bot: Bot):
     course_ids = [course.id for course in courses]
 
     # получаем список блогеров в порядке их рейтинга
-    blogers: List[User] = sorted(
+    blogers: list[User] = sorted(
         blogers, key=lambda user: user.bloger_rating, reverse=True)
 
     # Отбираем для каждого блогера подходящий курс
@@ -207,7 +207,7 @@ async def send_task(bot: Bot):
         }
 
         # Сортируем тыме по ID
-        themes: List[Theme] = sorted(themes, key=lambda theme: theme.id)
+        themes: list[Theme] = sorted(themes, key=lambda theme: theme.id)
 
         # Тема для блогера
         theme_by_bloger: Theme = themes[0]
@@ -262,7 +262,7 @@ async def send_message_admins(bot: Bot, text: str, reply_markup=None):
             )
 
 
-def get_admins() -> List[User]:
+def get_admins() -> list[User]:
     return (
         User
         .select(User)
@@ -317,7 +317,7 @@ async def add_reviewer(bot: Bot, video_id: int):
     """Назначить проверяющего на видео"""
 
     # Свободные проверяющие
-    vacant_reviewer_ids: List[int] = get_vacant_reviewer_ids()
+    vacant_reviewer_ids: list[int] = get_vacant_reviewer_ids()
 
     video: Video = Video.get_by_id(video_id)
     task: Task = video.task
@@ -441,7 +441,7 @@ def update_task_score(task: Task) -> Task:
     return task
 
 
-def get_vacant_reviewer_ids() -> List[User]:
+def get_vacant_reviewer_ids() -> list[User]:
     reviewer_ids = get_reviewer_ids()
     # проверяющие у которых есть что проверить
     jobs_ids = [u.id for u in
@@ -457,7 +457,7 @@ def get_vacant_reviewer_ids() -> List[User]:
     return [i for i in reviewer_ids if i not in jobs_ids]
 
 
-def get_reviewer_ids() -> List[User]:
+def get_reviewer_ids() -> list[User]:
     """Пользователи с ролью проверяющий"""
     return [u.id for u in
             User
