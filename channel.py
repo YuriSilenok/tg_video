@@ -1,15 +1,14 @@
-from datetime import datetime, timedelta
-from typing import List, Tuple
+"""Модуль для ведения канала"""
+from datetime import datetime
+from typing import Tuple
 
 from aiogram import Bot, Router
 from aiogram.types import Message, Poll
-from aiogram.filters import Command
 from aiogram.exceptions import TelegramBadRequest
 
 from admin import error_handler
 from config import TG_CHANEL_ID
 from models import Course, Task, Theme, Poll as MPoll, Video
-from peewee import fn
 
 
 router = Router()
@@ -34,7 +33,7 @@ async def send_video(bot: Bot, video: Video = None):
         course_title = course_title.replace(ch1, ch2)
 
     course_title = ' #'.join(course_title.split())
-    
+
     caption = (
         f'Курс: #{course_title}\n'
         f'Тема: <a href="{theme.url}">{theme.title}</a>'
