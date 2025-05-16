@@ -51,7 +51,7 @@ async def other_message(message: Message):
 
 
 def get_id(text):
-    return int(text[(text.rfind("_") + 1):])
+    return int(text[(text.rfind("_") + 1) :])
 
 
 async def get_user(bot: Bot, tg_id: int) -> User:
