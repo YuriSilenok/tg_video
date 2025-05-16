@@ -37,16 +37,6 @@ jobs:
           echo "IS_FORK=true" >> "$GITHUB_ENV"
         fi
 
-    - name: Install dependencies
-      if: env.IS_FORK == 'false'
-      run: pip install black ruff
-
-    - name: Format code with black and ruff
-      if: env.IS_FORK == 'false'
-      run: |
-        black .
-        ruff check . --fix --unsafe-fixes || true
-
     - name: Commit and push changes (only if not a fork)
       if: env.IS_FORK == 'false'
       run: |
@@ -55,6 +45,32 @@ jobs:
 
         git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
 
+    - name: Install dependencies
+      if: env.IS_FORK == 'false'
+      run: pip install black ruff
+
+    - name: Format code with black and ruff
+      if: env.IS_FORK == 'false'
+      run: black .
+
+    - name: Commit and push changes by black
+      if: env.IS_FORK == 'false'
+      run: |
+        if [[ $(git status --porcelain) ]]; then
+          git add .
+          git commit -m "chore: auto-fix formatting via GitHub Actions"
+          git push origin HEAD
+        else
+          echo "No changes to commit."
+        fi
+
+    - name: Format code with black and ruff
+      if: env.IS_FORK == 'false'
+      run: ruff check . --fix --unsafe-fixes || true
+
+    - name: Commit and push changes by ruff
+      if: env.IS_FORK == 'false'
+      run: |
         if [[ $(git status --porcelain) ]]; then
           git add .
           git commit -m "chore: auto-fix formatting via GitHub Actions"
