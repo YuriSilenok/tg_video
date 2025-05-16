@@ -49,7 +49,7 @@ jobs:
       if: env.IS_FORK == 'false'
       run: pip install black ruff
 
-    - name: Format code with black and ruff
+    - name: Format code with black
       if: env.IS_FORK == 'false'
       run: black .
 
@@ -64,7 +64,7 @@ jobs:
           echo "No changes to commit."
         fi
 
-    - name: Format code with black and ruff
+    - name: Format code with ruff
       if: env.IS_FORK == 'false'
       run: ruff check . --fix --unsafe-fixes || true
 
