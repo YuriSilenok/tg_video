@@ -10,7 +10,7 @@ from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from peewee import fn, Case, JOIN
 
 from filters import IsBloger, IsReviewer
-from models import *
+from models import User, Task, UserRole, Course, UserCourse, Theme, Role, Video, ReviewRequest, Review
 
 
 router = Router()
