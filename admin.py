@@ -9,7 +9,7 @@ from peewee import fn, JOIN, Case
 
 from filters import IsAdmin
 from common import add_reviewer, get_date_time, error_handler, get_id, send_task
-from models import ReviewRequest, Review, Video, User, Task, UserRole, Theme
+from models import ReviewRequest, Review, Video, User, Task, UserRole, Theme, Role, Course
 
 
 router = Router()
