@@ -1,3 +1,5 @@
+"""Модуль обработки административных команд и функций"""
+
 import csv
 
 from aiogram import F, Router
@@ -27,17 +29,20 @@ from models import (
     Video,
 )
 
+# pylint: disable=no-member
+
 router = Router()
 
 
 class UploadVideo(StatesGroup):
+    """Класс состояний для загрузки видео администратором."""
     wait_upload = State()
 
 
 @router.callback_query(F.data.startswith("del_rr_"))
 @error_handler()
 async def del_rr(callback: CallbackQuery):
-
+    """Обработчик удаления запроса на проверку (ReviewRequest)."""
     rr_id = get_id(callback.data)
     rr: ReviewRequest = ReviewRequest.get_or_none(id=rr_id)
 
@@ -80,12 +85,14 @@ async def del_rr(callback: CallbackQuery):
 @router.message(Command("send_task"), IsAdmin())
 @error_handler()
 async def st(message: Message):
+    """Ручной запуск выдачи задач блогерам."""
     await send_task(message.bot)
 
 
 @router.message(Command("report_reviewers"), IsAdmin())
 @error_handler()
 async def report_reviewers(message: Message):
+    """Формирование отчета по проверяющим."""
     old_date = get_date_time(hours=-24 * 14)
     reviewers: list[User] = (
         User.select(User)
@@ -124,6 +131,7 @@ async def report_reviewers(message: Message):
 @router.message(Command("report_blogers"), IsAdmin())
 @error_handler()
 async def report_blogers(message: Message):
+    """Формирование отчета по блогерам."""
     points = ["📹📄<b>Отчет о блогерах</b>"]
     old_date = get_date_time(hours=-24 * 14)
     blogers = (
@@ -160,7 +168,7 @@ async def report_blogers(message: Message):
 @router.message(Command("add_role"), IsAdmin())
 @error_handler()
 async def add_role(message: Message):
-
+    """Добавление роли пользователю."""
     data = message.text.strip().replace("  ", "").split()
     if len(data) != 3:
         await message.answer(
@@ -187,7 +195,7 @@ async def add_role(message: Message):
 @router.message(Command("set_comment"), IsAdmin())
 @error_handler()
 async def set_comment(message: Message):
-
+    """Установка комментария (ФИО) для пользователя."""
     data = message.text.strip().replace("  ", "").split(maxsplit=1)[1]
     data = data.split(maxsplit=1)
     username = data[0].replace("@", "").strip()
@@ -216,11 +224,11 @@ TASK_STATUS = {0: "📹", 1: "👀", 2: "⏱️"}
 @router.message(Command("report_tasks"), IsAdmin())
 @error_handler()
 async def report_tasks(message: Message):
-
+    """Формирование отчета по текущим задачам."""
     tasks: list[Task] = (
         Task.select(Task)
         .where(Task.status.between(0, 2))
-        .join(User, on=(User.id == Task.implementer))
+        .join(User, on=User.id == Task.implementer)
         .order_by(
             Task.status.desc(),
             Task.due_date.asc(),
@@ -322,7 +330,7 @@ async def report_tasks(message: Message):
 @router.message(F.document.file_name.endswith(".csv"), IsAdmin())
 @error_handler()
 async def add_course(message: Message, state: FSMContext):
-
+    """Загрузка курсов и тем из CSV файла."""
     file = await message.bot.download(message.document.file_id)
     try:
         file.seek(0)  # Устанавливаем указатель в начало
@@ -402,14 +410,14 @@ async def add_course(message: Message, state: FSMContext):
                 text=f'📨📹Отправьте видео на тему "{load_videos[0]["title"]}"'
             )
 
-    except Exception as e:
+    except (csv.Error, UnicodeDecodeError, ValueError, IndexError) as e:
         await message.answer(f"Ошибка при чтении CSV: {e}")
 
 
 @router.message(F.video, IsAdmin(), UploadVideo.wait_upload)
 @error_handler()
 async def upload_video(message: Message, state: FSMContext):
-
+    """Обработчик загрузки видео для тем из CSV."""
     data = await state.get_data()
     load_videos = data["load_videos"]
     if len(load_videos) == 0:

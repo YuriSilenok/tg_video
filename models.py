@@ -1,5 +1,7 @@
+"""Модуль модели БД"""
+
 from datetime import datetime
-from typing import list
+from typing import List
 
 from peewee import (
     JOIN,
@@ -14,6 +16,8 @@ from peewee import (
     SqliteDatabase,
     fn,
 )
+
+# pylint: disable=no-member
 
 db = SqliteDatabase("sqlite.db")
 
@@ -42,11 +46,14 @@ REVIEW_REQUEST_STATUS = {
 
 
 class Table(Model):
+    """Базовый класс моделей с подключением к БД"""
     class Meta:
+        """Позволяет работать с БД"""
         database = db
 
     @staticmethod
     def get_minmax(data: dict[int, int]):
+        """Поиска минимального/максимального значений в словаре."""
         return (
             data.get(-1 if len(data) == 0 else min(data, key=data.get), 0),
             data.get(-1 if len(data) == 0 else max(data, key=data.get), 0),
@@ -54,6 +61,7 @@ class Table(Model):
 
 
 class User(Table):
+    """Модель пользователя с данными Telegram"""
     tg_id = IntegerField()
     username = CharField(null=True)
     # рейтинг блогера/проверющего
@@ -65,6 +73,7 @@ class User(Table):
 
     @property
     def link(self):
+        """Формирует HTML-ссылку на пользователя"""
         surname = (
             self.comment.split(maxsplit=1)[0] if self.comment else "Аноним"
         )
@@ -92,9 +101,9 @@ class User(Table):
     def update_bloger_score(self):
         """Обновление количеста баллов (очков)"""
 
-        tasks: list[Task] = Task.select(Task).where(
+        tasks: List[Task] = List(Task.select(Task).where(
             Task.implementer == self.id
-        )
+        ))
 
         bloger_score = 0
         i = 0
@@ -237,7 +246,7 @@ class User(Table):
                 ).alias("avg_hours"),
             )
             .join(Theme)
-            .join(Video, JOIN.LEFT_OUTER, on=(Video.task == Task.id))
+            .join(Video, JOIN.LEFT_OUTER, on=Video.task == Task.id)
             .where((Task.status != -1) & (Task.implementer == self.id))
             .scalar()
         )
@@ -278,7 +287,7 @@ class User(Table):
     def get_bloger_report(self):
         """Получить отчет по блогеру"""
 
-        tasks: list[Task] = (
+        tasks: List[Task] = (
             Task.select()
             .where(
                 (Task.implementer == self.id) & (Task.status.not_in([0, 1]))
@@ -313,9 +322,9 @@ class User(Table):
     def get_reviewer_report(self):
         """Получить отчет проверяющего"""
 
-        rrs: list[ReviewRequest] = ReviewRequest.select().where(
+        rrs: List[ReviewRequest] = List(ReviewRequest.select().where(
             (ReviewRequest.reviewer == self.id) & (ReviewRequest.status == 1)
-        )
+        ))
 
         report = "Тема|Сек|Итог\n"
         i = 0
@@ -348,16 +357,18 @@ class User(Table):
 
 
 class Role(Table):
-    # Блогер, Проверяющий
+    """Содержит названия ролей пользователей"""
     name = CharField()
 
 
 class UserRole(Table):
+    """Связывает пользователей с их ролями"""
     user = ForeignKeyField(User, backref="user_roles", **CASCADE)
     role = ForeignKeyField(Role, **CASCADE)
 
 
 class Course(Table):
+    """Описывает учебные курсы"""
     title = CharField()
 
 
@@ -369,6 +380,7 @@ class UserCourse(Table):
 
 
 class Theme(Table):
+    """Описывает темы внутри курсов"""
     course = ForeignKeyField(Course, backref="themes", **CASCADE)
     title = CharField()
     url = CharField()
@@ -376,6 +388,7 @@ class Theme(Table):
 
     @property
     def link(self):
+        """Возвращает ссылку"""
         return f'<a href="{self.url}">{self.title}</a>'
 
 
@@ -451,7 +464,7 @@ class Task(Table):
                 Task.implementer.alias("bloger"),
             )
             .join(Theme)
-            .join(Video, JOIN.LEFT_OUTER, on=(Video.task == Task.id))
+            .join(Video, JOIN.LEFT_OUTER, on=Video.task == Task.id)
             .where(Task.status != -1)
             .group_by(Task.implementer)
             .dicts()
@@ -527,6 +540,8 @@ class ReviewRequest(Table):
 
     @staticmethod
     def get_minmax_over():
+        """Возвращает минимальное и максимальное количество
+        просроченных запросов"""
         return Table.get_minmax(data=ReviewRequest.get_count_overs())
 
     @staticmethod
@@ -613,6 +628,7 @@ class Review(Table):
 
 
 class Poll(Table):
+    """Хранит данные опроса"""
     message_id = IntegerField()
     poll_id = CharField()
     result = CharField()
@@ -622,6 +638,7 @@ class Poll(Table):
 
 
 class Var(Table):
+    """Содержит пары ключ-значение"""
     name = CharField()
     value = CharField(null=True)
 
@@ -658,7 +675,7 @@ if __name__ == "__main__":
     # limit_score = sum(data)/len(data)
     # print(limit_score)
 
-    users: list[User] = User.select()
+    users: List[User] = User.select()
     for user in users:
         user.update_bloger_rating()
         user.update_bloger_score()

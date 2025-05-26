@@ -1,5 +1,7 @@
+"""модуль пользовательских функций"""
+
 from datetime import datetime, timedelta
-from typing import list
+from typing import List
 
 from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramBadRequest
@@ -33,6 +35,8 @@ from models import (
     UserRole,
 )
 
+# pylint: disable=no-member
+
 router = Router()
 
 
@@ -40,8 +44,6 @@ router = Router()
 @error_handler()
 async def get_review(message: Message):
     """Получение оценки и отзыва"""
-
-    """Поиск запроса на проверку"""
     reviewer: User = User.get(tg_id=message.from_user.id)
     review_request: ReviewRequest = ReviewRequest.get_or_none(
         reviewer=reviewer, status=0  # На проверке
@@ -50,8 +52,6 @@ async def get_review(message: Message):
     if review_request is None:
         await message.answer(text="Запрос на проверку не найден")
         return
-
-    """Валидация оценки"""
     text = message.text.strip()
     digit = text.find(" ")
     digit = text[:digit] if digit >= 0 else text
@@ -66,8 +66,6 @@ async def get_review(message: Message):
     if digit < 0 or digit > 5:
         await message.answer(text=f"{digit} должно быть в пределах [0.0; 5.0]")
         return
-
-    """Фиксация отзыва"""
     Review.create(
         review_request=review_request,
         score=digit,
@@ -110,8 +108,6 @@ async def get_review(message: Message):
             ]
         ),
     )
-
-    """Выставление итоговой оценки"""
     reviews = (
         Review.select(Review)
         .join(ReviewRequest)
@@ -223,7 +219,7 @@ async def get_reviewer_user_role(bot: Bot, user: User):
     return user_role
 
 
-def get_reviewe_requests_by_notify() -> list[ReviewRequest]:
+def get_reviewe_requests_by_notify() -> List[ReviewRequest]:
     """ПОлучить запросы на проверку у которы подходит срок"""
     due_date = get_date_time(hours=1)
     # Запрос на выборку записей на проверке старше суток
@@ -232,7 +228,7 @@ def get_reviewe_requests_by_notify() -> list[ReviewRequest]:
     )
 
 
-def get_old_reviewe_requests() -> list[ReviewRequest]:
+def get_old_reviewe_requests() -> List[ReviewRequest]:
     """ПОлучить запросы на проверку у которы прошел срок"""
     now = datetime.now()
     # Запрос на выборку записей на проверке старше суток
@@ -245,7 +241,7 @@ def get_old_reviewe_requests() -> list[ReviewRequest]:
 async def check_old_reviewer_requests(bot: Bot):
     """Проверка устаревших запросов на проверку"""
 
-    rrs: list[ReviewRequest] = get_old_reviewe_requests()
+    rrs: List[ReviewRequest] = List(get_old_reviewe_requests())
 
     for rr in rrs:
         rr.status = -1
@@ -283,6 +279,7 @@ async def check_old_reviewer_requests(bot: Bot):
 @router.callback_query(F.data.startswith("rr_to_extend_"), IsReview())
 @error_handler()
 async def to_extend(callback_query: CallbackQuery):
+    """Обработать запрос на продление срока проверки."""
     rr_id = get_id(callback_query.data)
     rr: ReviewRequest = ReviewRequest.get_by_id(rr_id)
 
@@ -317,7 +314,7 @@ async def to_extend(callback_query: CallbackQuery):
 async def send_notify_reviewers(bot: Bot):
     """Послать напоминалку проверяющему об окончании строка"""
 
-    for rr in get_reviewe_requests_by_notify():
+    for rr in List(get_reviewe_requests_by_notify()):
         await bot.send_message(
             chat_id=rr.reviewer.tg_id,
             text="До окончания срока проверки видео остался 1 час. "
@@ -337,6 +334,7 @@ async def send_notify_reviewers(bot: Bot):
 
 @error_handler()
 async def loop(bot: Bot):
+    """Основной цикл обработки"""
     now = datetime.now()
     if now.minute == 0:
         await send_notify_reviewers(bot)

@@ -1,6 +1,7 @@
 """Модуль для ведения канала"""
 
 from datetime import datetime
+from typing import List
 
 from aiogram import Bot, Router
 from aiogram.exceptions import TelegramBadRequest
@@ -11,11 +12,16 @@ from admin import error_handler
 from models import Course, Task, Theme, Video
 from models import Poll as MPoll
 
+# pylint: disable=no-member
+# pylint: disable=eval-used
+# pylint: disable=redefined-outer-name
+
 router = Router()
 
 
 @error_handler()
 async def send_video(bot: Bot, video: Video = None):
+    """Отправляет видео и обрабатывает название курса"""
     if video is None:
         return
 
@@ -94,7 +100,7 @@ def get_poll_theme() -> tuple[MPoll, Video]:
     # выбираем опросы которые были созданы вчера
     polls = MPoll.select().where(~MPoll.is_stop)
 
-    for poll in polls:
+    for poll in List(polls):
         data = sorted(
             eval(poll.result).items(), key=lambda kv: kv[1], reverse=True
         )
@@ -106,6 +112,7 @@ def get_poll_theme() -> tuple[MPoll, Video]:
 
 
 def get_active_polls():
+    """Возвращает список активных не удалённых опросов"""
     query = MPoll.select().where((MPoll.is_stop) & (~MPoll.is_delete))
     return list(query)
 
@@ -148,6 +155,7 @@ async def loop(bot: Bot):
 @router.poll()
 @error_handler()
 async def poll_answer(poll: Poll):
+    """Сохраняет результаты опроса в базу данных"""
     mpoll = MPoll.get_or_none(poll_id=poll.id)
     if mpoll is None:
         return

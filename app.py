@@ -1,4 +1,4 @@
-"""Бот для записи видео"""
+"""Бот для записи видео."""
 
 import asyncio
 import logging
@@ -23,6 +23,7 @@ dp = Dispatcher()
 
 
 async def sleep():
+    """Рассчитывает время до следующего часа и приостанавливает выполнение."""
     now = datetime.now()
     sleep_seconds = datetime(
         year=now.year,
@@ -35,7 +36,8 @@ async def sleep():
 
 
 async def loop():
-    while Singletone.LOOP:
+    """Основной цикл выполнения задач."""
+    while Singleton.LOOP:
         asyncio.create_task(channel_loop(bot))
         asyncio.create_task(reviewer_loop(bot))
         asyncio.create_task(bloger_loop(bot))
@@ -43,12 +45,12 @@ async def loop():
 
 
 async def on_startup():
-    """Обертка что бы запустить параллельный процесс"""
+    """Обертка для запуска параллельного процесса."""
     asyncio.create_task(loop())
 
 
 async def main():
-    """Старт бота"""
+    """Старт бота."""
 
     dp.startup.register(on_startup)
 
@@ -64,10 +66,11 @@ async def main():
     await dp.start_polling(bot)
 
 
-class Singletone:
+class Singleton:
+    """Класс для хранения глобального состояния."""
     LOOP = True
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-    Singletone.LOOP = False
+    Singleton.LOOP = False

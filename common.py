@@ -1,7 +1,9 @@
+"""Модуль для общих функции"""
+
 import functools
 import traceback
 from datetime import datetime, timedelta
-from typing import list
+from typing import List
 
 from aiogram import Bot, Router
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
@@ -22,11 +24,15 @@ from models import (
     Video,
 )
 
+# pylint: disable=no-member
+# pylint: disable=redefined-outer-name
+
 router = Router()
 
 
 @router.callback_query()
 async def other_callback(callback: CallbackQuery):
+    """Обрабатывает неожиданный callback-запрос от пользователя."""
     await callback.message.answer(
         text="Вы совершили незарегистрированное действие, обратитесь к "
         "администратору"
@@ -41,6 +47,7 @@ async def other_callback(callback: CallbackQuery):
 
 @router.message()
 async def other_message(message: Message):
+    """Обрабатывает неожиданные сообщения от пользователя"""
     await message.answer(
         text="Вы совершили незарегистрированное действие, "
         "обратитесь к администратору"
@@ -52,10 +59,12 @@ async def other_message(message: Message):
 
 
 def get_id(text):
+    """Извлекает числовой ID из строки"""
     return int(text[(text.rfind("_") + 1):])
 
 
 async def get_user(bot: Bot, tg_id: int) -> User:
+    """Находит пользователя в базе данных по его Telegram ID"""
     user = User.get_or_none(tg_id=tg_id)
     if user is None:
         await bot.send_message(
@@ -65,6 +74,7 @@ async def get_user(bot: Bot, tg_id: int) -> User:
 
 
 def get_date_time(hours: int = 0):
+    """Возвращает текущую дату и время"""
     due_date = datetime.now()
     due_date = datetime(
         year=due_date.year,
@@ -85,7 +95,7 @@ def error_handler():
         async def wrapper(*args, **kwargs):
             try:
                 return await func(*args, **kwargs)
-            except Exception:
+            except (TelegramAPIError, TelegramBadRequest):
                 traceback.print_exc()
                 if len(args) == 0:
                     return None
@@ -126,20 +136,19 @@ async def send_task(bot: Bot):
     # Список пользователей у которых есть роль блогера
     blogers: set[User] = {
         user_role.user
-        for user_role in UserRole.select(UserRole.user).where(
+        for user_role in List(UserRole.select(UserRole.user).where(
             UserRole.role == IsBloger.role.id
-        )
+        ))
     }
-
     # Список задач, по которым ведутся работы
     tasks: set[Task] = set(Task.select(Task).where(Task.status.in_([0, 1])))
 
     # убрать блогеров у которых идет работа над задачей
     blogers -= {
         task.implementer
-        for task in Task.select(Task.implementer).where(
+        for task in List(Task.select(Task.implementer).where(
             Task.status.in_([0, 1])
-        )
+        ))
     }
 
     # Список курсов
@@ -150,7 +159,7 @@ async def send_task(bot: Bot):
     course_ids = [course.id for course in courses]
 
     # получаем список блогеров в порядке их рейтинга
-    blogers: list[User] = sorted(
+    blogers: List[User] = sorted(
         blogers, key=lambda user: user.bloger_rating, reverse=True
     )
 
@@ -160,10 +169,10 @@ async def send_task(bot: Bot):
         # Список курсов на которые подписан блогер
         courses_by_bloger: set[UserCourse] = {
             user_course.course
-            for user_course in UserCourse.select().where(
+            for user_course in List(UserCourse.select().where(
                 (UserCourse.user == bloger.id)
                 & (UserCourse.course.in_(course_ids))
-            )
+            ))
         }
 
         # Если у блогера нет подписок, то фиг ему, а не задачу
@@ -180,12 +189,12 @@ async def send_task(bot: Bot):
         # Сортируем курсы в порядке убывания средней оценки
         courses_by_bloger = sorted(
             courses_by_bloger,
-            key=lambda course: (
+            key=lambda course, blogger=bloger: (
                 Task.select(fn.AVG(Task.score))
                 .join(Theme)
                 .where(
                     (Theme.course == course.id)
-                    & (Task.implementer == bloger.id)
+                    & (Task.implementer == blogger.id)
                 )
                 .scalar()
                 or 0.8
@@ -211,7 +220,7 @@ async def send_task(bot: Bot):
         }
 
         # Сортируем тыме по ID
-        themes: list[Theme] = sorted(themes, key=lambda theme: theme.id)
+        themes: List[Theme] = sorted(themes, key=lambda theme: theme.id)
 
         # Тема для блогера
         theme_by_bloger: Theme = themes[0]
@@ -249,6 +258,7 @@ async def send_task(bot: Bot):
 
 @error_handler()
 async def send_message_admins(bot: Bot, text: str, reply_markup=None):
+    """Отправляет сообщение Администратору"""
     for admin in get_admins():
         try:
             await bot.send_message(
@@ -258,7 +268,7 @@ async def send_message_admins(bot: Bot, text: str, reply_markup=None):
                 disable_web_page_preview=True,
                 reply_markup=reply_markup,
             )
-        except Exception as ex:
+        except (TelegramAPIError, TelegramBadRequest) as ex:
             print(ex)
             await bot.send_message(
                 chat_id=admin.tg_id,
@@ -267,7 +277,8 @@ async def send_message_admins(bot: Bot, text: str, reply_markup=None):
             )
 
 
-def get_admins() -> list[User]:
+def get_admins() -> List[User]:
+    """Возвращает список пользователей с ролью 'Админ'."""
     return (
         User.select(User)
         .join(UserRole)
@@ -282,7 +293,7 @@ async def send_new_review_request(bot: Bot):
     reviewer_ids = [
         u.id
         for u in User.select(User)
-        .join(ReviewRequest, on=(ReviewRequest.reviewer_id == User.id))
+        .join(ReviewRequest, on=ReviewRequest.reviewer_id == User.id)
         .where(ReviewRequest.status == 0)
     ]
 
@@ -298,8 +309,8 @@ async def send_new_review_request(bot: Bot):
             JOIN.LEFT_OUTER,
             on=(ReviewRequest.video == Video.id),
         )
-        .join(Task, on=(Task.id == Video.task))
-        .join(User, on=(User.id == Task.implementer))
+        .join(Task, on=Task.id == Video.task)
+        .join(User, on=User.id == Task.implementer)
         .where(
             (Task.status == 1)
             & ((ReviewRequest.status >= 0) | (ReviewRequest.status.is_null()))
@@ -322,7 +333,7 @@ async def add_reviewer(bot: Bot, video_id: int):
     """Назначить проверяющего на видео"""
 
     # Свободные проверяющие
-    vacant_reviewer_ids: list[int] = get_vacant_reviewer_ids()
+    vacant_reviewer_ids: List[int] = get_vacant_reviewer_ids()
 
     video: Video = Video.get_by_id(video_id)
     task: Task = video.task
@@ -345,8 +356,8 @@ async def add_reviewer(bot: Bot, video_id: int):
     reviewer_ids = [
         rr.reviewer_id
         for rr in ReviewRequest.select(ReviewRequest.reviewer)
-        .join(Video, on=(Video.id == ReviewRequest.video))
-        .join(Task, on=(Task.id == Video.task))
+        .join(Video, on=Video.id == ReviewRequest.video)
+        .join(Task, on=Task.id == Video.task)
         .where(Task.theme == video.task.theme_id)
         .group_by(ReviewRequest.reviewer)
     ]
@@ -378,7 +389,7 @@ async def add_reviewer(bot: Bot, video_id: int):
 
 @error_handler()
 async def send_video(bot: Bot, review_request: ReviewRequest):
-
+    """Отправляет видео"""
     caption = (
         f"Это видео нужно проверить до {review_request.due_date}.\n"
         f'Тема: "{review_request.video.task.theme.course.title}|'
@@ -418,18 +429,19 @@ async def send_video(bot: Bot, review_request: ReviewRequest):
 
 
 def get_limit_score():
-    data = [
+    """Вычисляет средний пороговый балл"""
+    score_data = [
         t.score
         for t in Task.select(Task.score)
         .where(Task.status.not_in([0, 1, -1]))
         .order_by(Task.id.desc())
         .limit(100)
     ]
-    return sum(data) / len(data)
+    return sum(score_data) / len(score_data)
 
 
 def update_task_score(task: Task) -> Task:
-
+    """Обновляет оценку задачи на основе среднего балла отзывов"""
     task_scores = [
         review.score
         for review in Review.select(Review)
@@ -451,7 +463,8 @@ def update_task_score(task: Task) -> Task:
     return task
 
 
-def get_vacant_reviewer_ids() -> list[User]:
+def get_vacant_reviewer_ids() -> List[User]:
+    """Возвращает список ID проверяющих без активных задач для ревью"""
     reviewer_ids = get_reviewer_ids()
     # проверяющие у которых есть что проверить
     jobs_ids = [
@@ -465,7 +478,7 @@ def get_vacant_reviewer_ids() -> list[User]:
     return [i for i in reviewer_ids if i not in jobs_ids]
 
 
-def get_reviewer_ids() -> list[User]:
+def get_reviewer_ids() -> List[User]:
     """Пользователи с ролью проверяющий"""
     return [
         u.id
