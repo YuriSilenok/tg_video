@@ -42,7 +42,8 @@ async def other_callback(callback: CallbackQuery):
 @router.message()
 async def other_message(message: Message):
     await message.answer(
-        text="Вы совершили незарегистрированное действие, обратитесь к администратору"
+        text="Вы совершили незарегистрированное действие, "
+        "обратитесь к администратору"
     )
     user = User.get_or_none(tg_id=message.from_user.id)
     await send_message_admins(
@@ -51,7 +52,7 @@ async def other_message(message: Message):
 
 
 def get_id(text):
-    return int(text[(text.rfind("_") + 1) :])
+    return int(text[(text.rfind("_") + 1):])
 
 
 async def get_user(bot: Bot, tg_id: int) -> User:
@@ -76,7 +77,8 @@ def get_date_time(hours: int = 0):
 
 
 def error_handler():
-    """Декоратор для обработки ошибок в хэндлерах и отправки сообщения админу"""
+    """Декоратор для обработки ошибок в хэндлерах и
+    отправки сообщения админу"""
 
     def decorator(func):
         @functools.wraps(func)
@@ -199,7 +201,8 @@ async def send_task(bot: Bot):
             Theme.select().where(Theme.course == course_by_bloger.id)
         )
 
-        # Убираем из списка темы, по которым ведутся или удачно закончены работы
+        # Убираем из списка темы, по которым ведутся или
+        # удачно закончены работы
         themes -= {
             theme
             for theme in Theme.select()
@@ -226,9 +229,13 @@ async def send_task(bot: Bot):
         try:
             await bot.send_message(
                 chat_id=bloger.tg_id,
-                text=f"Вам выдана тема {theme_by_bloger.link}.\n"
-                f"Срок: {task_by_bloger.due_date}\n"
-                '<a href="https://docs.google.com/document/d/1KVv9BAqtZ1FZzqUTWO9REbTWJoT3LQrZfVHHtoAQWQ0/edit?usp=sharing">Требования к видео</a>',
+                text=(
+                    f"Вам выдана тема {theme_by_bloger.link}.\n"
+                    f"Срок: {task_by_bloger.due_date}\n"
+                    '<a href="https://docs.google.com/document/d/'
+                    '1KVv9BAqtZ1FZzqUTWO9REbTWJoT3LQrZfVHHtoAQWQ0/'
+                    'edit?usp=sharing">Требования к видео</a>'
+                    ),
                 parse_mode="HTML",
             )
         except TelegramBadRequest as ex:
@@ -374,15 +381,20 @@ async def send_video(bot: Bot, review_request: ReviewRequest):
 
     caption = (
         f"Это видео нужно проверить до {review_request.due_date}.\n"
-        f'Тема: "{review_request.video.task.theme.course.title}|{review_request.video.task.theme.link}"\n'
-        "Для оценки видео напишите одно сообщение "
-        "в начале которого будет оценка в интервале [0.0; 5.0], а через пробел отзыв о видео\n"
+        f'Тема: "{review_request.video.task.theme.course.title}|'
+        f'{review_request.video.task.theme.link}"\n'
+        "Для оценки видео напишите одно сообщение в начале которого "
+        "будет оценка в интервале [0.0; 5.0], а через пробел отзыв о видео"
         """
-0 - Мелкий текст (качество видео) и плохой звук. Такое лучше никому не показывать
-1 - Мелкий текст (качество видео) или неразборчивый звук. Рассказчика тяжело слушать, а материал не воспринимается.
-2 - Масштаб или громкость (качество звука) можно было сделать чуть по лучше. Было очень интересно, но ничего непонятно.
-3 - Звук и видео в порядке. Материал понят на половину, есть нераскрытые места относящиеся к теме материала.
-4 - Звук и видео в порядке. Материал подавался неуверенно, но всё было понято. 
+0 - Мелкий текст (качество видео) и плохой звук. Такое лучше никому
+    не показывать
+1 - Мелкий текст (качество видео) или неразборчивый звук. Рассказчика тяжело
+    слушать, а материал не воспринимается.
+2 - Масштаб или громкость (качество звука) можно было сделать чуть по лучше.
+    Было очень интересно, но ничего непонятно.
+3 - Звук и видео в порядке. Материал понят на половину, есть нераскрытые места,
+    относящиеся к теме материала.
+4 - Звук и видео в порядке. Материал подавался неуверенно, но всё было понято.
 5 - Это точно делал не студент, а какой-то профессионал. Образцовое видео."""
     )
     try:

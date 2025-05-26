@@ -71,7 +71,8 @@ class User(Table):
         return f'<a href="https://t.me/{self.username}">{surname}</a>'
 
     def get_sum_video_duration(self):
-        """Получить сумму продолжительности всех проверенных видео в секундах"""
+        """Получить сумму продолжительности всех проверенных
+        видео в секундах"""
         return (
             ReviewRequest.select(fn.SUM(Video.duration))
             .join(Video)
@@ -113,10 +114,12 @@ class User(Table):
         delta = max_score - min_score
         video_avg_scores = Review.get_best_scores()
 
-        data = [  # проценты отклонений оценок. Чем меньше отклонение, тем рейтинг выше
+        data = [  # проценты отклонений оценок. Чем меньше отклонение,
+                  # тем рейтинг выше
             (max_score - abs(video_avg_scores[row["video"]] - row["score"]))
             / delta
-            for row in Review.select(  # Запрос на получение оценок текущего пользователя
+            for row in Review.select(  # Запрос на получение оценок
+                                       # текущего пользователя
                 ReviewRequest.video,
                 Review.score,
             )
@@ -290,13 +293,19 @@ class User(Table):
             complexity = task.theme.complexity
             score = task.score * k * complexity
             i += 1
-            report += f'<a href="{task.theme.url}">{i:05.0f}</a>|{(task.score*100):05.2f}%|{k:05.2f}|{complexity:06.3f}|{score:.2f}\n'
-
+            report += (
+                    f'<a href="{task.theme.url}">{i:05.0f}</a>|'
+                    f'{(task.score * 100):05.2f}%|{k:05.2f}|'
+                    f'{complexity:06.3f}|{score:.2f}\n'
+                )
         return (
-            f"<b>Рейтинг блогера</b>: {(self.bloger_rating*100):.2f}%\n"
-            f"- скорость исполнения: {(self.get_bloger_rating_from_duration()*100):.2f}%\n"
-            f"- соблюдение срока: {(self.get_bloger_rating_from_over()*100):.2f}%\n"
-            f"- качество видео: {(self.get_bloger_rating_from_scores()*100):.2f}%\n"
+            f"<b>Рейтинг блогера</b>: {(self.bloger_rating * 100):.2f}%\n"
+            f"- скорость исполнения: "
+            f"{(self.get_bloger_rating_from_duration() * 100):.2f}%\n"
+            f"- соблюдение срока: "
+            f"{(self.get_bloger_rating_from_over() * 100):.2f}%\n"
+            f"- качество видео: "
+            f"{(self.get_bloger_rating_from_scores() * 100):.2f}%\n"
             f"\n<b>Баллы блогера</b>: {self.bloger_score:.2f}\n"
             f"{report}\n"
         )
@@ -314,13 +323,20 @@ class User(Table):
             i += 1
             video: Video = rr.video
             score = video.duration / 1200
-            report += f'<a href="{video.task.theme.url}">{i:05.0f}</a>|{video.duration:03.0f}|{score:.2f}\n'
+            report += (
+                f'<a href="{video.task.theme.url}">{i:05.0f}</a>|'
+                f'{video.duration:03.0f}|{score:.2f}\n'
+            )
 
         return (
-            f"<b>Рейтинг проверяющего</b>: {(self.reviewer_rating*100):5.2f}%\n"
-            f"- качество проверки: {(self.get_reviewer_rating_from_score()*100):5.2f}%\n"
-            f"- скорость проверки: {(self.get_reviewer_rating_from_duration()*100):5.2f}%\n"
-            f"- соблюдение срока: {(self.get_reviewer_rating_from_over()*100):5.2f}%\n"
+            f"<b>Рейтинг проверяющего</b>: "
+            f"{(self.reviewer_rating * 100):5.2f}%\n"
+            f"- качество проверки: "
+            f"{(self.get_reviewer_rating_from_score() * 100):5.2f}%\n"
+            f"- скорость проверки: "
+            f"{(self.get_reviewer_rating_from_duration() * 100):5.2f}%\n"
+            f"- соблюдение срока: "
+            f"{(self.get_reviewer_rating_from_over() * 100):5.2f}%\n"
             f"\n<b>Баллы проверяющего</b>: {self.reviewer_score:.2f}\n"
             f"{report}\n"
         )
@@ -387,7 +403,9 @@ class Task(Table):
             from task as t
             group by t.implementer_id
         ) as t1
-        left join task as t2 on t2.implementer_id = t1.implementer_id and t2.status = -1
+        left join task as t2
+        on t2.implementer_id = t1.implementer_id
+        and t2.status = -1
         group by t1.implementer_id
         """
 
@@ -404,7 +422,8 @@ class Task(Table):
 
     @staticmethod
     def get_avg_duration():
-        """Получить среднюю относительную (сложности темы) продолжительность выполнения задачи для каждого блогера"""
+        """Получить среднюю относительную (сложности темы) продолжительность
+        выполнения задачи для каждого блогера"""
         return {
             row["bloger"]: (row["avg_hours"] if row["avg_hours"] else 0)
             for row in Task.select(
@@ -495,7 +514,9 @@ class ReviewRequest(Table):
             from reviewrequest as rr
             group by rr.reviewer_id
         ) as rr1
-        left join reviewrequest as rr2 on rr2.reviewer_id = rr1.reviewer_id and rr2.status = -1
+        left join reviewrequest as rr2
+        on rr2.reviewer_id = rr1.reviewer_id
+        and rr2.status = -1
         group by rr1.reviewer_id
         """
 
@@ -643,15 +664,24 @@ if __name__ == "__main__":
         user.update_bloger_score()
         user.update_reviewer_score()
         user.update_reviewer_rating()
-        # while UserRole.select().where((UserRole.role==2)&(UserRole.user==user)).count() > 1:
+        # while UserRole.select().where(
+        #     (UserRole.role == 2) & (UserRole.user == user)
+        # ).count() > 1:
         #     UserRole.get(
         #         role=Role.get(id=2),
         #         user=user,
         #     ).delete_instance()
 
     #     if (
-    #         user.get_bloger_rating_from_scores() >= limit_score and
-    #         Theme.select(fn.SUM(Theme.complexity).alias('th_comp')).join(Task).where(Task.implementer==user.id).first().th_comp >= 10 and
-    #         UserRole.select().where((UserRole.user==user.id)&(UserRole.role==1)).count() == 0
+    #         user.get_bloger_rating_from_scores() >= limit_score
+    #         and Theme.select(
+    #             fn.SUM(Theme.complexity).alias('th_comp')
+    #         ).join(Task).where(
+    #             Task.implementer == user.id
+    #         ).first().th_comp >= 10
+    #         and UserRole.select().where(
+    #             (UserRole.user == user.id)
+    #             & (UserRole.role == 1)
+    #         ).count() == 0
     #     ):
     #         print(user.comment)

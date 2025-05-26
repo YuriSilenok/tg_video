@@ -92,10 +92,13 @@ async def get_review(message: Message):
 
     await send_message_admins(
         bot=message.bot,
-        text=f"Проверяющий {reviewer.link} отправил отзыв "
-        f"на видео {review_request.video.task.theme.course.title}|{review_request.video.task.theme.link} "
-        f"блогера {review_request.video.task.implementer.link}\n\n"
-        f"{text}",
+        text=(
+            f"Проверяющий {reviewer.link} отправил отзыв "
+            f"на видео {review_request.video.task.theme.course.title}|"
+            f"{review_request.video.task.theme.link} блогера "
+            f"{review_request.video.task.implementer.link}\n\n"
+            f"{text}"
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -146,8 +149,11 @@ async def get_review(message: Message):
 
     await send_message_admins(
         bot=message.bot,
-        text=f"""<b>Проверка видео завершена</b>
-{task.implementer.link}|{task.theme.link}|{task.score}|{TASK_STATUS[task.status]}""",
+        text=(
+            "<b>Проверка видео завершена</b>\n"
+            f"{task.implementer.link}|{task.theme.link}|"
+            f"{task.score}|{TASK_STATUS[task.status]}"
+        ),
     )
 
     await send_task(message.bot)
