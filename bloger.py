@@ -222,8 +222,7 @@ async def to_extend(callback_query: CallbackQuery):
         return
     theme: Theme = task.theme
     hours = int(theme.complexity * 72 / 2)
-    if hours < 24:
-        hours = 24
+    hours = max(hours, 24)
 
     task.due_date += timedelta(hours=hours)
     task.extension = 0
@@ -334,8 +333,7 @@ async def check_old_task(bot: Bot):
 
         theme: Theme = task.theme
         hours = int(theme.complexity * 72 / 2)
-        if hours < 24:
-            hours = 24
+        hours = max(hours, 24)
         reserve_time: timedelta = timedelta(hours=hours)
         left_time: datetime = task.due_date - now
         if left_time > reserve_time:

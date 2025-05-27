@@ -14,18 +14,17 @@ from models import Poll as MPoll
 
 # pylint: disable=no-member
 # pylint: disable=eval-used
-# pylint: disable=redefined-outer-name
 
 router = Router()
 
 
 @error_handler()
-async def send_video(bot: Bot, video: Video = None):
+async def send_video(bot: Bot, video_obj: Video = None):
     """Отправляет видео и обрабатывает название курса"""
-    if video is None:
+    if video_obj is None:
         return
 
-    task = video.task
+    task = video_obj.task
     theme = task.theme
     course_title = theme.course.title
     ch = [
@@ -46,13 +45,13 @@ async def send_video(bot: Bot, video: Video = None):
     )
     message = await bot.send_video(
         chat_id=TG_CHANEL_ID,
-        video=video.file_id,
+        video=video_obj.file_id,
         caption=caption,
         parse_mode="HTML",
     )
-    if video.duration == 0:
-        video.duration = message.video.duration
-        video.save()
+    if video_obj.duration == 0:
+        video_obj.duration = message.video.duration
+        video_obj.save()
     task.status = 3
     task.save()
 
@@ -106,9 +105,9 @@ def get_poll_theme() -> tuple[MPoll, Video]:
         )
         for course_theme_max, _ in data:
             video_id = int(course_theme_max.split(sep="|", maxsplit=1)[0])
-            video: Video = Video.get_by_id(video_id)
-            if video.task.status == 2:
-                return (poll, video)
+            video_obj: Video = Video.get_by_id(video_id)
+            if video_obj.task.status == 2:
+                return (poll, video_obj)
 
 
 def get_active_polls():
@@ -125,7 +124,7 @@ async def loop(bot: Bot):
     if now.hour == 18 and now.minute == 0:
         poll_video = get_poll_theme()
         if poll_video:
-            poll, video = poll_video
+            poll, video_obj = poll_video
             poll.is_stop = True
             poll.save()
 
@@ -136,7 +135,7 @@ async def loop(bot: Bot):
             except TelegramBadRequest as e:
                 print(e)
 
-            await send_video(bot, video)
+            await send_video(bot, video_obj)
         else:
             await send_video(bot)
     if now.hour == 8 and now.minute == 0:

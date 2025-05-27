@@ -25,7 +25,6 @@ from models import (
 )
 
 # pylint: disable=no-member
-# pylint: disable=redefined-outer-name
 
 router = Router()
 
@@ -226,8 +225,7 @@ async def send_task(bot: Bot):
         theme_by_bloger: Theme = themes[0]
 
         hours = int(theme_by_bloger.complexity * 72 + 1)
-        if hours < 72:
-            hours = 72
+        hours = max(hours, 72)
 
         task_by_bloger: Task = Task.create(
             implementer=bloger,

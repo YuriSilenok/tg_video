@@ -226,7 +226,7 @@ def get_data_by_courses(user: User):
             if len(inline_keyboard) == 0:
                 row = []
             elif (
-                sum([len(i.text) for i in inline_keyboard[-1]])
+                sum(len(i.text) for i in inline_keyboard[-1])
                 + len(course.title)
                 + 1
                 < 25
