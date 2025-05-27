@@ -18,6 +18,7 @@ from peewee import (
 )
 
 # pylint: disable=no-member
+# pylint: disable=too-few-public-methods
 
 db = SqliteDatabase("sqlite.db")
 
@@ -45,7 +46,7 @@ REVIEW_REQUEST_STATUS = {
 }
 
 
-class Table(Model):  # pylint: disable=too-few-public-methods
+class Table(Model):
     """Базовый класс моделей с подключением к БД"""
     class Meta:
         """Позволяет работать с БД"""

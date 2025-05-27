@@ -117,6 +117,7 @@ def get_poll_theme() -> tuple[MPoll, Video]:
             video_obj: Video = Video.get_by_id(video_id)
             if video_obj.task.status == 2:
                 return (poll, video_obj)
+    return None
 
 
 def get_active_polls():

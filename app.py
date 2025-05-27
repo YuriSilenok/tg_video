@@ -18,6 +18,7 @@ from reviewer import loop as reviewer_loop
 from reviewer import router as reviewer_router
 from user import router as user_router
 
+# pylint: disable=too-few-public-methods
 # Загрузка переменных из .env
 load_dotenv()
 TG_TOKEN = os.getenv("TG_TOKEN")  # Чтение токена из .env
@@ -75,7 +76,7 @@ async def main():
 
 class Singleton:
     """Класс для хранения глобального состояния."""
-    LOOP = True  # pylint: disable=too-few-public-methods
+    LOOP = True
 
 
 if __name__ == "__main__":
