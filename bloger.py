@@ -21,11 +21,11 @@ from common import (
     send_message_admins,
     send_new_review_request,
     send_task,
+    check_user_role,
 )
 from filters import IsBloger, WaitVideo
 from models import (
     TASK_STATUS,
-    Role,
     Table,
     Task,
     Theme,
@@ -52,27 +52,17 @@ async def upload_file(message: Message):
 @error_handler()
 async def get_bloger_user_role(bot: Bot, user: User):
     """Проверяем наличие привилегии блогера"""
-
-    # Наличие роли
-    role = Role.get_or_none(name="Блогер")
-    if role is None:
-        await bot.send_message(
-            chat_id=user.tg_id,
-            text=(
-                "🕴🔑🚫🔎Роль блогера не найдена! "
-                "Это проблема администратора! "
-                "Cообщите ему всё, что Вы о нем думаете. @YuriSilenok"
-            ),
-        )
-        return None
-
-    # Наличие роли у пользователя
-    user_role = UserRole.get_or_none(
+    return await check_user_role(
+        bot=bot,
         user=user,
-        role=role,
+        role_name="Блогер",
+        error_message=(
+            "🕴🔑🚫🔎Роль блогера не найдена! "
+            "Это проблема администратора! "
+            "Cообщите ему всё, что Вы о нем думаете. @YuriSilenok"
+        ),
+        notify_if_no_role=False
     )
-
-    return user_role
 
 
 @error_handler()

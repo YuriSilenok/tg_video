@@ -57,6 +57,30 @@ async def other_message(message: Message):
     )
 
 
+async def check_user_role(
+    bot: Bot,
+    user: User,
+    role_name: str,
+    error_message: str,
+    notify_if_no_role: bool = True
+) -> UserRole | None:
+    """Проверяет наличие роли у пользователя."""
+    role = Role.get_or_none(name=role_name)
+    if role is None:
+        await bot.send_message(
+            chat_id=user.tg_id,
+            text=error_message,
+        )
+        return None
+    user_role = UserRole.get_or_none(user=user, role=role)
+    if notify_if_no_role and user_role is None:
+        await bot.send_message(
+            chat_id=user.tg_id,
+            text=f"Вы не являетесь {role_name.lower()}!",
+        )
+    return user_role
+
+
 def get_id(text):
     """Извлекает числовой ID из строки"""
     return int(text[(text.rfind("_") + 1):])
@@ -100,9 +124,7 @@ def error_handler():
                     return None
                 bot: Bot = None
                 message: Message = None
-                if isinstance(args[0], Message) or isinstance(
-                    args[0], CallbackQuery
-                ):
+                if isinstance(args[0], (CallbackQuery, Message)):
                     bot = args[0].bot
                     message = args[0]
                 elif isinstance(args[0], Bot):
@@ -211,12 +233,10 @@ async def send_task(bot: Bot):
 
         # Убираем из списка темы, по которым ведутся или
         # удачно закончены работы
-        themes -= {
-            theme
-            for theme in Theme.select()
+        themes -= set(
+            Theme.select()
             .join(Task)
-            .where((Task.status >= 0) & (Theme.course == course_by_bloger.id))
-        }
+            .where((Task.status >= 0) & (Theme.course == course_by_bloger.id)))
 
         # Сортируем тыме по ID
         themes: List[Theme] = sorted(themes, key=lambda theme: theme.id)

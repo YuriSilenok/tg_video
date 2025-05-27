@@ -45,7 +45,7 @@ REVIEW_REQUEST_STATUS = {
 }
 
 
-class Table(Model):
+class Table(Model):  # pylint: disable=too-few-public-methods
     """Базовый класс моделей с подключением к БД"""
     class Meta:
         """Позволяет работать с БД"""

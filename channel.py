@@ -1,12 +1,14 @@
 """Модуль для ведения канала"""
 
+import os
 from datetime import datetime
 from typing import List
+from dotenv import load_dotenv
 
 from aiogram import Bot, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Message, Poll
-from config import TG_CHANEL_ID
+
 
 from admin import error_handler
 from models import Course, Task, Theme, Video
@@ -17,12 +19,19 @@ from models import Poll as MPoll
 
 router = Router()
 
+# Загрузка переменных из .env
+load_dotenv()
+TG_CHANEL_ID = os.getenv("TG_CHANEL_ID")  # Чтение id из .env
+
+if not TG_CHANEL_ID:
+    raise ValueError("Не указан TG_TOKEN в .env файле!")
+
 
 @error_handler()
 async def send_video(bot: Bot, video_obj: Video = None):
     """Отправляет видео и обрабатывает название курса"""
     if video_obj is None:
-        return
+        return None
 
     task = video_obj.task
     theme = task.theme

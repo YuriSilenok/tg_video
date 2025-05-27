@@ -2,10 +2,11 @@
 
 import asyncio
 import logging
+import os
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher
-from config import TG_TOKEN
 
 from admin import router as admin_router
 from bloger import loop as bloger_loop
@@ -17,6 +18,12 @@ from reviewer import loop as reviewer_loop
 from reviewer import router as reviewer_router
 from user import router as user_router
 
+# Загрузка переменных из .env
+load_dotenv()
+TG_TOKEN = os.getenv("TG_TOKEN")  # Чтение токена из .env
+
+if not TG_TOKEN:
+    raise ValueError("Не указан TG_TOKEN в .env файле!")
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TG_TOKEN)
 dp = Dispatcher()
@@ -68,7 +75,7 @@ async def main():
 
 class Singleton:
     """Класс для хранения глобального состояния."""
-    LOOP = True
+    LOOP = True  # pylint: disable=too-few-public-methods
 
 
 if __name__ == "__main__":

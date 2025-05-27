@@ -22,13 +22,13 @@ from common import (
     send_new_review_request,
     send_task,
     update_task_score,
+    check_user_role,
 )
 from filters import IsReview, IsReviewer
 from models import (
     TASK_STATUS,
     Review,
     ReviewRequest,
-    Role,
     Task,
     Theme,
     User,
@@ -189,34 +189,19 @@ async def get_review(message: Message):
 
 
 @error_handler()
-async def get_reviewer_user_role(bot: Bot, user: User):
+async def get_reviewer_user_role(bot: Bot, user: User) -> UserRole | None:
     """Проверяем наличие привилегии блогера"""
-
-    # Наличие роли
-    role = Role.get_or_none(name="Проверяющий")
-    if role is None:
-        await bot.send_message(
-            chat_id=user.tg_id,
-            text=(
-                "Роль проверяющего не найдена! "
-                "Это проблема администратора! "
-                "Cообщите ему всё, что Вы о нем думаете. @YuriSilenok"
-            ),
-        )
-        return None
-
-    # Наличие роли у пользователя
-    user_role = UserRole.get_or_none(
+    return await check_user_role(
+        bot=bot,
         user=user,
-        role=role,
+        role_name="Проверяющий",
+        error_message=(
+            "Роль проверяющего не найдена! "
+            "Это проблема администратора! "
+            "Cообщите ему всё, что Вы о нем думаете. @YuriSilenok"
+        ),
+        notify_if_no_role=True
     )
-    if user_role is None:
-        await bot.send_message(
-            chat_id=user.tg_id, text="Вы не являетесь проверяющим!"
-        )
-        return None
-
-    return user_role
 
 
 def get_reviewe_requests_by_notify() -> List[ReviewRequest]:
