@@ -330,88 +330,99 @@ async def report_tasks(message: Message):
 @router.message(F.document.file_name.endswith(".csv"), IsAdmin())
 @error_handler()
 async def add_course(message: Message, state: FSMContext):
-    """Загрузка курсов и тем из CSV файла."""
+    """Загружает курсы и темы из CSV файла."""
     file = await message.bot.download(message.document.file_id)
     try:
-        file.seek(0)  # Устанавливаем указатель в начало
-        table = csv.reader(
-            file.read().decode("utf-8").splitlines()
-        )  # Читаем строки
-
-        load_videos = []
-        for row in table:
-            course_title = row[0]
-            if not course_title:
-                break
-
-            course, _ = Course.get_or_create(title=course_title)
-            theme_title = row[1]
-            theme: Theme = Theme.get_or_none(
-                course=course,
-                title=theme_title,
-            )
-
-            theme_url = row[2]
-            theme_complexity = float(row[3].replace(",", "."))
-            if not theme:
-                theme = Theme.create(
-                    course=course,
-                    title=theme_title,
-                    url=theme_url,
-                    complexity=theme_complexity,
-                )
-            else:
-                is_save = False
-
-                if theme.complexity != theme_complexity:
-                    theme.complexity = theme_complexity
-                    is_save = True
-
-                if theme.url != theme_url:
-                    theme.url = theme_url
-                    is_save = True
-
-                if is_save:
-                    theme.save()
-
-            if len(row) > 4 and row[4] != "":
-                score = 0.0
-                status = 1
-
-                if len(row) > 5 and row[5] != "":
-                    score = float(row[5].replace(",", "."))
-                    if score >= 0.8:
-                        status = 2
-                    else:
-                        status = -2
-
-                load_videos.append(
-                    {
-                        "theme": theme.id,
-                        "title": theme.title,
-                        "implementer": row[4].replace("@", ""),
-                        "score": score,
-                        "status": status,
-                    }
-                )
-
-        if len(load_videos) == 0:
-            await message.answer(
-                text="↗️❔📐Темы курса загружены. Загрузка видео не требуется",
-            )
-            users: list[User] = User.select()
-            for user in users:
-                user.update_bloger_score()
-
-        else:
-            await state.set_data({"load_videos": load_videos})
-            await state.set_state(UploadVideo.wait_upload)
-            await message.answer(
-                text=f'📨📹Отправьте видео на тему "{load_videos[0]["title"]}"'
-            )
+        table = _parse_csv_file(file)
+        videos_to_upload = _process_theme_rows(table)
+        await _send_upload_response(message, state, videos_to_upload)
 
     except (csv.Error, UnicodeDecodeError, ValueError, IndexError) as e:
         await message.answer(f"Ошибка при чтении CSV: {e}")
+
+
+def _parse_csv_file(file) -> list[list[str]]:
+    """Читает CSV файл и возвращает данные в виде списка строк."""
+    file.seek(0)
+    return csv.reader(file.read().decode("utf-8").splitlines())
+
+
+def _process_theme_rows(table: list[list[str]]) -> list[dict]:
+    """Обрабатывает строки CSV, создаёт/обновляет курсы и темы."""
+    videos_to_upload = []
+    for row in table:
+        if not row[0]:  # Пустая строка курса → пропуск
+            break
+        course = _get_or_create_course(row[0])
+        theme = _update_or_create_theme(course, row[1:4])
+        if len(row) > 4 and row[4]:  # Есть реализатор → добавляем видео
+            video_data = _prepare_video_row(theme, row[4:6])
+            videos_to_upload.append(video_data)
+    return videos_to_upload
+
+
+def _get_or_create_course(title: str) -> Course:
+    """Возвращает существующий курс или создаёт новый."""
+    course, _ = Course.get_or_create(title=title)
+    return course
+
+
+def _update_or_create_theme(course: Course, row: list[str]) -> Theme:
+    """Обновляет или создаёт тему курса."""
+    theme = Theme.get_or_none(course=course, title=row[0])
+    if not theme:
+        return Theme.create(
+            course=course,
+            title=row[0],
+            url=row[1],
+            complexity=float(row[2].replace(",", ".")),
+        )
+    return _update_theme(theme, row[1], float(row[2].replace(",", ".")))
+
+
+def _update_theme(theme: Theme, new_url: str, new_complexity: float) -> Theme:
+    """Обновляет URL и сложность темы, если они изменились."""
+    if theme.url != new_url or theme.complexity != new_complexity:
+        theme.url = new_url
+        theme.complexity = new_complexity
+        theme.save()
+    return theme
+
+
+def _prepare_video_row(theme: Theme, row: list[str]) -> dict:
+    """Готовит данные видео для загрузки."""
+    score = float(row[1].replace(",", ".")) if len(row) > 1 and row[1] else 0.0
+    status = 2 if score >= 0.8 else (-2 if score else 1)
+    return {
+        "theme": theme.id,
+        "title": theme.title,
+        "implementer": row[0].replace("@", ""),
+        "score": score,
+        "status": status,
+    }
+
+
+async def _send_upload_response(
+    message: Message,
+    state: FSMContext,
+    videos_to_upload: list[dict],
+) -> None:
+    """Отправляет ответ пользователю в зависимости от результата."""
+    if not videos_to_upload:
+        await message.answer("↗️❔📐 Темы курса загружены. Видео не требуются.")
+        _update_user_scores()
+    else:
+        await state.set_data({"load_videos": videos_to_upload})
+        await state.set_state(UploadVideo.wait_upload)
+        await message.answer(
+            f'📨📹 Отправьте видео на тему "{videos_to_upload[0]["title"]}"'
+        )
+
+
+def _update_user_scores() -> None:
+    """Обновляет баллы всех пользователей."""
+    for user in User.select():
+        user.update_bloger_score()
 
 
 @router.message(F.video, IsAdmin(), UploadVideo.wait_upload)
