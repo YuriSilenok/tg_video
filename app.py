@@ -76,6 +76,7 @@ async def main():
 
 class Singleton:
     """Класс для хранения глобального состояния."""
+
     LOOP = True
 
 

@@ -61,7 +61,7 @@ async def get_bloger_user_role(bot: Bot, user: User):
             "Это проблема администратора! "
             "Cообщите ему всё, что Вы о нем думаете. @YuriSilenok"
         ),
-        notify_if_no_role=False
+        notify_if_no_role=False,
     )
 
 
@@ -235,9 +235,9 @@ async def to_extend(callback_query: CallbackQuery):
 async def check_expired_task(bot: Bot):
     """Помечает просроченные задачи"""
     dd = get_date_time()
-    old_tasks: List[Task] = List(Task.select(Task).where(
-        (Task.status == 0) & (Task.due_date == dd)
-    ))
+    old_tasks: List[Task] = List(
+        Task.select(Task).where((Task.status == 0) & (Task.due_date == dd))
+    )
     for task in old_tasks:
         try:
             task.status = -2
@@ -275,25 +275,29 @@ async def check_expired_task(bot: Bot):
             if new_task:
                 continue
 
-            query: List[UserRole] = List(UserRole.select().where(
-                (UserRole.role_id == IsBloger.role.id)
-                & (
-                    ~UserRole.user_id
-                    << (
-                        User.select(User.id)
-                        .join(UserCourse)
-                        .where(UserCourse.course_id == task.theme.course_id)
+            query: List[UserRole] = List(
+                UserRole.select().where(
+                    (UserRole.role_id == IsBloger.role.id)
+                    & (
+                        ~UserRole.user_id
+                        << (
+                            User.select(User.id)
+                            .join(UserCourse)
+                            .where(
+                                UserCourse.course_id == task.theme.course_id
+                            )
+                        )
                     )
-                )
-                & (
-                    ~UserRole.user_id
-                    << (
-                        Task.select(Task.implementer_id).where(
-                            Task.status.between(0, 1)
+                    & (
+                        ~UserRole.user_id
+                        << (
+                            Task.select(Task.implementer_id).where(
+                                Task.status.between(0, 1)
+                            )
                         )
                     )
                 )
-            ))
+            )
             for user_role in query:
                 try:
                     await bot.send_message(
@@ -316,9 +320,9 @@ async def check_old_task(bot: Bot):
     """Асинхронная функция проверяет старые невыполненные задачи"""
     now = get_date_time()
 
-    old_tasks: List[Task] = List(Task.select(Task).where(
-        (Task.status == 0) & (Task.extension == 0)
-    ))
+    old_tasks: List[Task] = List(
+        Task.select(Task).where((Task.status == 0) & (Task.extension == 0))
+    )
     for task in old_tasks:
 
         theme: Theme = task.theme

@@ -10,6 +10,7 @@ from models import ReviewRequest, Role, Task, User, UserRole
 
 class IsUser(BaseFilter):
     """Базовый фильтр для проверки зарегистрированного пользователя."""
+
     async def __call__(self, subject: Union[Message, CallbackQuery]):
 
         user: User = User.get_or_none(tg_id=subject.from_user.id)
@@ -47,6 +48,7 @@ class IsUser(BaseFilter):
 
 class IsAdmin(IsUser):
     """Фильтр для проверки прав администратора."""
+
     role = Role.get(name="Админ")
 
     async def __call__(self, message: Message) -> bool:
@@ -62,6 +64,7 @@ class IsAdmin(IsUser):
 
 class IsBloger(IsUser):
     """Фильтр для проверки статуса блогера."""
+
     role = Role.get(name="Блогер")
 
     async def __call__(self, message: Message) -> bool:

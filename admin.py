@@ -36,6 +36,7 @@ router = Router()
 
 class UploadVideo(StatesGroup):  # pylint: disable=too-few-public-methods
     """Класс состояний для загрузки видео администратором."""
+
     wait_upload = State()
 
 

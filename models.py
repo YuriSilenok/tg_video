@@ -48,8 +48,10 @@ REVIEW_REQUEST_STATUS = {
 
 class Table(Model):
     """Базовый класс моделей с подключением к БД"""
+
     class Meta:
         """Позволяет работать с БД"""
+
         database = db
 
     @staticmethod
@@ -63,6 +65,7 @@ class Table(Model):
 
 class User(Table):
     """Модель пользователя с данными Telegram"""
+
     tg_id = IntegerField()
     username = CharField(null=True)
     # рейтинг блогера/проверющего
@@ -102,9 +105,9 @@ class User(Table):
     def update_bloger_score(self):
         """Обновление количеста баллов (очков)"""
 
-        tasks: List[Task] = List(Task.select(Task).where(
-            Task.implementer == self.id
-        ))
+        tasks: List[Task] = List(
+            Task.select(Task).where(Task.implementer == self.id)
+        )
 
         bloger_score = 0
         i = 0
@@ -125,11 +128,11 @@ class User(Table):
         video_avg_scores = Review.get_best_scores()
 
         data = [  # проценты отклонений оценок. Чем меньше отклонение,
-                  # тем рейтинг выше
+            # тем рейтинг выше
             (max_score - abs(video_avg_scores[row["video"]] - row["score"]))
             / delta
             for row in Review.select(  # Запрос на получение оценок
-                                       # текущего пользователя
+                # текущего пользователя
                 ReviewRequest.video,
                 Review.score,
             )
@@ -304,10 +307,10 @@ class User(Table):
             score = task.score * k * complexity
             i += 1
             report += (
-                    f'<a href="{task.theme.url}">{i:05.0f}</a>|'
-                    f'{(task.score * 100):05.2f}%|{k:05.2f}|'
-                    f'{complexity:06.3f}|{score:.2f}\n'
-                )
+                f'<a href="{task.theme.url}">{i:05.0f}</a>|'
+                f"{(task.score * 100):05.2f}%|{k:05.2f}|"
+                f"{complexity:06.3f}|{score:.2f}\n"
+            )
         return (
             f"<b>Рейтинг блогера</b>: {(self.bloger_rating * 100):.2f}%\n"
             f"- скорость исполнения: "
@@ -323,9 +326,12 @@ class User(Table):
     def get_reviewer_report(self):
         """Получить отчет проверяющего"""
 
-        rrs: List[ReviewRequest] = List(ReviewRequest.select().where(
-            (ReviewRequest.reviewer == self.id) & (ReviewRequest.status == 1)
-        ))
+        rrs: List[ReviewRequest] = List(
+            ReviewRequest.select().where(
+                (ReviewRequest.reviewer == self.id)
+                & (ReviewRequest.status == 1)
+            )
+        )
 
         report = "Тема|Сек|Итог\n"
         i = 0
@@ -335,7 +341,7 @@ class User(Table):
             score = video.duration / 1200
             report += (
                 f'<a href="{video.task.theme.url}">{i:05.0f}</a>|'
-                f'{video.duration:03.0f}|{score:.2f}\n'
+                f"{video.duration:03.0f}|{score:.2f}\n"
             )
 
         return (
@@ -359,17 +365,20 @@ class User(Table):
 
 class Role(Table):
     """Содержит названия ролей пользователей"""
+
     name = CharField()
 
 
 class UserRole(Table):
     """Связывает пользователей с их ролями"""
+
     user = ForeignKeyField(User, backref="user_roles", **CASCADE)
     role = ForeignKeyField(Role, **CASCADE)
 
 
 class Course(Table):
     """Описывает учебные курсы"""
+
     title = CharField()
 
 
@@ -382,6 +391,7 @@ class UserCourse(Table):
 
 class Theme(Table):
     """Описывает темы внутри курсов"""
+
     course = ForeignKeyField(Course, backref="themes", **CASCADE)
     title = CharField()
     url = CharField()
@@ -630,6 +640,7 @@ class Review(Table):
 
 class Poll(Table):
     """Хранит данные опроса"""
+
     message_id = IntegerField()
     poll_id = CharField()
     result = CharField()
@@ -640,6 +651,7 @@ class Poll(Table):
 
 class Var(Table):
     """Содержит пары ключ-значение"""
+
     name = CharField()
     value = CharField(null=True)
 

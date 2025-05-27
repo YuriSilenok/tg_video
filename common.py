@@ -62,7 +62,7 @@ async def check_user_role(
     user: User,
     role_name: str,
     error_message: str,
-    notify_if_no_role: bool = True
+    notify_if_no_role: bool = True,
 ) -> UserRole | None:
     """Проверяет наличие роли у пользователя."""
     role = Role.get_or_none(name=role_name)
@@ -83,7 +83,7 @@ async def check_user_role(
 
 def get_id(text):
     """Извлекает числовой ID из строки"""
-    return int(text[(text.rfind("_") + 1):])
+    return int(text[(text.rfind("_") + 1) :])
 
 
 async def get_user(bot: Bot, tg_id: int) -> User:
@@ -157,9 +157,11 @@ async def send_task(bot: Bot):
     # Список пользователей у которых есть роль блогера
     blogers: set[User] = {
         user_role.user
-        for user_role in List(UserRole.select(UserRole.user).where(
-            UserRole.role == IsBloger.role.id
-        ))
+        for user_role in List(
+            UserRole.select(UserRole.user).where(
+                UserRole.role == IsBloger.role.id
+            )
+        )
     }
     # Список задач, по которым ведутся работы
     tasks: set[Task] = set(Task.select(Task).where(Task.status.in_([0, 1])))
@@ -167,9 +169,9 @@ async def send_task(bot: Bot):
     # убрать блогеров у которых идет работа над задачей
     blogers -= {
         task.implementer
-        for task in List(Task.select(Task.implementer).where(
-            Task.status.in_([0, 1])
-        ))
+        for task in List(
+            Task.select(Task.implementer).where(Task.status.in_([0, 1]))
+        )
     }
 
     # Список курсов
@@ -190,10 +192,12 @@ async def send_task(bot: Bot):
         # Список курсов на которые подписан блогер
         courses_by_bloger: set[UserCourse] = {
             user_course.course
-            for user_course in List(UserCourse.select().where(
-                (UserCourse.user == bloger.id)
-                & (UserCourse.course.in_(course_ids))
-            ))
+            for user_course in List(
+                UserCourse.select().where(
+                    (UserCourse.user == bloger.id)
+                    & (UserCourse.course.in_(course_ids))
+                )
+            )
         }
 
         # Если у блогера нет подписок, то фиг ему, а не задачу
@@ -236,7 +240,8 @@ async def send_task(bot: Bot):
         themes -= set(
             Theme.select()
             .join(Task)
-            .where((Task.status >= 0) & (Theme.course == course_by_bloger.id)))
+            .where((Task.status >= 0) & (Theme.course == course_by_bloger.id))
+        )
 
         # Сортируем тыме по ID
         themes: List[Theme] = sorted(themes, key=lambda theme: theme.id)
@@ -260,9 +265,9 @@ async def send_task(bot: Bot):
                     f"Вам выдана тема {theme_by_bloger.link}.\n"
                     f"Срок: {task_by_bloger.due_date}\n"
                     '<a href="https://docs.google.com/document/d/'
-                    '1KVv9BAqtZ1FZzqUTWO9REbTWJoT3LQrZfVHHtoAQWQ0/'
+                    "1KVv9BAqtZ1FZzqUTWO9REbTWJoT3LQrZfVHHtoAQWQ0/"
                     'edit?usp=sharing">Требования к видео</a>'
-                    ),
+                ),
                 parse_mode="HTML",
             )
         except TelegramBadRequest as ex:

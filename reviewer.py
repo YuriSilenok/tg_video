@@ -200,7 +200,7 @@ async def get_reviewer_user_role(bot: Bot, user: User) -> UserRole | None:
             "Это проблема администратора! "
             "Cообщите ему всё, что Вы о нем думаете. @YuriSilenok"
         ),
-        notify_if_no_role=True
+        notify_if_no_role=True,
     )
 
 
