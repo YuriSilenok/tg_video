@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   lint-fix:
-    if: github.repository == 'YuriSilenok/gibdd_bot_44'
+    if: github.repository == 'YuriSilenok/tg_video'
     runs-on: ubuntu-latest
 
     steps:
