@@ -1,4 +1,6 @@
-from typing import list
+"""Модуль обработки пользовательских команд"""
+
+from typing import List
 
 from aiogram import F, Router
 from aiogram.filters import Command
@@ -17,11 +19,14 @@ from common import error_handler, send_message_admins, send_task
 from filters import IsAdmin, IsBloger, IsUser
 from models import Course, Task, Theme, User, UserCourse, UserRole
 
+# pylint: disable=no-member
+
 router = Router()
 
 
 @router.message(Command("set_fio"))
 async def set_fio(message: Message):
+    """Обрабатывает команду /set_fio для установки ФИО пользователя"""
     data = message.text.replace("  ", " ").split(maxsplit=1)
     if len(data) < 2:
         await message.answer(text="После команды ожидается ФИО")
@@ -36,14 +41,24 @@ async def set_fio(message: Message):
     user.save()
 
     await message.answer(
-        text="""Спасибо! 
-Для начала, Вам нужно ознакомиться со списком курсов, при помощи команды /courses.
-В каждом курсе представлено несколько ссылок на ближайшие свободные темы.
-Вы можете ознакомиться с материалами по ним, чтобы понять сложность курса.
-Если курс Вам подходит, на него нужно подписаться, тогда бот будет знать, что темы по этому курсу можно Вам выдавать.
-После того как Вы подпишетесь на все интересующие Вас курсы и будете готовы получить задачу,  пошлите команду /bloger_on.
-Бот не выдаст тему для видео сразу, он поставит вас в очередь, и как только наступит ваша очередь, бот выдаст Вам тему.
-Если Вы больше не хотите получать темы, Вы можете воспользоваться командой /bloger_off."""
+        text=(
+            "Спасибо!\n"
+            "Для начала, Вам нужно ознакомиться со списком курсов, "
+            "при помощи команды /courses.\n"
+            "В каждом курсе представлено несколько ссылок на ближайшие "
+            "свободные темы.\n"
+            "Вы можете ознакомиться с материалами по ним, чтобы понять "
+            "сложность курса.\n"
+            "Если курс Вам подходит, на него нужно подписаться, "
+            "тогда бот будет знать, что темы по этому курсу можно "
+            "Вам выдавать.\n"
+            "После того как Вы подпишетесь на все интересующие Вас курсы "
+            "и будете готовы получить задачу, пошлите команду /bloger_on.\n"
+            "Бот не выдаст тему для видео сразу, он поставит вас в очередь, "
+            "и как только наступит ваша очередь, бот выдаст Вам тему.\n"
+            "Если Вы больше не хотите получать темы, "
+            "Вы можете воспользоваться командой /bloger_off."
+        )
     )
 
     await send_message_admins(
@@ -54,7 +69,7 @@ async def set_fio(message: Message):
 
 @router.message(Command("start"))
 async def start(message: Message):
-
+    """Обрабатывает команду /start для регистрации/приветствия пользователя"""
     user: User = User.get_or_none(tg_id=message.from_user.id)
 
     if user is None:
@@ -100,12 +115,15 @@ async def start(message: Message):
             keyboard=keyboard, resize_keyboard=True
         )
 
-    text = "Здравствуйте, Вы запустили бота который выдает темы для записи видео. "
+    text = (
+        "Здравствуйте, Вы запустили бота который выдает темы "
+        "для записи видео. "
+    )
 
     if user.comment is None:
         text += (
-            "Представьтесь, укажите свои ФИО отправив команду в следующем формате "
-            "<b>/set_fio Иванов Иван Иванович</b>"
+            "Представьтесь, укажите свои ФИО отправив команду "
+            "в следующем формате <b>/set_fio Иванов Иван Иванович</b>"
         )
 
     await message.answer(
@@ -115,6 +133,7 @@ async def start(message: Message):
 
 @router.message(Command("report"), IsUser())
 async def report(message: Message):
+    """Обрабатывает команду /report для получения отчета пользователя"""
     user: User = User.get(tg_id=message.from_user.id)
     await message.answer(
         text=user.get_report(),
@@ -150,12 +169,13 @@ async def bloger_on(message: Message):
 
 
 def get_data_by_courses(user: User):
+    """Получает данные о курсах для пользователя."""
     themes_done = Theme.select(Theme.id).join(Task).where(Task.status >= 2)
 
-    themes: list[Theme] = (
+    themes: List[Theme] = (
         Theme.select(Theme)
-        .join(Course, on=(Course.id == Theme.course))
-        .join(Task, JOIN.LEFT_OUTER, on=(Task.theme == Theme.id))
+        .join(Course, on=Course.id == Theme.course)
+        .join(Task, JOIN.LEFT_OUTER, on=Task.theme == Theme.id)
         .where(~Theme.id << themes_done)
         .group_by(Theme.course, Theme.id)
         .order_by(
@@ -185,10 +205,9 @@ def get_data_by_courses(user: User):
         )
 
         if len(data[course.id]) == 3:
-
             bloger_count = (
                 UserCourse.select(fn.COUNT(UserCourse.id))
-                .join(UserRole, on=(UserRole.user == UserCourse.user))
+                .join(UserRole, on=UserRole.user == UserCourse.user)
                 .where(
                     (UserCourse.course_id == course.id)
                     & (UserRole.role_id == IsBloger.role.id)
@@ -207,7 +226,7 @@ def get_data_by_courses(user: User):
             if len(inline_keyboard) == 0:
                 row = []
             elif (
-                sum([len(i.text) for i in inline_keyboard[-1]])
+                sum(len(i.text) for i in inline_keyboard[-1])
                 + len(course.title)
                 + 1
                 < 25
@@ -237,6 +256,7 @@ def get_data_by_courses(user: User):
 @router.message(Command("courses"), IsUser())
 @error_handler()
 async def show_courses(message: Message):
+    """Обработчик команды /courses."""
     await message.answer(
         **get_data_by_courses(User.get(tg_id=message.from_user.id))
     )
@@ -245,9 +265,10 @@ async def show_courses(message: Message):
 @router.callback_query(F.data.startswith("add_user_course_"), IsUser())
 @error_handler()
 async def add_user_course(callback: CallbackQuery):
+    """Обработчик добавления курса пользователю."""
     user = User.get(tg_id=callback.from_user.id)
     course = Course.get_by_id(
-        int(callback.data[(callback.data.rfind("_") + 1) :])
+        int(callback.data[(callback.data.rfind("_") + 1):])
     )
     UserCourse.get_or_create(
         user=user,
@@ -264,10 +285,10 @@ async def add_user_course(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("del_user_course_"), IsUser())
 @error_handler()
 async def del_user_course(callback: CallbackQuery):
-
+    """Обработчик удаления курса у пользователя."""
     user = User.get(tg_id=callback.from_user.id)
     course = Course.get_by_id(
-        int(callback.data[(callback.data.rfind("_") + 1) :])
+        int(callback.data[(callback.data.rfind("_") + 1):])
     )
 
     user_course = UserCourse.get_or_none(

@@ -1,2 +1,3 @@
 peewee
 aiogram
+python-dotenv

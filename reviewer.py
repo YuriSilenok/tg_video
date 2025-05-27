@@ -1,5 +1,7 @@
+"""модуль пользовательских функций"""
+
 from datetime import datetime, timedelta
-from typing import list
+from typing import List
 
 from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramBadRequest
@@ -20,18 +22,20 @@ from common import (
     send_new_review_request,
     send_task,
     update_task_score,
+    check_user_role,
 )
 from filters import IsReview, IsReviewer
 from models import (
     TASK_STATUS,
     Review,
     ReviewRequest,
-    Role,
     Task,
     Theme,
     User,
     UserRole,
 )
+
+# pylint: disable=no-member
 
 router = Router()
 
@@ -40,8 +44,6 @@ router = Router()
 @error_handler()
 async def get_review(message: Message):
     """Получение оценки и отзыва"""
-
-    """Поиск запроса на проверку"""
     reviewer: User = User.get(tg_id=message.from_user.id)
     review_request: ReviewRequest = ReviewRequest.get_or_none(
         reviewer=reviewer, status=0  # На проверке
@@ -50,8 +52,6 @@ async def get_review(message: Message):
     if review_request is None:
         await message.answer(text="Запрос на проверку не найден")
         return
-
-    """Валидация оценки"""
     text = message.text.strip()
     digit = text.find(" ")
     digit = text[:digit] if digit >= 0 else text
@@ -66,8 +66,6 @@ async def get_review(message: Message):
     if digit < 0 or digit > 5:
         await message.answer(text=f"{digit} должно быть в пределах [0.0; 5.0]")
         return
-
-    """Фиксация отзыва"""
     Review.create(
         review_request=review_request,
         score=digit,
@@ -92,10 +90,13 @@ async def get_review(message: Message):
 
     await send_message_admins(
         bot=message.bot,
-        text=f"Проверяющий {reviewer.link} отправил отзыв "
-        f"на видео {review_request.video.task.theme.course.title}|{review_request.video.task.theme.link} "
-        f"блогера {review_request.video.task.implementer.link}\n\n"
-        f"{text}",
+        text=(
+            f"Проверяющий {reviewer.link} отправил отзыв "
+            f"на видео {review_request.video.task.theme.course.title}|"
+            f"{review_request.video.task.theme.link} блогера "
+            f"{review_request.video.task.implementer.link}\n\n"
+            f"{text}"
+        ),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -107,8 +108,6 @@ async def get_review(message: Message):
             ]
         ),
     )
-
-    """Выставление итоговой оценки"""
     reviews = (
         Review.select(Review)
         .join(ReviewRequest)
@@ -146,8 +145,11 @@ async def get_review(message: Message):
 
     await send_message_admins(
         bot=message.bot,
-        text=f"""<b>Проверка видео завершена</b>
-{task.implementer.link}|{task.theme.link}|{task.score}|{TASK_STATUS[task.status]}""",
+        text=(
+            "<b>Проверка видео завершена</b>\n"
+            f"{task.implementer.link}|{task.theme.link}|"
+            f"{task.score}|{TASK_STATUS[task.status]}"
+        ),
     )
 
     await send_task(message.bot)
@@ -187,37 +189,22 @@ async def get_review(message: Message):
 
 
 @error_handler()
-async def get_reviewer_user_role(bot: Bot, user: User):
+async def get_reviewer_user_role(bot: Bot, user: User) -> UserRole | None:
     """Проверяем наличие привилегии блогера"""
-
-    # Наличие роли
-    role = Role.get_or_none(name="Проверяющий")
-    if role is None:
-        await bot.send_message(
-            chat_id=user.tg_id,
-            text=(
-                "Роль проверяющего не найдена! "
-                "Это проблема администратора! "
-                "Cообщите ему всё, что Вы о нем думаете. @YuriSilenok"
-            ),
-        )
-        return None
-
-    # Наличие роли у пользователя
-    user_role = UserRole.get_or_none(
+    return await check_user_role(
+        bot=bot,
         user=user,
-        role=role,
+        role_name="Проверяющий",
+        error_message=(
+            "Роль проверяющего не найдена! "
+            "Это проблема администратора! "
+            "Cообщите ему всё, что Вы о нем думаете. @YuriSilenok"
+        ),
+        notify_if_no_role=True
     )
-    if user_role is None:
-        await bot.send_message(
-            chat_id=user.tg_id, text="Вы не являетесь проверяющим!"
-        )
-        return None
-
-    return user_role
 
 
-def get_reviewe_requests_by_notify() -> list[ReviewRequest]:
+def get_reviewe_requests_by_notify() -> List[ReviewRequest]:
     """ПОлучить запросы на проверку у которы подходит срок"""
     due_date = get_date_time(hours=1)
     # Запрос на выборку записей на проверке старше суток
@@ -226,7 +213,7 @@ def get_reviewe_requests_by_notify() -> list[ReviewRequest]:
     )
 
 
-def get_old_reviewe_requests() -> list[ReviewRequest]:
+def get_old_reviewe_requests() -> List[ReviewRequest]:
     """ПОлучить запросы на проверку у которы прошел срок"""
     now = datetime.now()
     # Запрос на выборку записей на проверке старше суток
@@ -239,7 +226,7 @@ def get_old_reviewe_requests() -> list[ReviewRequest]:
 async def check_old_reviewer_requests(bot: Bot):
     """Проверка устаревших запросов на проверку"""
 
-    rrs: list[ReviewRequest] = get_old_reviewe_requests()
+    rrs: List[ReviewRequest] = List(get_old_reviewe_requests())
 
     for rr in rrs:
         rr.status = -1
@@ -277,6 +264,7 @@ async def check_old_reviewer_requests(bot: Bot):
 @router.callback_query(F.data.startswith("rr_to_extend_"), IsReview())
 @error_handler()
 async def to_extend(callback_query: CallbackQuery):
+    """Обработать запрос на продление срока проверки."""
     rr_id = get_id(callback_query.data)
     rr: ReviewRequest = ReviewRequest.get_by_id(rr_id)
 
@@ -311,7 +299,7 @@ async def to_extend(callback_query: CallbackQuery):
 async def send_notify_reviewers(bot: Bot):
     """Послать напоминалку проверяющему об окончании строка"""
 
-    for rr in get_reviewe_requests_by_notify():
+    for rr in List(get_reviewe_requests_by_notify()):
         await bot.send_message(
             chat_id=rr.reviewer.tg_id,
             text="До окончания срока проверки видео остался 1 час. "
@@ -331,6 +319,7 @@ async def send_notify_reviewers(bot: Bot):
 
 @error_handler()
 async def loop(bot: Bot):
+    """Основной цикл обработки"""
     now = datetime.now()
     if now.minute == 0:
         await send_notify_reviewers(bot)
