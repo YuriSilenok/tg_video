@@ -268,7 +268,7 @@ async def add_user_course(callback: CallbackQuery):
     """Обработчик добавления курса пользователю."""
     user = User.get(tg_id=callback.from_user.id)
     course = Course.get_by_id(
-        int(callback.data[(callback.data.rfind("_") + 1):])
+        int(callback.data[(callback.data.rfind("_") + 1) :])
     )
     UserCourse.get_or_create(
         user=user,
@@ -288,7 +288,7 @@ async def del_user_course(callback: CallbackQuery):
     """Обработчик удаления курса у пользователя."""
     user = User.get(tg_id=callback.from_user.id)
     course = Course.get_by_id(
-        int(callback.data[(callback.data.rfind("_") + 1):])
+        int(callback.data[(callback.data.rfind("_") + 1) :])
     )
 
     user_course = UserCourse.get_or_none(
