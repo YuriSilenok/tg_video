@@ -24,7 +24,7 @@ load_dotenv()
 TG_CHANEL_ID = os.getenv("TG_CHANEL_ID")  # Чтение id из .env
 
 if not TG_CHANEL_ID:
-    raise ValueError("Не указан TG_TOKEN в .env файле!")
+    raise ValueError("Не указан TG_CHANEL_ID в .env файле!")
 
 
 @error_handler()
