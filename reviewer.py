@@ -1,7 +1,7 @@
 """модуль пользовательских функций"""
 
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Union
 
 from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramBadRequest
@@ -189,7 +189,7 @@ async def get_review(message: Message):
 
 
 @error_handler()
-async def get_reviewer_user_role(bot: Bot, user: User) -> UserRole | None:
+async def get_reviewer_user_role(bot: Bot, user: User) -> Union[UserRole, None]:
     """Проверяем наличие привилегии блогера"""
     return await check_user_role(
         bot=bot,
