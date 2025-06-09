@@ -2,6 +2,7 @@
 
 import csv
 
+from typing import List
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -342,7 +343,7 @@ async def add_course(message: Message, state: FSMContext):
         await message.answer(f"Ошибка при чтении CSV: {e}")
 
 
-def _parse_csv_file(file) -> list[list[str]]:
+def _parse_csv_file(file) -> List[List[str]]:
     """Читает CSV файл и возвращает данные в виде списка строк."""
     file.seek(0)
     return csv.reader(file.read().decode("utf-8").splitlines())
