@@ -235,7 +235,7 @@ async def to_extend(callback_query: CallbackQuery):
 async def check_expired_task(bot: Bot):
     """Помечает просроченные задачи"""
     dd = get_date_time()
-    old_tasks: List[Task] = List(
+    old_tasks: List[Task] = list(
         Task.select(Task).where((Task.status == 0) & (Task.due_date == dd))
     )
     for task in old_tasks:
@@ -275,7 +275,7 @@ async def check_expired_task(bot: Bot):
             if new_task:
                 continue
 
-            query: List[UserRole] = List(
+            query: List[UserRole] = list(
                 UserRole.select().where(
                     (UserRole.role_id == IsBloger.role.id)
                     & (
@@ -320,7 +320,7 @@ async def check_old_task(bot: Bot):
     """Асинхронная функция проверяет старые невыполненные задачи"""
     now = get_date_time()
 
-    old_tasks: List[Task] = List(
+    old_tasks: List[Task] = list(
         Task.select(Task).where((Task.status == 0) & (Task.extension == 0))
     )
     for task in old_tasks:
