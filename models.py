@@ -599,7 +599,7 @@ class Review(Table):
     at_created = DateTimeField(default=datetime.now)
 
     @staticmethod
-    def get_best_scores() -> dict[int, int]:
+    def get_best_scores() -> Dict[int, int]:
         """Плучить лучшие оценки для каждого видео"""
 
         return {
