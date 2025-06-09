@@ -105,7 +105,7 @@ class User(Table):
     def update_bloger_score(self):
         """Обновление количеста баллов (очков)"""
 
-        tasks: list[Task] = list(
+        tasks: List[Task] = list(
             Task.select(Task).where(
                 (Task.implementer == self.id) & (Task.status.in_([2, 3]))
             )

@@ -3,7 +3,7 @@
 import functools
 import traceback
 from datetime import datetime, timedelta
-from typing import List, Union
+from typing import List, Union, Set
 
 from aiogram import Bot, Router
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
@@ -155,7 +155,7 @@ async def send_task(bot: Bot):
     """Выдать задачу блогеру"""
 
     # Список пользователей у которых есть роль блогера
-    blogers: set[User] = {
+    blogers: Set[User] = {
         user_role.user
         for user_role in List(
             UserRole.select(UserRole.user).where(
@@ -164,7 +164,7 @@ async def send_task(bot: Bot):
         )
     }
     # Список задач, по которым ведутся работы
-    tasks: set[Task] = set(Task.select(Task).where(Task.status.in_([0, 1])))
+    tasks: Set[Task] = set(Task.select(Task).where(Task.status.in_([0, 1])))
 
     # убрать блогеров у которых идет работа над задачей
     blogers -= {
@@ -175,7 +175,7 @@ async def send_task(bot: Bot):
     }
 
     # Список курсов
-    courses: set[Course] = set(Course.select())
+    courses: Set[Course] = set(Course.select())
 
     # Свободные курсы: убираем курсы по которым ведутся работы
     courses -= {task.theme.course for task in tasks}
@@ -190,7 +190,7 @@ async def send_task(bot: Bot):
     for bloger in blogers:
 
         # Список курсов на которые подписан блогер
-        courses_by_bloger: set[UserCourse] = {
+        courses_by_bloger: Set[UserCourse] = {
             user_course.course
             for user_course in List(
                 UserCourse.select().where(
@@ -231,7 +231,7 @@ async def send_task(bot: Bot):
         course_by_bloger: Course = courses_by_bloger[0]
 
         # Список тем этого курса
-        themes: set[Theme] = set(
+        themes: Set[Theme] = set(
             Theme.select().where(Theme.course == course_by_bloger.id)
         )
 
