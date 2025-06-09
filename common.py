@@ -63,7 +63,7 @@ async def check_user_role(
     role_name: str,
     error_message: str,
     notify_if_no_role: bool = True,
-) -> Union[UserRole | None]:
+) -> Union[UserRole, None]:
     """Проверяет наличие роли у пользователя."""
     role = Role.get_or_none(name=role_name)
     if role is None:
@@ -83,7 +83,7 @@ async def check_user_role(
 
 def get_id(text):
     """Извлекает числовой ID из строки"""
-    return int(text[(text.rfind("_") + 1) :])
+    return int(text[(text.rfind("_") + 1):])
 
 
 async def get_user(bot: Bot, tg_id: int) -> User:
