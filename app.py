@@ -23,8 +23,6 @@ from user import router as user_router
 load_dotenv()
 TG_TOKEN = os.getenv("TG_TOKEN")  # Чтение токена из .env
 
-if not TG_TOKEN:
-    raise ValueError("Не указан TG_TOKEN в .env файле!")
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TG_TOKEN)
 dp = Dispatcher()
