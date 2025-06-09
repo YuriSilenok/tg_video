@@ -4,6 +4,5 @@ target-version = ['py38']
 
 [tool.ruff]
 line-length = 79
-extend-ignore = ["E203"]
 target-version = "py38"
 
