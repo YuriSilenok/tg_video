@@ -3,7 +3,7 @@
 import functools
 import traceback
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Union
 
 from aiogram import Bot, Router
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
@@ -63,7 +63,7 @@ async def check_user_role(
     role_name: str,
     error_message: str,
     notify_if_no_role: bool = True,
-) -> UserRole | None:
+) -> Union[UserRole | None]:
     """Проверяет наличие роли у пользователя."""
     role = Role.get_or_none(name=role_name)
     if role is None:
