@@ -92,7 +92,8 @@ class User(Table):
         """Обновление количеста баллов (очков)"""
 
         tasks: list[Task] = Task.select(Task).where(
-            Task.implementer == self.id
+            (Task.implementer == self.id) &
+            (Task.status.in_([2, 3]))
         )
 
         bloger_score = 0
@@ -103,8 +104,9 @@ class User(Table):
             score = task.score * k * complexity
             bloger_score += score
             i += 1
-        self.bloger_score = bloger_score
-        self.save()
+        if self.bloger_score < bloger_score:
+            self.bloger_score = bloger_score
+            self.save()
 
     def get_reviewer_rating_from_score(self):
         """Получить процент объективности оценок"""
