@@ -1,7 +1,7 @@
 """Модуль модели БД"""
 
 from datetime import datetime
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 from peewee import (
     JOIN,
