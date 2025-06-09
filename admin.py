@@ -96,7 +96,7 @@ async def st(message: Message):
 async def report_reviewers(message: Message):
     """Формирование отчета по проверяющим."""
     old_date = get_date_time(hours=-24 * 14)
-    reviewers: list[User] = (
+    reviewers: List[User] = (
         User.select(User)
         .where(
             (User.reviewer_score > 0)
@@ -227,7 +227,7 @@ TASK_STATUS = {0: "📹", 1: "👀", 2: "⏱️"}
 @error_handler()
 async def report_tasks(message: Message):
     """Формирование отчета по текущим задачам."""
-    tasks: list[Task] = (
+    tasks: List[Task] = (
         Task.select(Task)
         .where(Task.status.between(0, 2))
         .join(User, on=User.id == Task.implementer)
@@ -349,7 +349,7 @@ def _parse_csv_file(file) -> List[List[str]]:
     return csv.reader(file.read().decode("utf-8").splitlines())
 
 
-def _process_theme_rows(table: list[list[str]]) -> list[dict]:
+def _process_theme_rows(table: List[List[str]]) -> List[dict]:
     """Обрабатывает строки CSV, создаёт/обновляет курсы и темы."""
     videos_to_upload = []
     for row in table:
@@ -369,7 +369,7 @@ def _get_or_create_course(title: str) -> Course:
     return course
 
 
-def _update_or_create_theme(course: Course, row: list[str]) -> Theme:
+def _update_or_create_theme(course: Course, row: List[str]) -> Theme:
     """Обновляет или создаёт тему курса."""
     theme = Theme.get_or_none(course=course, title=row[0])
     if not theme:
@@ -391,7 +391,7 @@ def _update_theme(theme: Theme, new_url: str, new_complexity: float) -> Theme:
     return theme
 
 
-def _prepare_video_row(theme: Theme, row: list[str]) -> dict:
+def _prepare_video_row(theme: Theme, row: List[str]) -> dict:
     """Готовит данные видео для загрузки."""
     score = float(row[1].replace(",", ".")) if len(row) > 1 and row[1] else 0.0
     status = 2 if score >= 0.8 else (-2 if score else 1)
@@ -407,7 +407,7 @@ def _prepare_video_row(theme: Theme, row: list[str]) -> dict:
 async def _send_upload_response(
     message: Message,
     state: FSMContext,
-    videos_to_upload: list[dict],
+    videos_to_upload: List[dict],
 ) -> None:
     """Отправляет ответ пользователю в зависимости от результата."""
     if not videos_to_upload:
