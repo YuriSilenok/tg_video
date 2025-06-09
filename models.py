@@ -614,7 +614,7 @@ class Review(Table):
         }
 
     @staticmethod
-    def get_minmax_score() -> tuple[int, int]:
+    def get_minmax_score() -> Tuple[int, int]:
         """Получить минимальное и максимальное отклонения оценки"""
 
         data = [
