@@ -2,7 +2,7 @@
 
 import os
 from datetime import datetime
-from typing import List
+from typing import List, Tuple
 from dotenv import load_dotenv
 
 from aiogram import Bot, Router
@@ -102,7 +102,7 @@ async def send_poll(bot: Bot):
     return False
 
 
-def get_poll_theme() -> tuple[MPoll, Video]:
+def get_poll_theme() -> Tuple[MPoll, Video]:
     """Получить опрос и тему из опроса"""
 
     # выбираем опросы которые были созданы вчера
