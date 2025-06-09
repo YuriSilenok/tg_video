@@ -2,7 +2,7 @@
 
 import traceback
 from datetime import datetime, timedelta
-from typing import list
+from typing import List
 
 from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramBadRequest
@@ -21,11 +21,11 @@ from common import (
     send_message_admins,
     send_new_review_request,
     send_task,
+    check_user_role,
 )
 from filters import IsBloger, WaitVideo
 from models import (
     TASK_STATUS,
-    Role,
     Table,
     Task,
     Theme,
@@ -35,12 +35,15 @@ from models import (
     Video,
 )
 
+# pylint: disable=no-member
+
 router = Router()
 
 
 @error_handler()
 @router.message(F.document, IsBloger(), WaitVideo())
 async def upload_file(message: Message):
+    """Уведомляет пользователя о необходимости отправки видео"""
     await message.answer(
         text="📹🔜📨📹🚫📁.Видео нужно отправить как видео, а не как файл"
     )
@@ -49,32 +52,22 @@ async def upload_file(message: Message):
 @error_handler()
 async def get_bloger_user_role(bot: Bot, user: User):
     """Проверяем наличие привилегии блогера"""
-
-    # Наличие роли
-    role = Role.get_or_none(name="Блогер")
-    if role is None:
-        await bot.send_message(
-            chat_id=user.tg_id,
-            text=(
-                "🕴🔑🚫🔎Роль блогера не найдена! "
-                "Это проблема администратора! "
-                "Cообщите ему всё, что Вы о нем думаете. @YuriSilenok"
-            ),
-        )
-        return None
-
-    # Наличие роли у пользователя
-    user_role = UserRole.get_or_none(
+    return await check_user_role(
+        bot=bot,
         user=user,
-        role=role,
+        role_name="Блогер",
+        error_message=(
+            "🕴🔑🚫🔎Роль блогера не найдена! "
+            "Это проблема администратора! "
+            "Cообщите ему всё, что Вы о нем думаете. @YuriSilenok"
+        ),
+        notify_if_no_role=False,
     )
-
-    return user_role
 
 
 @error_handler()
 async def drop_bloger(bot: Bot, user: User):
-
+    """Снимает роль блогера с пользователя, если она была выдана."""
     user_role = await get_bloger_user_role(bot, user)
     if user_role is None:
         await bot.send_message(
@@ -121,7 +114,7 @@ async def drop_bloger(bot: Bot, user: User):
 @router.message(Command("bloger_off"), IsBloger())
 @error_handler()
 async def bloger_off(message: Message):
-
+    """Отключает пользователя из режима блогера."""
     user = User.get(tg_id=message.from_user.id)
     await drop_bloger(message.bot, user)
 
@@ -164,6 +157,7 @@ async def del_task_yes(query: CallbackQuery):
 @router.message(F.video, IsBloger(), WaitVideo())
 @error_handler()
 async def upload_video(message: Message):
+    """Загружает видео пользователя и обновляет статус задачи"""
     user = User.get(tg_id=message.from_user.id)
     tasks = Task.select().where(
         (Task.status == 0) & (Task.implementer == user)
@@ -204,6 +198,7 @@ async def upload_video(message: Message):
 @router.callback_query(F.data.startswith("task_to_extend_"), IsBloger())
 @error_handler()
 async def to_extend(callback_query: CallbackQuery):
+    """Обрабатывает запрос на продление срока задачи"""
     task_id = get_id(callback_query.data)
     task: Task = Task.get_by_id(task_id)
 
@@ -217,8 +212,7 @@ async def to_extend(callback_query: CallbackQuery):
         return
     theme: Theme = task.theme
     hours = int(theme.complexity * 72 / 2)
-    if hours < 24:
-        hours = 24
+    hours = max(hours, 24)
 
     task.due_date += timedelta(hours=hours)
     task.extension = 0
@@ -239,9 +233,10 @@ async def to_extend(callback_query: CallbackQuery):
 
 @error_handler()
 async def check_expired_task(bot: Bot):
+    """Помечает просроченные задачи"""
     dd = get_date_time()
-    old_tasks: list[Task] = Task.select(Task).where(
-        (Task.status == 0) & (Task.due_date == dd)
+    old_tasks: List[Task] = List(
+        Task.select(Task).where((Task.status == 0) & (Task.due_date == dd))
     )
     for task in old_tasks:
         try:
@@ -280,21 +275,25 @@ async def check_expired_task(bot: Bot):
             if new_task:
                 continue
 
-            query: list[UserRole] = UserRole.select().where(
-                (UserRole.role_id == IsBloger.role.id)
-                & (
-                    ~UserRole.user_id
-                    << (
-                        User.select(User.id)
-                        .join(UserCourse)
-                        .where(UserCourse.course_id == task.theme.course_id)
+            query: List[UserRole] = List(
+                UserRole.select().where(
+                    (UserRole.role_id == IsBloger.role.id)
+                    & (
+                        ~UserRole.user_id
+                        << (
+                            User.select(User.id)
+                            .join(UserCourse)
+                            .where(
+                                UserCourse.course_id == task.theme.course_id
+                            )
+                        )
                     )
-                )
-                & (
-                    ~UserRole.user_id
-                    << (
-                        Task.select(Task.implementer_id).where(
-                            Task.status.between(0, 1)
+                    & (
+                        ~UserRole.user_id
+                        << (
+                            Task.select(Task.implementer_id).where(
+                                Task.status.between(0, 1)
+                            )
                         )
                     )
                 )
@@ -318,19 +317,17 @@ async def check_expired_task(bot: Bot):
 
 @error_handler()
 async def check_old_task(bot: Bot):
-
+    """Асинхронная функция проверяет старые невыполненные задачи"""
     now = get_date_time()
 
-    old_tasks: list[Task] = Task.select(Task).where(
-        (Task.status == 0) & (Task.extension == 0)
+    old_tasks: List[Task] = List(
+        Task.select(Task).where((Task.status == 0) & (Task.extension == 0))
     )
-
     for task in old_tasks:
 
         theme: Theme = task.theme
         hours = int(theme.complexity * 72 / 2)
-        if hours < 24:
-            hours = 24
+        hours = max(hours, 24)
         reserve_time: timedelta = timedelta(hours=hours)
         left_time: datetime = task.due_date - now
         if left_time > reserve_time:
@@ -349,7 +346,7 @@ from (
 left join task on task.implementer_id=u.user_id and task.status in (0, 1)
 where task.id is NULL;
 """
-            users: list[int] = [
+            users: List[int] = [
                 r["user_id"] for r in Table.raw(sql_query).dicts()
             ]
             cont = False
@@ -386,7 +383,8 @@ where task.id is NULL;
 
 
 def update_rating_all_blogers():
-    blogers: list[User] = User.select(User).join(Task).where(Task.status == 0)
+    """Обновляет рейтинг всех блогеров с невыполненными задачами"""
+    blogers: List[User] = User.select(User).join(Task).where(Task.status == 0)
 
     for bloger in blogers:
         bloger.update_bloger_rating()
@@ -394,6 +392,7 @@ def update_rating_all_blogers():
 
 @error_handler()
 async def loop(bot: Bot):
+    """Цикл обновляет рейтинги блогеров"""
     update_rating_all_blogers()
     await check_old_task(bot)
     await check_expired_task(bot)
