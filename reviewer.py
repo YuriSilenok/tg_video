@@ -228,7 +228,7 @@ def get_old_reviewe_requests() -> List[ReviewRequest]:
 async def check_old_reviewer_requests(bot: Bot):
     """Проверка устаревших запросов на проверку"""
 
-    rrs: List[ReviewRequest] = List(get_old_reviewe_requests())
+    rrs: List[ReviewRequest] = list(get_old_reviewe_requests())
 
     for rr in rrs:
         rr.status = -1
@@ -301,7 +301,7 @@ async def to_extend(callback_query: CallbackQuery):
 async def send_notify_reviewers(bot: Bot):
     """Послать напоминалку проверяющему об окончании строка"""
 
-    for rr in List(get_reviewe_requests_by_notify()):
+    for rr in list(get_reviewe_requests_by_notify()):
         await bot.send_message(
             chat_id=rr.reviewer.tg_id,
             text="До окончания срока проверки видео остался 1 час. "

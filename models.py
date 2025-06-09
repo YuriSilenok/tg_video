@@ -329,7 +329,7 @@ class User(Table):
     def get_reviewer_report(self):
         """Получить отчет проверяющего"""
 
-        rrs: List[ReviewRequest] = List(
+        rrs: List[ReviewRequest] = list(
             ReviewRequest.select().where(
                 (ReviewRequest.reviewer == self.id)
                 & (ReviewRequest.status == 1)

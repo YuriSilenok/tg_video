@@ -2,7 +2,7 @@
 
 import os
 from datetime import datetime
-from typing import List, Tuple
+from typing import Tuple
 from dotenv import load_dotenv
 
 from aiogram import Bot, Router
@@ -108,7 +108,7 @@ def get_poll_theme() -> Tuple[MPoll, Video]:
     # выбираем опросы которые были созданы вчера
     polls = MPoll.select().where(~MPoll.is_stop)
 
-    for poll in List(polls):
+    for poll in list(polls):
         data = sorted(
             eval(poll.result).items(), key=lambda kv: kv[1], reverse=True
         )

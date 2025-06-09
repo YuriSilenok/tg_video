@@ -157,7 +157,7 @@ async def send_task(bot: Bot):
     # Список пользователей у которых есть роль блогера
     blogers: Set[User] = {
         user_role.user
-        for user_role in List(
+        for user_role in list(
             UserRole.select(UserRole.user).where(
                 UserRole.role == IsBloger.role.id
             )
@@ -169,7 +169,7 @@ async def send_task(bot: Bot):
     # убрать блогеров у которых идет работа над задачей
     blogers -= {
         task.implementer
-        for task in List(
+        for task in list(
             Task.select(Task.implementer).where(Task.status.in_([0, 1]))
         )
     }
@@ -192,7 +192,7 @@ async def send_task(bot: Bot):
         # Список курсов на которые подписан блогер
         courses_by_bloger: Set[UserCourse] = {
             user_course.course
-            for user_course in List(
+            for user_course in list(
                 UserCourse.select().where(
                     (UserCourse.user == bloger.id)
                     & (UserCourse.course.in_(course_ids))
