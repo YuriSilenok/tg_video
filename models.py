@@ -1,7 +1,7 @@
 """Модуль модели БД"""
 
 from datetime import datetime
-from typing import List
+from typing import List, Dict
 
 from peewee import (
     JOIN,
@@ -55,7 +55,7 @@ class Table(Model):
         database = db
 
     @staticmethod
-    def get_minmax(data: dict[int, int]):
+    def get_minmax(data: Dict[int, int]):
         """Поиска минимального/максимального значений в словаре."""
         return (
             data.get(-1 if len(data) == 0 else min(data, key=data.get), 0),
