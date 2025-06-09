@@ -5,4 +5,3 @@ target-version = ['py38']
 [tool.ruff]
 line-length = 79
 target-version = "py38"
-
