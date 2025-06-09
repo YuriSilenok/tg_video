@@ -83,7 +83,7 @@ async def check_user_role(
 
 def get_id(text):
     """Извлекает числовой ID из строки"""
-    return int(text[(text.rfind("_") + 1):])
+    return int(text[(text.rfind("_") + 1) :])
 
 
 async def get_user(bot: Bot, tg_id: int) -> User:
