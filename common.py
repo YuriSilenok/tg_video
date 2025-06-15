@@ -514,11 +514,5 @@ def get_reviewer_ids() -> List[User]:
 
 
 if __name__ == "__main__":
-    data = [
-        t.score
-        for t in Task.select(Task.score)
-        .where(Task.status.not_in([0, 1, -1]))
-        .order_by(Task.id.desc())
-        .limit(100)
-    ]
-    print(sum(data) / len(data))
+    data = get_limit_score()
+    print(data)

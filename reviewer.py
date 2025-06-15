@@ -143,19 +143,22 @@ async def get_review(message: Message):
         disable_web_page_preview=True,
     )
 
+    limit_score = get_limit_score()
+
     await send_message_admins(
         bot=message.bot,
         text=(
             "<b>Проверка видео завершена</b>\n"
             f"{task.implementer.link}|{task.theme.link}|"
-            f"{task.score}|{TASK_STATUS[task.status]}"
+            f"{(task.score*100):05.2f}|{TASK_STATUS[task.status]}\n"
+            f"Порог приёма работы: {(limit_score*100):05.2f}"
         ),
     )
 
     await send_task(message.bot)
 
     if (
-        implementer.get_bloger_rating_from_scores() >= get_limit_score()
+        implementer.get_bloger_rating_from_scores() >= limit_score
         and Theme.select(fn.SUM(Theme.complexity).alias("th_comp"))
         .join(Task)
         .where(Task.implementer == implementer.id)
