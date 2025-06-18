@@ -296,9 +296,7 @@ class User(Table):
 
         tasks: List[Task] = (
             Task.select()
-            .where(
-                (Task.implementer == self.id) & (Task.status.in_([2, 3]))
-            )
+            .where((Task.implementer == self.id) & (Task.status.in_([2, 3])))
             .order_by(Task.at_created)
         )
 
