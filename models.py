@@ -677,6 +677,9 @@ if __name__ == "__main__":
         ]
     )
 
-    user: User = User.get_by_id(pk=46)
-    user.update_bloger_score()
-    print(user.get_bloger_report())
+    users: List[User] = list(User.select())
+    for user in users:
+        user.update_bloger_score()
+        user.update_bloger_rating()
+        user.update_reviewer_score()
+        user.update_reviewer_rating()
