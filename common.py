@@ -227,56 +227,58 @@ async def send_task(bot: Bot):
             reverse=True,
         )
 
-        # выбранный курс для блогера
-        course_by_bloger: Course = courses_by_bloger[0]
-
-        # Список тем этого курса
-        themes: Set[Theme] = set(
-            Theme.select().where(Theme.course == course_by_bloger.id)
-        )
-
-        # Убираем из списка темы, по которым ведутся или
-        # удачно закончены работы
-        themes -= set(
-            Theme.select()
-            .join(Task)
-            .where((Task.status >= 0) & (Theme.course == course_by_bloger.id))
-        )
-
-        # Сортируем тыме по ID
-        themes: List[Theme] = sorted(themes, key=lambda theme: theme.id)
-
-        # Тема для блогера
-        theme_by_bloger: Theme = themes[0]
-
-        hours = int(theme_by_bloger.complexity * 72 + 1)
-        hours = max(hours, 72)
-
-        task_by_bloger: Task = Task.create(
-            implementer=bloger,
-            theme=theme_by_bloger,
-            due_date=get_date_time(hours=hours),
-        )
-
-        try:
-            await bot.send_message(
-                chat_id=bloger.tg_id,
-                text=(
-                    f"Вам выдана тема {theme_by_bloger.link}.\n"
-                    f"Срок: {task_by_bloger.due_date}\n"
-                    '<a href="https://docs.google.com/document/d/'
-                    "1KVv9BAqtZ1FZzqUTWO9REbTWJoT3LQrZfVHHtoAQWQ0/"
-                    'edit?usp=sharing">Требования к видео</a>'
-                ),
-                parse_mode="HTML",
+        for course_by_bloger in courses_by_bloger:
+            # Список тем этого курса
+            themes: Set[Theme] = set(
+                Theme.select().where(Theme.course == course_by_bloger.id)
             )
-        except TelegramBadRequest as ex:
-            await send_message_admins(bot=bot, text=str(ex))
 
-        await send_message_admins(
-            bot=bot,
-            text=f"Блогеру {bloger.link} выдана тема {theme_by_bloger.link}",
-        )
+            # Убираем из списка темы, по которым ведутся или
+            # удачно закончены работы
+            themes -= set(
+                Theme.select()
+                .join(Task)
+                .where((Task.status >= 0) & (Theme.course == course_by_bloger.id))
+            )
+
+            if len(themes) == 0:
+                continue
+
+            # Сортируем тыме по ID
+            themes: List[Theme] = sorted(themes, key=lambda theme: theme.id)
+
+            # Тема для блогера
+            theme_by_bloger: Theme = themes[0]
+
+            hours = int(theme_by_bloger.complexity * 72 + 1)
+            hours = max(hours, 72)
+
+            task_by_bloger: Task = Task.create(
+                implementer=bloger,
+                theme=theme_by_bloger,
+                due_date=get_date_time(hours=hours),
+            )
+
+            try:
+                await bot.send_message(
+                    chat_id=bloger.tg_id,
+                    text=(
+                        f"Вам выдана тема {theme_by_bloger.link}.\n"
+                        f"Срок: {task_by_bloger.due_date}\n"
+                        '<a href="https://docs.google.com/document/d/'
+                        "1KVv9BAqtZ1FZzqUTWO9REbTWJoT3LQrZfVHHtoAQWQ0/"
+                        'edit?usp=sharing">Требования к видео</a>'
+                    ),
+                    parse_mode="HTML",
+                )
+            except TelegramBadRequest as ex:
+                await send_message_admins(bot=bot, text=str(ex))
+
+            await send_message_admins(
+                bot=bot,
+                text=f"Блогеру {bloger.link} выдана тема {theme_by_bloger.link}",
+            )
+            break
 
 
 @error_handler()
