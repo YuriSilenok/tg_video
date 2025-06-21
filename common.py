@@ -238,7 +238,9 @@ async def send_task(bot: Bot):
             themes -= set(
                 Theme.select()
                 .join(Task)
-                .where((Task.status >= 0) & (Theme.course == course_by_bloger.id))
+                .where(
+                    (Task.status >= 0) & (Theme.course == course_by_bloger.id)
+                )
             )
 
             if len(themes) == 0:
