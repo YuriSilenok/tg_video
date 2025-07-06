@@ -176,39 +176,29 @@ def get_data_by_courses(user: User):
 
     courses = (
         Course.select(
-            Course.id.alias('course_id'),
-            Course.title.alias(alias='course_title'),
-            Theme.id.alias('theme_id'),
-            Theme.title.alias(alias='theme_title'),
-            Theme.url.alias(alias='theme_url'),
-            Theme.complexity.alias(alias='theme_complexity')
+            Course.id.alias("course_id"),
+            Course.title.alias(alias="course_title"),
+            Theme.id.alias("theme_id"),
+            Theme.title.alias(alias="theme_title"),
+            Theme.url.alias(alias="theme_url"),
+            Theme.complexity.alias(alias="theme_complexity"),
         )
-        .join(
-            Theme,
-            on=Theme.course == Course.id
-        )
-        .where(
-            (~Theme.id << themes_done)
-        )
-        .group_by(
-
-        )
+        .join(Theme, on=Theme.course == Course.id)
+        .where((~Theme.id << themes_done))
+        .group_by()
     )
 
     text = "<b>Список курсов</b>\n"
     data: Dict[int, Dict] = {}
 
     for row in courses.dicts():
-        if row['course_id'] not in data:
+        if row["course_id"] not in data:
 
             bloger_count = (
                 UserCourse.select(fn.COUNT(UserCourse.id))
-                .join(
-                    UserRole,
-                    on=UserRole.user == UserCourse.user
-                )
+                .join(UserRole, on=UserRole.user == UserCourse.user)
                 .where(
-                    (UserCourse.course_id == row['course_id'])
+                    (UserCourse.course_id == row["course_id"])
                     & (UserRole.role_id == IsBloger.role.id)
                 )
                 .scalar()
@@ -216,37 +206,39 @@ def get_data_by_courses(user: User):
 
             user_course: UserCourse = UserCourse.get_or_none(
                 user=user,
-                course=row['course_id'],
+                course=row["course_id"],
             )
 
-            data[row['course_id']] = {
-                'title': row['course_title'],
-                'themes': {},
-                'bloger_count': bloger_count,
-                'button_text': f'{"✅" if user_course else "❌"}{row["course_title"]}'
+            data[row["course_id"]] = {
+                "title": row["course_title"],
+                "themes": {},
+                "bloger_count": bloger_count,
+                "button_text": f'{"✅" if user_course else "❌"}{row["course_title"]}',
             }
 
-        course = data[row['course_id']]
+        course = data[row["course_id"]]
         # if len(course['themes']) < 3:
-        course['themes'][row['theme_id']] = {
-            'title': row['theme_title'],
-            'url': row['theme_url'],
-            'complexity': row['theme_complexity'],
+        course["themes"][row["theme_id"]] = {
+            "title": row["theme_title"],
+            "url": row["theme_url"],
+            "complexity": row["theme_complexity"],
         }
 
     course_ids: List[int] = sorted(
         data,
-        key=lambda k: data[k]['bloger_count'] - len(data[k]['themes']),
-        reverse=True
+        key=lambda k: data[k]["bloger_count"] - len(data[k]["themes"]),
+        reverse=True,
     )
 
     inline_keyboard = []
 
     for course_id in course_ids:
         course: Dict[int, Dict] = data[course_id]
-        point: str = f"\n<b>{course['title']}</b>|{course['bloger_count']} желающих\n"
-        for theme_id in list(course['themes'].keys())[:1]:
-            theme: Dict[int, str] = course['themes'][theme_id]
+        point: str = (
+            f"\n<b>{course['title']}</b>|{course['bloger_count']} желающих\n"
+        )
+        for theme_id in list(course["themes"].keys())[:1]:
+            theme: Dict[int, str] = course["themes"][theme_id]
             point += f'<a href="{theme["url"]}">{theme["title"]}</a>|{theme["complexity"]}\n'
 
         if len(text + point) >= 4096:
@@ -254,16 +246,18 @@ def get_data_by_courses(user: User):
 
         text += point
 
-        inline_keyboard.append([
-            InlineKeyboardButton(
-                text=course['button_text'],
-                callback_data=(
-                    f"del_user_course_{course_id}"
-                    if user_course
-                    else f"add_user_course_{course_id}"
-                ),
-            )
-        ])
+        inline_keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=course["button_text"],
+                    callback_data=(
+                        f"del_user_course_{course_id}"
+                        if user_course
+                        else f"add_user_course_{course_id}"
+                    ),
+                )
+            ]
+        )
 
     return {
         "text": text,
