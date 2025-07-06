@@ -247,7 +247,6 @@ def get_data_by_courses(user: User):
     course_ids: List[int] = sorted(
         data,
         key=lambda k: -data[k]["bloger_count"] * 10 + len(data[k]["themes"]),
-        reverse=True,
     )
 
     inline_keyboard = []
