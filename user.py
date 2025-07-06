@@ -2,7 +2,6 @@
 
 from ast import Dict
 from typing import List
-from unittest import result
 
 from aiogram import F, Router
 from aiogram.filters import Command
