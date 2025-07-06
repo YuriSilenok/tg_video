@@ -1,7 +1,6 @@
 """Модуль обработки пользовательских команд"""
 
 from ast import Dict
-from turtle import title
 from typing import List
 
 from aiogram import F, Router
@@ -15,11 +14,11 @@ from aiogram.types import (
     Message,
     ReplyKeyboardMarkup,
 )
-from peewee import JOIN, fn
+from peewee import fn
 
 from common import error_handler, send_message_admins, send_task
 from filters import IsAdmin, IsBloger, IsUser
-from models import Course, Role, Task, Theme, User, UserCourse, UserRole
+from models import Course, Task, Theme, User, UserCourse, UserRole
 
 # pylint: disable=no-member
 
