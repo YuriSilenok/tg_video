@@ -175,15 +175,17 @@ def get_text_by_result(result):
 
     for course_id in result:
         course: Dict[int, Dict] = result[course_id]
-        course_text: str = f"\n<b>{course['title']}</b>|{course['bloger_count']} желающих\n"
+        course_text: str = (
+            f"\n<b>{course['title']}</b>|{course['bloger_count']} желающих\n"
+        )
 
-        for theme_text in course['themes']:
+        for theme_text in course["themes"]:
             course_text += theme_text
 
         text += course_text
-    
+
     return text
-    
+
 
 def get_data_by_courses(user: User):
     """Получает данные о курсах для пользователя."""
@@ -202,7 +204,6 @@ def get_data_by_courses(user: User):
         .where((~Theme.id << themes_done))
         .group_by()
     )
-
 
     data: Dict[int, Dict] = {}
 
@@ -224,12 +225,16 @@ def get_data_by_courses(user: User):
                 course=row["course_id"],
             )
 
-            data[row['course_id']] = {
-                'title': row['course_title'],
-                'themes': {},
-                'bloger_count': bloger_count,
-                'button_text': f'{"✅" if user_course else "❌"}{row["course_title"]}',
-                'callback_data': f"del_user_course_{row['course_id']}" if user_course else f"add_user_course_{row['course_id']}"
+            data[row["course_id"]] = {
+                "title": row["course_title"],
+                "themes": {},
+                "bloger_count": bloger_count,
+                "button_text": f'{"✅" if user_course else "❌"}{row["course_title"]}',
+                "callback_data": (
+                    f"del_user_course_{row['course_id']}"
+                    if user_course
+                    else f"add_user_course_{row['course_id']}"
+                ),
             }
 
         course = data[row["course_id"]]
@@ -242,7 +247,7 @@ def get_data_by_courses(user: User):
 
     course_ids: List[int] = sorted(
         data,
-        key=lambda k: data[k]['bloger_count'] * 10 + len(data[k]['themes']),
+        key=lambda k: data[k]["bloger_count"] * 10 + len(data[k]["themes"]),
     )
 
     inline_keyboard = []
@@ -262,14 +267,14 @@ def get_data_by_courses(user: User):
             if course_id not in result:
 
                 result[course_id] = {
-                    'title': course['title'],
-                    'themes': [],
-                    'bloger_count': course['bloger_count'],
-                    'button_text': course['button_text'],
-                    'callback_data': course['callback_data'],
+                    "title": course["title"],
+                    "themes": [],
+                    "bloger_count": course["bloger_count"],
+                    "button_text": course["button_text"],
+                    "callback_data": course["callback_data"],
                 }
 
-            themes = list(course['themes'].values())
+            themes = list(course["themes"].values())
 
             if theme_ind < len(themes):
                 theme: Dict[int, str] = themes[theme_ind]
@@ -277,17 +282,19 @@ def get_data_by_courses(user: User):
                 if len(get_text_by_result(result) + theme_text) >= 4096:
                     continue
                 run = True
-                result[course_id]['themes'].append(theme_text)
+                result[course_id]["themes"].append(theme_text)
 
             if len(get_text_by_result(result)) >= 4096:
                 continue
 
-            inline_keyboard.append([
-                InlineKeyboardButton(
-                    text=course['button_text'],
-                    callback_data=course['callback_data'],
-                )
-            ])
+            inline_keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        text=course["button_text"],
+                        callback_data=course["callback_data"],
+                    )
+                ]
+            )
 
     return {
         "text": get_text_by_result(result),
