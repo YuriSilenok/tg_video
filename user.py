@@ -1,7 +1,6 @@
 """Модуль обработки пользовательских команд"""
 
 from ast import Dict
-from turtle import title
 from typing import List
 from unittest import result
 
@@ -16,11 +15,11 @@ from aiogram.types import (
     Message,
     ReplyKeyboardMarkup,
 )
-from peewee import JOIN, fn
+from peewee import fn
 
 from common import error_handler, send_message_admins, send_task
 from filters import IsAdmin, IsBloger, IsUser
-from models import Course, Role, Task, Theme, User, UserCourse, UserRole
+from models import Course, Task, Theme, User, UserCourse, UserRole
 
 # pylint: disable=no-member
 
@@ -192,39 +191,29 @@ def get_data_by_courses(user: User):
 
     courses = (
         Course.select(
-            Course.id.alias('course_id'),
-            Course.title.alias(alias='course_title'),
-            Theme.id.alias('theme_id'),
-            Theme.title.alias(alias='theme_title'),
-            Theme.url.alias(alias='theme_url'),
-            Theme.complexity.alias(alias='theme_complexity')
+            Course.id.alias("course_id"),
+            Course.title.alias(alias="course_title"),
+            Theme.id.alias("theme_id"),
+            Theme.title.alias(alias="theme_title"),
+            Theme.url.alias(alias="theme_url"),
+            Theme.complexity.alias(alias="theme_complexity"),
         )
-        .join(
-            Theme,
-            on=Theme.course == Course.id
-        )
-        .where(
-            (~Theme.id << themes_done)
-        )
-        .group_by(
-
-        )
+        .join(Theme, on=Theme.course == Course.id)
+        .where((~Theme.id << themes_done))
+        .group_by()
     )
 
 
     data: Dict[int, Dict] = {}
 
     for row in courses.dicts():
-        if row['course_id'] not in data:
+        if row["course_id"] not in data:
 
             bloger_count = (
                 UserCourse.select(fn.COUNT(UserCourse.id))
-                .join(
-                    UserRole,
-                    on=UserRole.user == UserCourse.user
-                )
+                .join(UserRole, on=UserRole.user == UserCourse.user)
                 .where(
-                    (UserCourse.course_id == row['course_id'])
+                    (UserCourse.course_id == row["course_id"])
                     & (UserRole.role_id == IsBloger.role.id)
                 )
                 .scalar()
@@ -232,7 +221,7 @@ def get_data_by_courses(user: User):
 
             user_course: UserCourse = UserCourse.get_or_none(
                 user=user,
-                course=row['course_id'],
+                course=row["course_id"],
             )
 
             data[row['course_id']] = {
@@ -243,12 +232,12 @@ def get_data_by_courses(user: User):
                 'callback_data': f"del_user_course_{row['course_id']}" if user_course else f"add_user_course_{row['course_id']}"
             }
 
-        course = data[row['course_id']]
+        course = data[row["course_id"]]
         # if len(course['themes']) < 3:
-        course['themes'][row['theme_id']] = {
-            'title': row['theme_title'],
-            'url': row['theme_url'],
-            'complexity': row['theme_complexity'],
+        course["themes"][row["theme_id"]] = {
+            "title": row["theme_title"],
+            "url": row["theme_url"],
+            "complexity": row["theme_complexity"],
         }
 
     course_ids: List[int] = sorted(
