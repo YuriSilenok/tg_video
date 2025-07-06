@@ -3,6 +3,7 @@
 from ast import Dict
 from turtle import title
 from typing import List
+from unittest import result
 
 from aiogram import F, Router
 from aiogram.filters import Command
@@ -170,6 +171,21 @@ async def bloger_on(message: Message):
     await send_task(message.bot)
 
 
+def get_text_by_result(result):
+    text = "<b>Список курсов</b>\n"
+
+    for course_id in result:
+        course: Dict[int, Dict] = result[course_id]
+        course_text: str = f"\n<b>{course['title']}</b>|{course['bloger_count']} желающих\n"
+
+        for theme_text in course['themes']:
+            course_text += theme_text
+
+        text += course_text
+    
+    return text
+    
+
 def get_data_by_courses(user: User):
     """Получает данные о курсах для пользователя."""
     themes_done = Theme.select(Theme.id).join(Task).where(Task.status >= 2)
@@ -195,7 +211,7 @@ def get_data_by_courses(user: User):
         )
     )
 
-    text = "<b>Список курсов</b>\n"
+
     data: Dict[int, Dict] = {}
 
     for row in courses.dicts():
@@ -223,7 +239,8 @@ def get_data_by_courses(user: User):
                 'title': row['course_title'],
                 'themes': {},
                 'bloger_count': bloger_count,
-                'button_text': f'{"✅" if user_course else "❌"}{row["course_title"]}'
+                'button_text': f'{"✅" if user_course else "❌"}{row["course_title"]}',
+                'callback_data': f"del_user_course_{row['course_id']}" if user_course else f"add_user_course_{row['course_id']}"
             }
 
         course = data[row['course_id']]
@@ -236,37 +253,55 @@ def get_data_by_courses(user: User):
 
     course_ids: List[int] = sorted(
         data,
-        key=lambda k: data[k]['bloger_count'] - len(data[k]['themes']),
-        reverse=True
+        key=lambda k: data[k]['bloger_count'] * 10 + len(data[k]['themes']),
     )
 
     inline_keyboard = []
 
-    for course_id in course_ids:
-        course: Dict[int, Dict] = data[course_id]
-        point: str = f"\n<b>{course['title']}</b>|{course['bloger_count']} желающих\n"
-        for theme_id in list(course['themes'].keys())[:1]:
-            theme: Dict[int, str] = course['themes'][theme_id]
-            point += f'<a href="{theme["url"]}">{theme["title"]}</a>|{theme["complexity"]}\n'
+    result = {}
 
-        if len(text + point) >= 4096:
-            continue
+    theme_ind = -1
+    run = True
+    while run:
+        run = False
+        theme_ind += 1
 
-        text += point
+        for course_id in course_ids:
 
-        inline_keyboard.append([
-            InlineKeyboardButton(
-                text=course['button_text'],
-                callback_data=(
-                    f"del_user_course_{course_id}"
-                    if user_course
-                    else f"add_user_course_{course_id}"
-                ),
-            )
-        ])
+            course = data[course_id]
+
+            if course_id not in result:
+
+                result[course_id] = {
+                    'title': course['title'],
+                    'themes': [],
+                    'bloger_count': course['bloger_count'],
+                    'button_text': course['button_text'],
+                    'callback_data': course['callback_data'],
+                }
+
+            themes = list(course['themes'].values())
+
+            if theme_ind < len(themes):
+                theme: Dict[int, str] = themes[theme_ind]
+                theme_text = f'<a href="{theme["url"]}">{theme["title"]}</a>|{theme["complexity"]}\n'
+                if len(get_text_by_result(result) + theme_text) >= 4096:
+                    continue
+                run = True
+                result[course_id]['themes'].append(theme_text)
+
+            if len(get_text_by_result(result)) >= 4096:
+                continue
+
+            inline_keyboard.append([
+                InlineKeyboardButton(
+                    text=course['button_text'],
+                    callback_data=course['callback_data'],
+                )
+            ])
 
     return {
-        "text": text,
+        "text": get_text_by_result(result),
         "reply_markup": InlineKeyboardMarkup(inline_keyboard=inline_keyboard),
         "parse_mode": "HTML",
         "disable_web_page_preview": True,
@@ -294,7 +329,7 @@ async def add_user_course(callback: CallbackQuery):
         user=user,
         course=course,
     )
-    await callback.message.edit_text(**get_data_by_courses(user))
+    await callback.message.edit_text(**get_data_by_courses(user=user))
     await send_message_admins(
         bot=callback.bot,
         text=f"Пользователь {user.comment} подписался на курс {course.title}",
