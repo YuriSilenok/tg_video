@@ -46,11 +46,18 @@ async def send_video(bot: Bot, video_obj: Video = None):
     for ch1, ch2 in ch:
         course_title = course_title.replace(ch1, ch2)
 
+    course_no_name = course_title.split()
+
     course_title = " #".join(course_title.split())
 
+    del course_no_name[0]
+
+    course_no_name = " #".join(course_no_name.split())
+
     caption = (
-        f"Курс: #{course_title}\n"
+        f"Курс: {course_title.rsplit(sep=' #', maxsplit=1)[0]}\n"
         f'Тема: <a href="{theme.url}">{theme.title}</a>'
+        f'Теги: #{course_no_name}\n'
     )
     message = await bot.send_video(
         chat_id=TG_CHANEL_ID,
