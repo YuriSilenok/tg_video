@@ -377,9 +377,16 @@ class UserRole(Table):
     role = ForeignKeyField(Role, **CASCADE)
 
 
-class Course(Table):
-    """Описывает учебные курсы"""
+class Tegi(Table):
+    '''Теги для видео'''
 
+    title = CharField()
+
+
+class Course(Table):
+    """Название курса"""
+
+    tegi = ForeignKeyField(Tegi, backref="Courses", **CASCADE)
     title = CharField()
 
 
