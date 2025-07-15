@@ -377,10 +377,23 @@ class UserRole(Table):
     role = ForeignKeyField(Role, **CASCADE)
 
 
+class Tegi(Table):
+    '''Теги'''
+
+    title = CharField()
+
+
 class Course(Table):
     """Описывает учебные курсы"""
 
     title = CharField()
+
+
+class CourseTag(Table):
+    '''Теги для курса'''
+
+    course = ForeignKeyField(Course, backref="coursetag", **CASCADE)
+    tegi = ForeignKeyField(Tegi, backref="Courses", **CASCADE)
 
 
 class UserCourse(Table):
@@ -394,6 +407,7 @@ class Theme(Table):
     """Описывает темы внутри курсов"""
 
     course = ForeignKeyField(Course, backref="themes", **CASCADE)
+    coursetag = ForeignKeyField(CourseTag, backref="coursetags", **CASCADE)
     title = CharField()
     url = CharField()
     complexity = FloatField(default=1.0)

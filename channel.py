@@ -35,7 +35,9 @@ async def send_video(bot: Bot, video_obj: Video = None):
 
     task = video_obj.task
     theme = task.theme
-    course_title = theme.course.title
+    course_title = theme.course
+    tegi = theme.coursetag
+
     ch = [
         ("-", ""),
         (".", ""),
@@ -45,12 +47,14 @@ async def send_video(bot: Bot, video_obj: Video = None):
     ]
     for ch1, ch2 in ch:
         course_title = course_title.replace(ch1, ch2)
+        tegi = course_title.replace(ch1, ch2)
 
-    course_title = " #".join(course_title.split())
+    tegi = " #".join(course_title.split())
 
     caption = (
-        f"Курс: #{course_title}\n"
+        f"Курс: {course_title.title}"
         f'Тема: <a href="{theme.url}">{theme.title}</a>'
+        f'Теги: #{tegi}\n'
     )
     message = await bot.send_video(
         chat_id=TG_CHANEL_ID,
