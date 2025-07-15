@@ -36,7 +36,7 @@ async def send_video(bot: Bot, video_obj: Video = None):
     task = video_obj.task
     theme = task.theme
     course_title = theme.course
-    tegi = course_title.tegi
+    tegi = theme.coursetag
 
     ch = [
         ("-", ""),
