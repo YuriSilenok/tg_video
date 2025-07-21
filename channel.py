@@ -34,7 +34,8 @@ async def send_video(bot: Bot, video_obj: Video = None):
         video_obj = (
             Video.select()
             .join(Task, on=Task.id == Video.task)
-            .where(Task.status == 2).first()
+            .where(Task.status == 2)
+            .first()
         )
 
     task = video_obj.task
