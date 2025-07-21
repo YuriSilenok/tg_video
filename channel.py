@@ -31,7 +31,11 @@ if not TG_CHANEL_ID:
 async def send_video(bot: Bot, video_obj: Video = None):
     """Отправляет видео и обрабатывает название курса"""
     if video_obj is None:
-        return None
+        video_obj = (
+            Video.select()
+            .join(Task, on=Task.id == Video.task)
+            .where(Task.status == 2).first()
+        )
 
     task = video_obj.task
     theme = task.theme
@@ -131,7 +135,7 @@ async def loop(bot: Bot):
     """Одна итерация вызываемая из бесконечного цикла"""
 
     now = datetime.now()
-    if now.hour == 18 and now.minute == 0:
+    if now.hour == 15 and now.minute == 53:
         poll_video = get_poll_theme()
         if poll_video:
             poll, video_obj = poll_video

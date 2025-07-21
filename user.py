@@ -201,7 +201,6 @@ def get_data_by_courses(user: User):
         )
         .join(Theme, on=Theme.course == Course.id)
         .where((~Theme.id << themes_done))
-        .group_by()
     )
 
     data: Dict[int, Dict] = {}
@@ -228,7 +227,9 @@ def get_data_by_courses(user: User):
                 "title": row["course_title"],
                 "themes": {},
                 "bloger_count": bloger_count,
-                "button_text": f'{"✅" if user_course else "❌"}{row["course_title"]}',
+                "button_text": (
+                    f'{"✅" if user_course else "❌"}{row["course_title"]}'
+                ),
                 "callback_data": (
                     f"del_user_course_{row['course_id']}"
                     if user_course
@@ -277,7 +278,10 @@ def get_data_by_courses(user: User):
 
             if theme_ind < len(themes):
                 theme: Dict[int, str] = themes[theme_ind]
-                theme_text = f'<a href="{theme["url"]}">{theme["title"]}</a>|{theme["complexity"]}\n'
+                theme_text = (
+                    f'<a href="{theme["url"]}">{theme["title"]}</a>'
+                    f'|{theme["complexity"]}\n'
+                )
                 if len(get_text_by_result(result) + theme_text) >= 4096:
                     continue
                 run = True
@@ -286,14 +290,16 @@ def get_data_by_courses(user: User):
             if len(get_text_by_result(result)) >= 4096:
                 continue
 
-            inline_keyboard.append(
-                [
-                    InlineKeyboardButton(
-                        text=course["button_text"],
-                        callback_data=course["callback_data"],
-                    )
-                ]
-            )
+    for course_id in course_ids:
+        course = data[course_id]
+        inline_keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=course["button_text"],
+                    callback_data=course["callback_data"],
+                )
+            ]
+        )
 
     return {
         "text": get_text_by_result(result),
