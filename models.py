@@ -407,7 +407,6 @@ class Theme(Table):
     """Описывает темы внутри курсов"""
 
     course = ForeignKeyField(Course, backref="themes", **CASCADE)
-    coursetag = ForeignKeyField(CourseTag, backref="coursetags", **CASCADE)
     title = CharField()
     url = CharField()
     complexity = FloatField(default=1.0)

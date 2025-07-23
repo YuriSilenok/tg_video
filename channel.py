@@ -135,14 +135,17 @@ async def loop(bot: Bot):
     """Одна итерация вызываемая из бесконечного цикла"""
 
     now = datetime.now()
-    if now.hour == 18 and now.minute == 0:
+    if now.hour == 18 and now.minute == 59:
         poll_video = get_poll_theme()
+        print('Ошибка')
         if poll_video:
+            print('Ошибка1')
             poll, video_obj = poll_video
             poll.is_stop = True
             poll.save()
 
             try:
+                print("Ошибко")
                 await bot.stop_poll(
                     chat_id=TG_CHANEL_ID, message_id=poll.message_id
                 )
@@ -151,6 +154,7 @@ async def loop(bot: Bot):
 
             await send_video(bot, video_obj)
         else:
+            print('Ошибка2')
             await send_video(bot)
     if now.hour == 8 and now.minute == 0:
         await send_poll(bot)
