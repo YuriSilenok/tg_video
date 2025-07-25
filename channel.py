@@ -11,7 +11,7 @@ from aiogram.types import Message, Poll
 
 
 from admin import error_handler
-from models import Course, Task, Theme, Video
+from models import Course, Task, Theme, Video, CourseTag
 from models import Poll as MPoll
 
 # pylint: disable=no-member
@@ -40,8 +40,11 @@ async def send_video(bot: Bot, video_obj: Video = None):
 
     task = video_obj.task
     theme = task.theme
-    course_title = theme.course
-    tegi = theme.coursetag
+    course = theme.course
+    course_title = course.title
+    tags = CourseTag.select().where(CourseTag.course == course.id)
+    peremen = 0
+    tagss = []
 
     ch = [
         ("-", ""),
@@ -50,16 +53,18 @@ async def send_video(bot: Bot, video_obj: Video = None):
         ("«", ""),
         ("»", ""),
     ]
+
     for ch1, ch2 in ch:
         course_title = course_title.replace(ch1, ch2)
-        tegi = course_title.replace(ch1, ch2)
 
-    tegi = " #".join(course_title.split())
+    for element in tags:
+        peremen = element.tag
+        tagss.append(peremen.title)
 
     caption = (
-        f"Курс: {course_title.title}"
-        f'Тема: <a href="{theme.url}">{theme.title}</a>'
-        f'Теги: #{tegi}\n'
+        f"Курс: {course_title}\n"
+        f'Тема: <a href="{theme.url}">{theme.title}</a>\n'
+        f'Теги: #{tags}\n'
     )
     message = await bot.send_video(
         chat_id=TG_CHANEL_ID,
@@ -140,17 +145,14 @@ async def loop(bot: Bot):
     """Одна итерация вызываемая из бесконечного цикла"""
 
     now = datetime.now()
-    if now.hour == 18 and now.minute == 0:
+    if now.hour == 18 and now.minute == 8:
         poll_video = get_poll_theme()
-        print('Ошибка')
         if poll_video:
-            print('Ошибка1')
             poll, video_obj = poll_video
             poll.is_stop = True
             poll.save()
 
             try:
-                print("Ошибко")
                 await bot.stop_poll(
                     chat_id=TG_CHANEL_ID, message_id=poll.message_id
                 )
@@ -159,7 +161,6 @@ async def loop(bot: Bot):
 
             await send_video(bot, video_obj)
         else:
-            print('Ошибка2')
             await send_video(bot)
     if now.hour == 8 and now.minute == 0:
         await send_poll(bot)

@@ -377,7 +377,7 @@ class UserRole(Table):
     role = ForeignKeyField(Role, **CASCADE)
 
 
-class Tegi(Table):
+class Tag(Table):
     '''Теги'''
 
     title = CharField()
@@ -392,8 +392,8 @@ class Course(Table):
 class CourseTag(Table):
     '''Теги для курса'''
 
+    tag = ForeignKeyField(Tag, **CASCADE)
     course = ForeignKeyField(Course, backref="coursetag", **CASCADE)
-    tegi = ForeignKeyField(Tegi, backref="Courses", **CASCADE)
 
 
 class UserCourse(Table):
@@ -685,6 +685,8 @@ if __name__ == "__main__":
             UserCourse,
             Poll,
             Var,
+            Tag,
+            CourseTag,
         ]
     )
 
