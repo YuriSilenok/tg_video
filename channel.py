@@ -43,30 +43,18 @@ async def send_video(bot: Bot, video_obj: Video = None):
     course = theme.course
     course_title = course.title
     course_tags = CourseTag.select().where(CourseTag.course == course.id)
-    tags = ''
-
-    ch = [
-        ("-", ""),
-        (".", ""),
-        (",", ""),
-        ("«", ""),
-        ("»", ""),
-    ]
-
-    for ch1, ch2 in ch:
-        course_title = course_title.replace(ch1, ch2)
+    tags = []
 
     for course_tag in course_tags:
-        course_tag.tag.title = (course_tag.tag.title).replace(" ", "")
-        tags += ' ' + course_tag.tag.title
+        tags.append(course_tag.tag.title)
 
-    tags = ' #'.join(tags.split())
+    tags = " ".join(tags)
 
     caption = (
         f"Курс: {course_title}\n"
         f'Тема: <a href="{theme.url}">{theme.title}</a>\n'
         '\n'
-        f'#{tags}'
+        f'{tags}'
     )
     message = await bot.send_video(
         chat_id=TG_CHANEL_ID,
@@ -147,7 +135,7 @@ async def loop(bot: Bot):
     """Одна итерация вызываемая из бесконечного цикла"""
 
     now = datetime.now()
-    if now.hour == 19 and now.minute == 35:
+    if now.hour == 20 and now.minute == 7:
         poll_video = get_poll_theme()
         if poll_video:
             poll, video_obj = poll_video
