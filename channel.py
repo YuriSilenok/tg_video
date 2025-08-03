@@ -11,7 +11,7 @@ from aiogram.types import Message, Poll
 
 
 from admin import error_handler
-from models import Course, Task, Theme, Video
+from models import Course, Task, Theme, Video, CourseTag
 from models import Poll as MPoll
 
 # pylint: disable=no-member
@@ -40,22 +40,21 @@ async def send_video(bot: Bot, video_obj: Video = None):
 
     task = video_obj.task
     theme = task.theme
-    course_title = theme.course.title
-    ch = [
-        ("-", ""),
-        (".", ""),
-        (",", ""),
-        ("«", ""),
-        ("»", ""),
-    ]
-    for ch1, ch2 in ch:
-        course_title = course_title.replace(ch1, ch2)
+    course = theme.course
+    course_title = course.title
+    course_tags = CourseTag.select().where(CourseTag.course == course.id)
+    tags = []
 
-    course_title = " #".join(course_title.split())
+    for course_tag in course_tags:
+        tags.append(course_tag.tag.title)
+
+    tags = " ".join(tags)
 
     caption = (
-        f"Курс: #{course_title}\n"
-        f'Тема: <a href="{theme.url}">{theme.title}</a>'
+        f"Курс: {course_title}\n"
+        f'Тема: <a href="{theme.url}">{theme.title}</a>\n'
+        '\n'
+        f'{tags}'
     )
     message = await bot.send_video(
         chat_id=TG_CHANEL_ID,
@@ -136,7 +135,7 @@ async def loop(bot: Bot):
     """Одна итерация вызываемая из бесконечного цикла"""
 
     now = datetime.now()
-    if now.hour == 15 and now.minute == 53:
+    if now.hour == 18 and now.minute == 0:
         poll_video = get_poll_theme()
         if poll_video:
             poll, video_obj = poll_video
