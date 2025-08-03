@@ -378,7 +378,7 @@ class UserRole(Table):
 
 
 class Tag(Table):
-    '''Теги'''
+    """Теги"""
 
     title = CharField()
 
@@ -390,7 +390,7 @@ class Course(Table):
 
 
 class CourseTag(Table):
-    '''Теги для курса'''
+    """Теги для курса"""
 
     tag = ForeignKeyField(Tag, **CASCADE)
     course = ForeignKeyField(Course, backref="coursetag", **CASCADE)

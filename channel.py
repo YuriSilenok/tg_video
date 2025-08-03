@@ -53,8 +53,8 @@ async def send_video(bot: Bot, video_obj: Video = None):
     caption = (
         f"Курс: {course_title}\n"
         f'Тема: <a href="{theme.url}">{theme.title}</a>\n'
-        '\n'
-        f'{tags}'
+        "\n"
+        f"{tags}"
     )
     message = await bot.send_video(
         chat_id=TG_CHANEL_ID,
