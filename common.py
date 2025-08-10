@@ -462,9 +462,8 @@ def get_limit_score():
         for t in Task.select(Task.score)
         .where(Task.status.not_in([0, 1, -1]))
         .order_by(Task.id.desc())
-        .limit(100)
-    ]
-    return sum(score_data) / len(score_data)
+    ][:100]
+    return score_data[len(score_data)//2]
 
 
 def update_task_score(task: Task) -> Task:
