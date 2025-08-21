@@ -463,6 +463,7 @@ def get_limit_score():
         .where(Task.status.not_in([0, 1, -1]))
         .order_by(Task.id.desc())
     ][:100]
+    score_data.sort()
     print(score_data)
     return score_data[len(score_data) // 2]
 
