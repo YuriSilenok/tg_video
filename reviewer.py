@@ -24,7 +24,7 @@ from common import (
     update_task_score,
     check_user_role,
 )
-from filters import IsReview, IsReviewer
+from filters import IsReview, IsReviewer, IsBanned
 from models import (
     TASK_STATUS,
     Review,
@@ -40,7 +40,7 @@ from models import (
 router = Router()
 
 
-@router.message(F.text, IsReview())
+@router.message(F.text, IsReview(), ~IsBanned())
 @error_handler()
 async def get_review(message: Message):
     """Получение оценки и отзыва"""
@@ -266,7 +266,7 @@ async def check_old_reviewer_requests(bot: Bot):
         await send_new_review_request(bot)
 
 
-@router.callback_query(F.data.startswith("rr_to_extend_"), IsReview())
+@router.callback_query(F.data.startswith("rr_to_extend_"), IsReview(), ~IsBanned())
 @error_handler()
 async def to_extend(callback_query: CallbackQuery):
     """Обработать запрос на продление срока проверки."""
