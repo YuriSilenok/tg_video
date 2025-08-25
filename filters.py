@@ -103,6 +103,16 @@ class IsReviewer(IsUser):
         return user_role is not None
 
 
+class IsBanned(BaseFilter):
+    """Проверяет что пользователь заблокирован"""
+
+    async def __call__(self, subject: Union[Message, CallbackQuery]) -> bool:
+        user = User.get_or_none(tg_id=subject.from_user.id)
+        if user is None:
+            return False
+        return user.is_banned
+
+
 class IsReview(IsReviewer):
     """Проверяет что у проверяющего есть задача"""
 

@@ -74,6 +74,7 @@ class User(Table):
     reviewer_rating = FloatField(default=0)
     reviewer_score = FloatField(default=0)
     comment = CharField(null=True)
+    is_banned = BooleanField(default=False)
 
     @property
     def link(self):
