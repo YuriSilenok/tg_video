@@ -74,9 +74,10 @@ async def check_user_role(
         return None
     user_role = UserRole.get_or_none(user=user, role=role)
     if notify_if_no_role and user_role is None:
+        role_name = role_name.lower()
         await bot.send_message(
             chat_id=user.tg_id,
-            text=f"Вы не являетесь {role_name.lower()}!",
+            text=f"Вы не являетесь {role_name}!",
         )
     return user_role
 
