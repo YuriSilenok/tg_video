@@ -135,7 +135,7 @@ async def loop(bot: Bot):
     """Одна итерация вызываемая из бесконечного цикла"""
 
     now = datetime.now()
-    if now.hour > 18:
+    if now.hour == 18 and now.minute == 0:
         poll_video = get_poll_theme()
         if poll_video:
             poll, video_obj = poll_video
