@@ -279,7 +279,10 @@ async def send_task(bot: Bot):
 
             await send_message_admins(
                 bot=bot,
-                text=f"Блогеру {bloger.link} выдана тема {theme_by_bloger.link}",
+                text=(
+                    f"Блогеру {bloger.link} "
+                    f"выдана тема {theme_by_bloger.link}"
+                ),
             )
             break
 
