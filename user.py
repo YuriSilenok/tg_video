@@ -1,7 +1,6 @@
 """Модуль обработки пользовательских команд"""
 
-from ast import Dict
-from typing import List
+from typing import List, Dict
 
 from aiogram import F, Router
 from aiogram.filters import Command
@@ -170,6 +169,8 @@ async def bloger_on(message: Message):
 
 
 def get_text_by_result(result):
+    """Форматировать список курсов"""
+
     text = "<b>Список курсов</b>\n"
 
     for course_id in result:
