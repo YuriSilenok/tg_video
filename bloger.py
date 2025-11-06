@@ -23,7 +23,7 @@ from common import (
     send_task,
     check_user_role,
 )
-from filters import IsBloger, WaitVideo
+from filters import IsBloger, WaitVideo, IsBanned
 from models import (
     TASK_STATUS,
     Table,
@@ -41,7 +41,7 @@ router = Router()
 
 
 @error_handler()
-@router.message(F.document, IsBloger(), WaitVideo())
+@router.message(F.document, IsBloger(), WaitVideo(), ~IsBanned())
 async def upload_file(message: Message):
     """Уведомляет пользователя о необходимости отправки видео"""
     await message.answer(
@@ -111,7 +111,7 @@ async def drop_bloger(bot: Bot, user: User):
     await send_task(bot)
 
 
-@router.message(Command("bloger_off"), IsBloger())
+@router.message(Command("bloger_off"), IsBloger(), ~IsBanned())
 @error_handler()
 async def bloger_off(message: Message):
     """Отключает пользователя из режима блогера."""
@@ -119,7 +119,7 @@ async def bloger_off(message: Message):
     await drop_bloger(message.bot, user)
 
 
-@router.callback_query(F.data.startswith("del_task_yes_"), IsBloger())
+@router.callback_query(F.data.startswith("del_task_yes_"), IsBloger(), ~IsBanned())
 @error_handler()
 async def del_task_yes(query: CallbackQuery):
     """Подтверждение в отказе делать задачу"""
@@ -154,7 +154,7 @@ async def del_task_yes(query: CallbackQuery):
     await drop_bloger(query.bot, user)
 
 
-@router.message(F.video, IsBloger(), WaitVideo())
+@router.message(F.video, IsBloger(), WaitVideo(), ~IsBanned())
 @error_handler()
 async def upload_video(message: Message):
     """Загружает видео пользователя и обновляет статус задачи"""
@@ -195,7 +195,7 @@ async def upload_video(message: Message):
     await send_new_review_request(message.bot)
 
 
-@router.callback_query(F.data.startswith("task_to_extend_"), IsBloger())
+@router.callback_query(F.data.startswith("task_to_extend_"), IsBloger(), ~IsBanned())
 @error_handler()
 async def to_extend(callback_query: CallbackQuery):
     """Обрабатывает запрос на продление срока задачи"""
