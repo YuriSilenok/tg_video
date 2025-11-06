@@ -469,7 +469,7 @@ def get_limit_score():
     ][:100]
     score_data.sort()
     print(score_data)
-    return score_data[len(score_data) // 2]
+    return score_data[len(score_data) // 4]
 
 
 def update_task_score(task: Task) -> Task:
