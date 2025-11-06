@@ -128,7 +128,9 @@ async def get_review(message: Message):
 
     await send_new_review_request(message.bot)
 
+    limit_score = get_limit_score()
     text = f"Закончена проверка Вашего видео по теме {task.theme.link}.\n"
+    text += f"Попрош приема работы {(limit_score*5):04.2f}"
 
     if task.status == 2:
         text += "Оно ❤️достойного❤️ качества и будет опубликовано."
@@ -143,7 +145,6 @@ async def get_review(message: Message):
         disable_web_page_preview=True,
     )
 
-    limit_score = get_limit_score()
 
     await send_message_admins(
         bot=message.bot,
