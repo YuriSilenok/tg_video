@@ -271,7 +271,7 @@ async def check_old_reviewer_requests(bot: Bot):
 async def remove_reviewer_role(callback_query: CallbackQuery):
     """Удаляет роль проверяющего"""
     user_id = get_id(callback_query.data)
-    reviewer = User.get_by_id(user_id)
+    User.get_by_id(user_id)
     user_role: UserRole = UserRole.get_or_none(
         user_id=user_id, role=IsReview.role
     )
