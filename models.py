@@ -160,7 +160,6 @@ class User(Table):
         delta = max_over - min_over
 
         limit_dt = datetime.today() - timedelta(days=30)
-        
 
         over_count = (
             ReviewRequest.select(fn.COUNT(ReviewRequest.id))
@@ -171,7 +170,7 @@ class User(Table):
             )
             .scalar()
         )
-        
+
         # Чем меньше просрочек, тем выше рейтинг
         return (
             1
@@ -187,12 +186,11 @@ class User(Table):
 
         limit_dt = datetime.today() - timedelta(days=30)
 
-        data =[
-            (max_dur - ((row['r_h'] - row['rr_h']) * 24)) / delta
-            for row in 
-            ReviewRequest.select(
-                fn.julianday(Review.at_created).alias('r_h'),
-                fn.julianday(ReviewRequest.at_created).alias('rr_h'),
+        data = [
+            (max_dur - ((row["r_h"] - row["rr_h"]) * 24)) / delta
+            for row in ReviewRequest.select(
+                fn.julianday(Review.at_created).alias("r_h"),
+                fn.julianday(ReviewRequest.at_created).alias("rr_h"),
             )
             .join(Review)
             .where(
@@ -207,7 +205,6 @@ class User(Table):
             data.append(1)
 
         return sum(data) / len(data)
-
 
     def update_reviewer_rating(self):
         """Обновление рейтинга проверяющего"""
@@ -594,9 +591,9 @@ class ReviewRequest(Table):
     @staticmethod
     def get_minmax_review_duration():
         """Получить минимальное и максимальное время проверки видео в часах"""
-        
+
         limit_dt = datetime.today() - timedelta(days=30)
-        
+
         query = (
             ReviewRequest.select(
                 fn.MIN(
