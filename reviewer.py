@@ -145,7 +145,6 @@ async def get_review(message: Message):
         disable_web_page_preview=True,
     )
 
-
     await send_message_admins(
         bot=message.bot,
         text=(
