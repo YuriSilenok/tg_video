@@ -7,7 +7,7 @@ from typing import List, Union, Set
 
 from aiogram import Bot, Router
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup as IKM, InlineKeyboardButton as IKB
 from peewee import JOIN, fn
 
 from filters import IsBloger
@@ -445,6 +445,14 @@ async def send_video(bot: Bot, review_request: ReviewRequest):
             video=review_request.video.file_id,
             caption=caption,
             parse_mode="HTML",
+            reply_markup=IKM(
+                inline_keyboard=[[
+                    IKB(
+                        text="Отказаться",
+                        data=f"remove_reviewer_role_{review_request.reviewer.id}"
+                    )
+                ]]
+            )
         )
     except TelegramBadRequest as ex:
         print(ex, caption, sep="\n")

@@ -267,6 +267,31 @@ async def check_old_reviewer_requests(bot: Bot):
         await send_new_review_request(bot)
 
 
+@router.callback_query(F.data.startswith("remove_reviewer_role_"), IsReview())
+@error_handler()
+async def remove_reviewer_role(callback_query: CallbackQuery):
+    """Удаляет роль проверяющего"""
+    user_id = get_id(callback_query.data)
+    reviewer = User.get_by_id(user_id)
+    user_role: UserRole = UserRole.get_or_none(user_id=user_id, role=IsReview.role)
+    if user_role is None:
+        await callback_query.answer('Роль уже удалена')
+        return
+    
+    user_role.delete_instance()
+    await callback_query.message.answer('Роль проверяющего удалена')
+    await callback_query.message.delete()
+
+
+@router.callback_query(F.data.startswith("remove_reviewer_role_"))
+@error_handler()
+async def remove_reviewer_role_not_role(callback_query: CallbackQuery):
+    """Если пользователь кликнул по другой кнопке уже без роли"""
+
+    await callback_query.answer('Роль уже удалена')
+    await callback_query.message.delete()
+
+
 @router.callback_query(F.data.startswith("rr_to_extend_"), IsReview())
 @error_handler()
 async def to_extend(callback_query: CallbackQuery):
