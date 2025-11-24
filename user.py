@@ -16,7 +16,7 @@ from aiogram.types import (
 from peewee import fn
 
 from common import error_handler, send_message_admins, send_task
-from filters import IsAdmin, IsBloger, IsUser
+from filters import IsAdmin, IsBloger, IsUser, IsBanned
 from models import Course, Task, Theme, User, UserCourse, UserRole
 
 # pylint: disable=no-member
@@ -24,7 +24,7 @@ from models import Course, Task, Theme, User, UserCourse, UserRole
 router = Router()
 
 
-@router.message(Command("set_fio"))
+@router.message(Command("set_fio"), ~IsBanned())
 async def set_fio(message: Message):
     """Обрабатывает команду /set_fio для установки ФИО пользователя"""
     data = message.text.replace("  ", " ").split(maxsplit=1)
@@ -67,7 +67,7 @@ async def set_fio(message: Message):
     )
 
 
-@router.message(Command("start"))
+@router.message(Command("start"), ~IsBanned())
 async def start(message: Message):
     """Обрабатывает команду /start для регистрации/приветствия пользователя"""
     user: User = User.get_or_none(tg_id=message.from_user.id)
@@ -109,6 +109,10 @@ async def start(message: Message):
                 KeyboardButton(text="/report_tasks"),
                 KeyboardButton(text="/send_task"),
             ],
+            [
+                KeyboardButton(text="/ban_user"),
+                KeyboardButton(text="/unban_user"),
+            ],
         ]
 
         reply_markup = ReplyKeyboardMarkup(
@@ -131,7 +135,7 @@ async def start(message: Message):
     )
 
 
-@router.message(Command("report"), IsUser())
+@router.message(Command("report"), IsUser(), ~IsBanned())
 async def report(message: Message):
     """Обрабатывает команду /report для получения отчета пользователя"""
     user: User = User.get(tg_id=message.from_user.id)
@@ -142,7 +146,7 @@ async def report(message: Message):
     )
 
 
-@router.message(Command("bloger_on"), IsUser())
+@router.message(Command("bloger_on"), IsUser(), ~IsBanned())
 @error_handler()
 async def bloger_on(message: Message):
     """Пользователь подает заявку стать блогером"""
@@ -310,7 +314,7 @@ def get_data_by_courses(user: User):
     }
 
 
-@router.message(Command("courses"), IsUser())
+@router.message(Command("courses"), IsUser(), ~IsBanned())
 @error_handler()
 async def show_courses(message: Message):
     """Обработчик команды /courses."""
@@ -319,7 +323,7 @@ async def show_courses(message: Message):
     )
 
 
-@router.callback_query(F.data.startswith("add_user_course_"), IsUser())
+@router.callback_query(F.data.startswith("add_user_course_"), IsUser(), ~IsBanned())
 @error_handler()
 async def add_user_course(callback: CallbackQuery):
     """Обработчик добавления курса пользователю."""
@@ -339,7 +343,7 @@ async def add_user_course(callback: CallbackQuery):
     await send_task(callback.bot)
 
 
-@router.callback_query(F.data.startswith("del_user_course_"), IsUser())
+@router.callback_query(F.data.startswith("del_user_course_"), IsUser(), ~IsBanned())
 @error_handler()
 async def del_user_course(callback: CallbackQuery):
     """Обработчик удаления курса у пользователя."""

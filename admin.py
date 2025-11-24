@@ -479,3 +479,124 @@ async def upload_video(message: Message, state: FSMContext):
     await message.answer(
         text=f'📨📹Отправьте видео на тему "{load_videos[0]["title"]}"'
     )
+
+
+@router.message(Command("ban_user"), IsAdmin())
+@error_handler()
+async def ban_user(message: Message):
+    """Заблокировать пользователя."""
+    data = message.text.strip().replace("  ", " ").split()
+    if len(data) != 2:
+        await message.answer(
+            text="❌ Неверное количество параметров. Используйте: /ban_user @username"
+        )
+        return
+
+    username = data[1].replace("@", "").strip()
+    user = User.get_or_none(username=username)
+    if user is None:
+        await message.answer(
+            text=f"❌ Пользователь с username {username} не найден"
+        )
+        return
+
+    admin_role = Role.get_or_none(name="Админ")
+    if admin_role:
+        is_admin = UserRole.get_or_none(user=user, role=admin_role)
+        if is_admin:
+            await message.answer(
+                text="❌ Нельзя заблокировать администратора"
+            )
+            return
+
+    if user.is_banned:
+        await message.answer(
+            text=f"⚠️ Пользователь @{username} уже заблокирован"
+        )
+        return
+
+    user.is_banned = True
+    user.save()
+    
+    bloger_role = Role.get_or_none(name="Блогер")
+    reviewer_role = Role.get_or_none(name="Проверяющий")
+    
+    if bloger_role:
+        bloger_user_role = UserRole.get_or_none(user=user, role=bloger_role)
+        if bloger_user_role:
+            bloger_user_role.delete_instance()
+    
+    if reviewer_role:
+        reviewer_user_role = UserRole.get_or_none(user=user, role=reviewer_role)
+        if reviewer_user_role:
+            reviewer_user_role.delete_instance()
+
+    active_tasks = Task.select().where(
+        (Task.implementer == user) & (Task.status.in_([0, 1]))
+    )
+    for task in active_tasks:
+        task.status = -1
+        task.save()
+
+    active_reviews = ReviewRequest.select().where(
+        (ReviewRequest.reviewer == user) & (ReviewRequest.status == 0)
+    )
+    for review_request in active_reviews:
+        review_request.status = -1
+        review_request.save()
+
+    await message.answer(
+        text=f"🔨 Пользователь @{username} ({user.comment or 'Без ФИО'}) заблокирован"
+    )
+
+    try:
+        await message.bot.send_message(
+            chat_id=user.tg_id,
+            text="❌ Вы были заблокированы администратором. "
+            "Все ваши активные задачи отменены. "
+            "Для разблокировки обратитесь к администратору."
+        )
+    except Exception:
+        pass
+
+
+@router.message(Command("unban_user"), IsAdmin())
+@error_handler()
+async def unban_user(message: Message):
+    """Разблокировать пользователя."""
+    data = message.text.strip().replace("  ", " ").split()
+    if len(data) != 2:
+        await message.answer(
+            text="❌ Неверное количество параметров. Используйте: /unban_user @username"
+        )
+        return
+
+    username = data[1].replace("@", "").strip()
+    user = User.get_or_none(username=username)
+    if user is None:
+        await message.answer(
+            text=f"❌ Пользователь с username {username} не найден"
+        )
+        return
+
+    if not user.is_banned:
+        await message.answer(
+            text=f"⚠️ Пользователь @{username} не заблокирован"
+        )
+        return
+
+    user.is_banned = False
+    user.save()
+
+    await message.answer(
+        text=f"✅ Пользователь @{username} ({user.comment or 'Без ФИО'}) разблокирован"
+    )
+
+    try:
+        await message.bot.send_message(
+            chat_id=user.tg_id,
+            text="✅ Вы были разблокированы администратором. "
+            "Теперь вы можете снова использовать бота."
+        )
+    except Exception:
+        pass
