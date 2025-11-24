@@ -154,7 +154,7 @@ class User(Table):
         return sum(data) / len(data)
 
     def get_reviewer_rating_from_over(self):
-        """Получить процент просрочек"""
+        """Получить процент просрочек (соблюдение срока)"""
 
         min_over, max_over = ReviewRequest.get_minmax_over()
         delta = max_over - min_over
@@ -577,10 +577,12 @@ class ReviewRequest(Table):
         group by rr1.reviewer_id
         """
 
-        return {
+        result = {
             i["reviewer_id"]: i["video_id"]
             for i in Table.raw(sql_query).dicts()
         }
+        result[-1] = 0
+        return result
 
     @staticmethod
     def get_minmax_over():
