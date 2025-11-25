@@ -16,7 +16,7 @@ from common import (
     get_date_time,
     get_id,
     send_task,
-    send_new_review_request
+    send_new_review_request,
 )
 from filters import IsAdmin
 from models import (
