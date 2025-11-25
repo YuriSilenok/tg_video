@@ -455,7 +455,7 @@ async def send_video(bot: Bot, review_request: ReviewRequest):
                     [
                         IKB(
                             text="Отказаться",
-                            data=f"remove_reviewer_role_{review_request.reviewer.id}",
+                            callback_data=f"remove_reviewer_role_{review_request.reviewer.id}",
                         )
                     ]
                 ]
