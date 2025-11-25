@@ -271,9 +271,9 @@ async def check_old_reviewer_requests(bot: Bot):
 async def remove_reviewer_role(callback_query: CallbackQuery):
     """Удаляет роль проверяющего"""
     user_id = get_id(callback_query.data)
-    User.get_by_id(user_id)
+    user: User = User.get_by_id(user_id)
     user_role: UserRole = UserRole.get_or_none(
-        user_id=user_id, role=IsReview.role
+        user=user, role=IsReview.role
     )
     if user_role is None:
         await callback_query.answer("Роль уже удалена")
@@ -282,6 +282,23 @@ async def remove_reviewer_role(callback_query: CallbackQuery):
     user_role.delete_instance()
     await callback_query.message.answer("Роль проверяющего удалена")
     await callback_query.message.delete()
+    user: User = User.get_by_id(user_id)
+    await send_message_admins(
+        bot=callback_query.bot,
+        text=f"""🕴📨📹<b>Проверяющий {user.link} отказался от роли</b>""",
+    )
+
+
+    rr: ReviewRequest = ReviewRequest.get_or_none(
+        ReviewRequest.reviewer_id == user_id,
+        ReviewRequest.status == 0
+    )
+    if rr:
+        rr.status = -1
+        rr.save()
+        await send_new_review_request(callback_query.bot)
+    
+
 
 
 @router.callback_query(F.data.startswith("remove_reviewer_role_"))
