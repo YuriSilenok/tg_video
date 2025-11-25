@@ -16,6 +16,7 @@ from common import (
     get_date_time,
     get_id,
     send_task,
+    send_new_review_request
 )
 from filters import IsAdmin
 from models import (
@@ -89,6 +90,7 @@ async def del_rr(callback: CallbackQuery):
 async def st(message: Message):
     """Ручной запуск выдачи задач блогерам."""
     await send_task(message.bot)
+    await send_new_review_request(message.bot)
 
 
 @router.message(Command("report_reviewers"), IsAdmin())
