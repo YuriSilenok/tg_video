@@ -160,6 +160,8 @@ def error_handler():
 async def send_task(bot: Bot):
     """Выдать задачу блогеру"""
 
+    return
+
     # Список пользователей у которых есть роль блогера
     blogers: Set[User] = {
         user_role.user
